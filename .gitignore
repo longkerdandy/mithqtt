@@ -1,9 +1,29 @@
+# generic files to ignore
 *.class
 
-# Mobile Tools for Java (J2ME)
-.mtj.tmp/
+# Eclipse
+.classpath
+.project
+.settings/
 
-# Package Files #
+# Intellij
+.idea/
+*.iml
+*.iws
+
+# Mac
+.DS_Store
+
+# Maven
+log/
+target/
+
+# Gradle
+.gradle/
+build/
+classes/
+
+# Package Files
 *.jar
 *.war
 *.ear
