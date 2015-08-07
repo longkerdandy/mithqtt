@@ -1,0 +1,3 @@
+rootProject.name = 'mithril-mqtt'
+include 'mithril-mqtt-broker'
+

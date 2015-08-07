@@ -1,0 +1,37 @@
+buildscript {
+    repositories {
+        jcenter()
+    }
+    dependencies {
+        classpath 'com.github.jengelman.gradle.plugins:shadow:1.2.2'
+    }
+}
+
+subprojects {
+
+    apply plugin: 'java'
+    apply plugin: 'com.github.johnrengelman.shadow'
+
+    // Group Id
+    group 'com.github.longkerdandy.mithril'
+
+    // Version
+    version '0.1.0'
+
+    // JDK
+    sourceCompatibility = 1.8
+
+    // Encoding
+    tasks.withType(JavaCompile) { options.encoding = 'UTF-8' }
+
+    // Maven Repository
+    repositories {
+        jcenter()
+    }
+
+    // Dependencies
+    dependencies {
+        // apache commons
+        compile 'org.apache.commons:commons-lang3:3.3.4'
+    }
+}
