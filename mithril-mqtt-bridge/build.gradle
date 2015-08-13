@@ -1,0 +1,8 @@
+apply plugin: 'application'
+
+mainClassName = "com.github.longkerdandy.evo.tcp.TCPServer"
+
+dependencies {
+    // Netty
+    compile 'io.netty:netty-all:5.0.0.Alpha2'
+}

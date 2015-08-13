@@ -16,12 +16,12 @@ subprojects {
 
     // Maven Repository
     repositories {
-        jcenter()
+        maven { url "http://jcenter.bintray.com" }
     }
 
     // Dependencies
     dependencies {
         // apache commons
-        compile 'org.apache.commons:commons-lang3:3.3.4'
+        compile 'org.apache.commons:commons-lang3:3.4'
     }
 }
