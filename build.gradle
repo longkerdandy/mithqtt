@@ -23,5 +23,20 @@ subprojects {
     dependencies {
         // apache commons
         compile 'org.apache.commons:commons-lang3:3.4'
+        compile 'commons-configuration:commons-configuration:1.10'
+
+        // logger
+        compile 'org.slf4j:slf4j-api:1.7.12'
+        compile 'ch.qos.logback:logback-core:1.1.3'
+        compile 'ch.qos.logback:logback-classic:1.1.3'
+
+        // junit
+        testCompile  'junit:junit:4.12'
+
+        // catch exception
+        testCompile 'eu.codearte.catch-exception:catch-exception:1.4.4'
+
+        // mockito
+        compile 'org.mockito:mockito-all:1.10.19'
     }
 }

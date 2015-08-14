@@ -1,8 +1,11 @@
 apply plugin: 'application'
 
-mainClassName = "com.github.longkerdandy.evo.tcp.TCPServer"
+mainClassName = "com.github.longkerdandy.mithril.mqtt.bridge.MqttBridge"
 
 dependencies {
-    // Netty
+    // netty
     compile 'io.netty:netty-all:5.0.0.Alpha2'
+
+    // rabbitmq
+    compile 'com.rabbitmq:amqp-client:3.5.4'
 }
