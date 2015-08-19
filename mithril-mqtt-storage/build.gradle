@@ -1,0 +1,6 @@
+apply plugin: 'application'
+
+dependencies {
+    // redis
+    compile 'biz.paluch.redis:lettuce:4.0.Beta1'
+}
