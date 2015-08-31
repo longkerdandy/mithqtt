@@ -1,0 +1,11 @@
+apply plugin: 'application'
+
+mainClassName = "com.github.longkerdandy.mithril.mqtt.broker.MqttBroker"
+
+dependencies {
+    // project api
+    compile project(':mithril-mqtt-api')
+
+    // netty
+    compile 'io.netty:netty-all:5.0.0.Alpha2'
+}
