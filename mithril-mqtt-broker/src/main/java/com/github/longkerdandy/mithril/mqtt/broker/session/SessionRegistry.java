@@ -1,4 +1,4 @@
-package com.github.longkerdandy.mithril.mqtt.bridge.session;
+package com.github.longkerdandy.mithril.mqtt.broker.session;
 
 import io.netty.channel.ChannelHandlerContext;
 import org.slf4j.Logger;
@@ -10,15 +10,15 @@ import java.util.concurrent.ConcurrentHashMap;
 /**
  * MQTT Session Local Repository in Memory
  */
-public class SessionRepository {
+public class SessionRegistry {
 
     // Logger
-    private static final Logger logger = LoggerFactory.getLogger(SessionRepository.class);
+    private static final Logger logger = LoggerFactory.getLogger(SessionRegistry.class);
     // Thread safe HashMap as Repository (Client Id : ChannelHandlerContext)
     private final Map<String, ChannelHandlerContext> repo = new ConcurrentHashMap<>();
 
     /**
-     * Save MQTT session
+     * Save MQTT com.github.longkerdandy.mithril.mqtt.broker.session
      *
      * @param clientId Client Id
      * @param session  ChannelHandlerContext as Session
@@ -28,7 +28,7 @@ public class SessionRepository {
     }
 
     /**
-     * Get MQTT session
+     * Get MQTT com.github.longkerdandy.mithril.mqtt.broker.session
      *
      * @param clientId Client Id
      * @return ChannelHandlerContext as Session
@@ -38,7 +38,7 @@ public class SessionRepository {
     }
 
     /**
-     * Remove MQTT session
+     * Remove MQTT com.github.longkerdandy.mithril.mqtt.broker.session
      * Only if it is currently mapped to the specified value.
      *
      * @param clientId Client Id

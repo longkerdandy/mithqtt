@@ -1,4 +1,4 @@
-package com.github.longkerdandy.mithril.mqtt.bridge.handler;
+package com.github.longkerdandy.mithril.mqtt.broker.handler;
 
 import io.netty.channel.ChannelHandlerContext;
 import io.netty.channel.SimpleChannelInboundHandler;
@@ -7,7 +7,7 @@ import io.netty.handler.codec.mqtt.*;
 /**
  * MQTT Bridge Handler
  */
-public class BridgeHandler extends SimpleChannelInboundHandler<MqttMessage> {
+public class BrokerHandler extends SimpleChannelInboundHandler<MqttMessage> {
 
     @Override
     protected void messageReceived(ChannelHandlerContext ctx, MqttMessage msg) throws Exception {

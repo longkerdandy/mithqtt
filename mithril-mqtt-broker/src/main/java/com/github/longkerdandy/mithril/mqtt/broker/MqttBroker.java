@@ -1,7 +1,7 @@
-package com.github.longkerdandy.mithril.mqtt.bridge;
+package com.github.longkerdandy.mithril.mqtt.broker;
 
-import com.github.longkerdandy.mithril.mqtt.bridge.handler.BridgeHandler;
-import com.github.longkerdandy.mithril.mqtt.bridge.session.SessionRepository;
+import com.github.longkerdandy.mithril.mqtt.broker.handler.BrokerHandler;
+import com.github.longkerdandy.mithril.mqtt.broker.session.SessionRegistry;
 import io.netty.bootstrap.ServerBootstrap;
 import io.netty.channel.*;
 import io.netty.channel.nio.NioEventLoopGroup;
@@ -18,15 +18,14 @@ import org.apache.commons.configuration.PropertiesConfiguration;
 /**
  * MQTT Bridge
  */
-public class MqttBridge {
+public class MqttBroker {
 
     public static void main(String[] args) throws Exception {
         // load config
-        String s = args.length >= 1 ? args[0] : "config/bridge.properties";
+        String s = args.length >= 1 ? args[0] : "config/broker.properties";
         PropertiesConfiguration config = new PropertiesConfiguration(s);
 
-        // session repository
-        SessionRepository repository = new SessionRepository();
+        SessionRegistry registry = new SessionRegistry();
 
         // tcp server
         InternalLoggerFactory.setDefaultFactory(new Slf4JLoggerFactory());
@@ -45,7 +44,7 @@ public class MqttBridge {
                             p.addLast(new MqttEncoder());
                             p.addLast(new MqttDecoder());
                             // handler
-                            p.addLast(new BridgeHandler());
+                            p.addLast(new BrokerHandler());
                         }
                     })
                     .option(ChannelOption.SO_BACKLOG, 128)

@@ -1,4 +1,5 @@
 rootProject.name = 'mithril-mqtt'
-include 'mithril-mqtt-bridge'
-include 'mithril-mqtt-storage'
+
+include 'mithril-mqtt-broker'
+include 'mithril-mqtt-api'
 
