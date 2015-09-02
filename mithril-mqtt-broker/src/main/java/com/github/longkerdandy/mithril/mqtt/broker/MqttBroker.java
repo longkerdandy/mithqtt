@@ -1,9 +1,15 @@
 package com.github.longkerdandy.mithril.mqtt.broker;
 
-import com.github.longkerdandy.mithril.mqtt.broker.handler.BrokerHandler;
+import com.github.longkerdandy.mithril.mqtt.api.Authenticator;
+import com.github.longkerdandy.mithril.mqtt.api.Communicator;
+import com.github.longkerdandy.mithril.mqtt.api.Coordinator;
+import com.github.longkerdandy.mithril.mqtt.api.Storage;
+import com.github.longkerdandy.mithril.mqtt.broker.handler.SyncHandler;
 import com.github.longkerdandy.mithril.mqtt.broker.session.SessionRegistry;
 import io.netty.bootstrap.ServerBootstrap;
 import io.netty.channel.*;
+import io.netty.channel.epoll.EpollEventLoopGroup;
+import io.netty.channel.epoll.EpollServerSocketChannel;
 import io.netty.channel.nio.NioEventLoopGroup;
 import io.netty.channel.socket.SocketChannel;
 import io.netty.channel.socket.nio.NioServerSocketChannel;
@@ -25,16 +31,21 @@ public class MqttBroker {
         String s = args.length >= 1 ? args[0] : "config/broker.properties";
         PropertiesConfiguration config = new PropertiesConfiguration(s);
 
-        SessionRegistry registry = new SessionRegistry();
+        Authenticator authenticator = null;
+        Communicator communicator = null;
+        Coordinator coordinator = null;
+        Storage storage = null;
 
         // tcp server
         InternalLoggerFactory.setDefaultFactory(new Slf4JLoggerFactory());
-        EventLoopGroup bossGroup = new NioEventLoopGroup();
-        EventLoopGroup workerGroup = new NioEventLoopGroup();
+        SessionRegistry registry = new SessionRegistry();
+        EventLoopGroup bossGroup = config.getBoolean("netty.useNativeTransport") ? new EpollEventLoopGroup() : new NioEventLoopGroup();
+        EventLoopGroup workerGroup = config.getBoolean("netty.useNativeTransport") ? new EpollEventLoopGroup() : new NioEventLoopGroup();
+        EventLoopGroup handlerGroup = config.getBoolean("netty.useNativeTransport") ? new EpollEventLoopGroup() : new NioEventLoopGroup();
         try {
             ServerBootstrap b = new ServerBootstrap();
             b.group(bossGroup, workerGroup)
-                    .channel(NioServerSocketChannel.class)
+                    .channel(config.getBoolean("netty.useNativeTransport") ? EpollServerSocketChannel.class : NioServerSocketChannel.class)
                     .handler(new LoggingHandler(LogLevel.INFO))
                     .childHandler(new ChannelInitializer<SocketChannel>() {
                         @Override
@@ -44,11 +55,11 @@ public class MqttBroker {
                             p.addLast(new MqttEncoder());
                             p.addLast(new MqttDecoder());
                             // handler
-                            p.addLast(new BrokerHandler());
+                            p.addLast(handlerGroup, new SyncHandler(authenticator, communicator, coordinator, storage, registry, config));
                         }
                     })
-                    .option(ChannelOption.SO_BACKLOG, 128)
-                    .childOption(ChannelOption.SO_KEEPALIVE, true);
+                    .option(ChannelOption.SO_BACKLOG, config.getInt("netty.soBacklog"))
+                    .childOption(ChannelOption.SO_KEEPALIVE, config.getBoolean("netty.soKeepAlive"));
 
             // Bind and start to accept incoming connections.
             ChannelFuture f = b.bind(config.getString("mqtt.host"), config.getInt("mqtt.port")).sync();
