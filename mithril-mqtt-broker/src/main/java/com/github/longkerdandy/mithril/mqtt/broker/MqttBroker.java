@@ -2,10 +2,9 @@ package com.github.longkerdandy.mithril.mqtt.broker;
 
 import com.github.longkerdandy.mithril.mqtt.api.Authenticator;
 import com.github.longkerdandy.mithril.mqtt.api.Communicator;
-import com.github.longkerdandy.mithril.mqtt.api.Coordinator;
-import com.github.longkerdandy.mithril.mqtt.api.Storage;
-import com.github.longkerdandy.mithril.mqtt.broker.handler.SyncHandler;
+import com.github.longkerdandy.mithril.mqtt.broker.handler.AsyncRedisHandler;
 import com.github.longkerdandy.mithril.mqtt.broker.session.SessionRegistry;
+import com.github.longkerdandy.mithril.mqtt.storage.redis.RedisStorage;
 import io.netty.bootstrap.ServerBootstrap;
 import io.netty.channel.*;
 import io.netty.channel.epoll.EpollEventLoopGroup;
@@ -33,8 +32,7 @@ public class MqttBroker {
 
         Authenticator authenticator = null;
         Communicator communicator = null;
-        Coordinator coordinator = null;
-        Storage storage = null;
+        RedisStorage redis = null;
 
         // tcp server
         InternalLoggerFactory.setDefaultFactory(new Slf4JLoggerFactory());
@@ -55,7 +53,7 @@ public class MqttBroker {
                             p.addLast(new MqttEncoder());
                             p.addLast(new MqttDecoder());
                             // handler
-                            p.addLast(handlerGroup, new SyncHandler(authenticator, communicator, coordinator, storage, registry, config));
+                            p.addLast(handlerGroup, new AsyncRedisHandler(authenticator, communicator, redis, registry, config));
                         }
                     })
                     .option(ChannelOption.SO_BACKLOG, config.getInt("netty.soBacklog"))
