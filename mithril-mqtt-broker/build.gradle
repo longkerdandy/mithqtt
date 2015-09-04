@@ -6,7 +6,4 @@ dependencies {
     // project
     compile project(':mithril-mqtt-api')
     compile project(':mithril-mqtt-storage-redis')
-
-    // netty
-    compile 'io.netty:netty-all:5.0.0.Alpha2'
 }

@@ -4,6 +4,7 @@ import com.github.longkerdandy.mithril.mqtt.api.Authenticator;
 import com.github.longkerdandy.mithril.mqtt.api.Communicator;
 import com.github.longkerdandy.mithril.mqtt.broker.handler.AsyncRedisHandler;
 import com.github.longkerdandy.mithril.mqtt.broker.session.SessionRegistry;
+import com.github.longkerdandy.mithril.mqtt.broker.util.Validator;
 import com.github.longkerdandy.mithril.mqtt.storage.redis.RedisStorage;
 import io.netty.bootstrap.ServerBootstrap;
 import io.netty.channel.*;
@@ -33,13 +34,13 @@ public class MqttBroker {
         Authenticator authenticator = null;
         Communicator communicator = null;
         RedisStorage redis = null;
+        Validator validator = new Validator(config);
 
         // tcp server
         InternalLoggerFactory.setDefaultFactory(new Slf4JLoggerFactory());
         SessionRegistry registry = new SessionRegistry();
         EventLoopGroup bossGroup = config.getBoolean("netty.useNativeTransport") ? new EpollEventLoopGroup() : new NioEventLoopGroup();
         EventLoopGroup workerGroup = config.getBoolean("netty.useNativeTransport") ? new EpollEventLoopGroup() : new NioEventLoopGroup();
-        EventLoopGroup handlerGroup = config.getBoolean("netty.useNativeTransport") ? new EpollEventLoopGroup() : new NioEventLoopGroup();
         try {
             ServerBootstrap b = new ServerBootstrap();
             b.group(bossGroup, workerGroup)
@@ -53,7 +54,7 @@ public class MqttBroker {
                             p.addLast(new MqttEncoder());
                             p.addLast(new MqttDecoder());
                             // handler
-                            p.addLast(handlerGroup, new AsyncRedisHandler(authenticator, communicator, redis, registry, config));
+                            p.addLast(new AsyncRedisHandler(authenticator, communicator, redis, registry, config, validator));
                         }
                     })
                     .option(ChannelOption.SO_BACKLOG, config.getInt("netty.soBacklog"))
