@@ -1,13 +1,14 @@
 package com.github.longkerdandy.mithril.mqtt.storage.redis;
 
 import org.apache.commons.lang3.BooleanUtils;
+import org.apache.commons.lang3.StringUtils;
 
 /**
  * Key Definition
  */
 public class RedisKey {
 
-    // Set client's connected nodes
+    // Set of client's connected nodes
     public static String connectedNodes(String clientId) {
         return "client:" + clientId + ":node";
     }
@@ -22,8 +23,18 @@ public class RedisKey {
         return "client:" + clientId + ":" + BooleanUtils.toString(cleanSession, "1", "0") + ":" + ":in.flight";
     }
 
-    // Hash for client's in-flight message
+    // Hash of client's in-flight message
     public static String inFlightMessage(String clientId, int packetId) {
         return "client:" + clientId + ":in.flight:" + packetId;
+    }
+
+    // Hash of wildcard topic 's subscriptions
+    public static String topicWildcard(String topicNode) {
+        return "topic:w:" + StringUtils.removeEnd(topicNode, "/");
+    }
+
+    // Set of wildcard topic node's children
+    public static String topicWildcardChild(String topicNode) {
+        return "topic:w:" + StringUtils.removeEnd(topicNode, "/") + ":child";
     }
 }

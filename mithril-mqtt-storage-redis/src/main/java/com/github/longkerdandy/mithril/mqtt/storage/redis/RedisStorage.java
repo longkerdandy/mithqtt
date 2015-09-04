@@ -248,4 +248,12 @@ public class RedisStorage {
         String[] values = new String[]{};
         return commands.evalsha("digest", ScriptOutputType.INTEGER, keys, values);
     }
+
+    public void getWildcardSubscriptionChilds() {
+
+    }
+
+    public void getWildcardSubscriptionChilds(String topicNode) {
+
+    }
 }
