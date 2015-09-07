@@ -33,9 +33,6 @@ subprojects {
         // junit
         testCompile 'junit:junit:4.12'
 
-        // catch exception
-        testCompile 'eu.codearte.catch-exception:catch-exception:1.4.4'
-
         // mockito
         compile 'org.mockito:mockito-all:1.10.19'
     }

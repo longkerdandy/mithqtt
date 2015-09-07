@@ -1,7 +1,8 @@
 package com.github.longkerdandy.mithril.mqtt.storage.redis;
 
 import org.apache.commons.lang3.BooleanUtils;
-import org.apache.commons.lang3.StringUtils;
+
+import java.util.List;
 
 /**
  * Key Definition
@@ -28,13 +29,18 @@ public class RedisKey {
         return "client:" + clientId + ":in.flight:" + packetId;
     }
 
-    // Hash of wildcard topic 's subscriptions
-    public static String topicWildcard(String topicNode) {
-        return "topic:w:" + StringUtils.removeEnd(topicNode, "/");
+    // Hash of topic name's subscriptions
+    public static String topicName(List<String> topicLevels) {
+        return "topic:n:" + String.join("/");
     }
 
-    // Set of wildcard topic node's children
-    public static String topicWildcardChild(String topicNode) {
-        return "topic:w:" + StringUtils.removeEnd(topicNode, "/") + ":child";
+    // Hash of topic filter's subscriptions
+    public static String topicFilter(List<String> topicLevels) {
+        return "topic:f:" + String.join("/");
+    }
+
+    // Hash of topic filter's children
+    public static String topicFilterChild(List<String> topicLevels) {
+        return "topic:tree:" + String.join("/");
     }
 }

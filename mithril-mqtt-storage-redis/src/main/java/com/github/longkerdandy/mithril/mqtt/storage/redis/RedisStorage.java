@@ -223,7 +223,7 @@ public class RedisStorage {
      * @param clientId     Client Id
      * @param cleanSession Clean Session
      * @param packetId     Packet Id
-     * @return Two RedisFutures (Remove from the List, remove the Hash)
+     * @return RedisFutures (Remove from the List, remove the Hash)
      */
     public List<RedisFuture> removeInFlightMessage(String clientId, boolean cleanSession, int packetId) {
         List<RedisFuture> list = new ArrayList<>();
@@ -249,11 +249,101 @@ public class RedisStorage {
         return commands.evalsha("digest", ScriptOutputType.INTEGER, keys, values);
     }
 
-    public void getWildcardSubscriptionChilds() {
-
+    /**
+     * Get the topic name's subscriptions
+     *
+     * @param topicLevels List of topic levels
+     * @return Subscriptions
+     */
+    public RedisFuture<Map<String, String>> getTopicNameSubscriptions(List<String> topicLevels) {
+        RedisHashAsyncCommands<String, String> commands = this.conn.async();
+        return commands.hgetall(RedisKey.topicName(topicLevels));
     }
 
-    public void getWildcardSubscriptionChilds(String topicNode) {
+    /**
+     * Update topic name subscription for the client
+     *
+     * @param topicLevels List of topic levels
+     * @param clientId    Client Id
+     * @param qos         Subscription QoS
+     * @return True if new value was set; False if value was updated
+     */
+    public RedisFuture<Boolean> updateTopicNameSubscription(List<String> topicLevels, String clientId, String qos) {
+        RedisHashAsyncCommands<String, String> commands = this.conn.async();
+        return commands.hset(RedisKey.topicName(topicLevels), clientId, qos);
+    }
 
+    /***
+     * Remove topic name subscription for the client
+     *
+     * @param topicLevels List of topic levels
+     * @param clientId    Client Id
+     * @return The number of fields that were removed
+     */
+    public RedisFuture<Long> removeTopicNameSubscription(List<String> topicLevels, String clientId) {
+        RedisHashAsyncCommands<String, String> commands = this.conn.async();
+        return commands.hdel(RedisKey.topicName(topicLevels), clientId);
+    }
+
+    /**
+     * Get the topic filter's subscriptions
+     *
+     * @param topicLevels List of topic levels
+     * @return Subscriptions
+     */
+    public RedisFuture<Map<String, String>> getTopicFilterSubscriptions(List<String> topicLevels) {
+        RedisHashAsyncCommands<String, String> commands = this.conn.async();
+        return commands.hgetall(RedisKey.topicFilter(topicLevels));
+    }
+
+    /**
+     * Update topic filter subscription for the client
+     *
+     * @param topicLevels List of topic levels
+     * @param clientId    Client Id
+     * @param qos         Subscription QoS
+     * @return RedisFutures (add to subscriptions, add to topic filter tree)
+     */
+    public List<RedisFuture> updateTopicFilterSubscription(List<String> topicLevels, String clientId, String qos) {
+        List<RedisFuture> list = new ArrayList<>();
+        RedisHashAsyncCommands<String, String> commands = this.conn.async();
+        list.add(commands.hset(RedisKey.topicFilter(topicLevels), clientId, qos));
+        for (int i = 0; i < topicLevels.size() - 1; i++) {
+            list.add(commands.hincrby(RedisKey.topicFilterChild(topicLevels.subList(0, i + 1)), topicLevels.get(i + 1), 1));
+        }
+        return list;
+    }
+
+    /**
+     * Remove topic filter subscription for the client
+     *
+     * @param topicLevels List of topic levels
+     * @param clientId    Client Id
+     * @return RedisFutures (remove from subscriptions, remove from topic filter tree)
+     */
+    public List<RedisFuture> removeTopicFilterSubscription(List<String> topicLevels, String clientId) {
+        List<RedisFuture> list = new ArrayList<>();
+        RedisHashAsyncCommands<String, String> commands = this.conn.async();
+        list.add(commands.hdel(RedisKey.topicFilter(topicLevels), clientId));
+        for (int i = 0; i < topicLevels.size() - 1; i++) {
+            list.add(commands.hincrby(RedisKey.topicFilterChild(topicLevels.subList(0, i + 1)), topicLevels.get(i + 1), -1));
+        }
+        return list;
+    }
+
+    /**
+     * Find the matching children from the topic filter tree
+     *
+     * @param topicLevels List of topic levels
+     * @param index       Current match level
+     * @return Possible matching children
+     */
+    public RedisFuture<List<String>> matchTopicFilterLevel(List<String> topicLevels, int index) {
+        RedisHashAsyncCommands<String, String> commands = this.conn.async();
+        if (index == topicLevels.size() - 1) {
+            return commands.hmget(RedisKey.topicFilterChild(topicLevels.subList(0, index + 1)), topicLevels.get(index), "#");
+        } else {
+            return commands.hmget(RedisKey.topicFilterChild(topicLevels.subList(0, index + 1)), topicLevels.get(index), "+", "#");
+        }
     }
 }
