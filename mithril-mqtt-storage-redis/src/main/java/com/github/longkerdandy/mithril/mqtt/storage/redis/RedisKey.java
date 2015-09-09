@@ -31,16 +31,16 @@ public class RedisKey {
 
     // Hash of topic name's subscriptions
     public static String topicName(List<String> topicLevels) {
-        return "topic:n:" + String.join("/");
+        return "topic:n:" + String.join("/", topicLevels);
     }
 
     // Hash of topic filter's subscriptions
     public static String topicFilter(List<String> topicLevels) {
-        return "topic:f:" + String.join("/");
+        return "topic:f:" + String.join("/", topicLevels);
     }
 
     // Hash of topic filter's children
     public static String topicFilterChild(List<String> topicLevels) {
-        return "topic:tree:" + String.join("/");
+        return "topic:tree:" + String.join("/", topicLevels);
     }
 }

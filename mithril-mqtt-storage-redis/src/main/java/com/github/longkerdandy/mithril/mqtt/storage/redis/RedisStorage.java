@@ -110,7 +110,7 @@ public class RedisStorage {
         this.conn = this.client.connect();
     }
 
-    public void destory() {
+    public void destroy() {
         // shutdown this client and close all open connections
         this.client.shutdown();
     }
@@ -227,9 +227,8 @@ public class RedisStorage {
      */
     public List<RedisFuture> removeInFlightMessage(String clientId, boolean cleanSession, int packetId) {
         List<RedisFuture> list = new ArrayList<>();
-        RedisListAsyncCommands<String, String> listCommands = this.conn.async();
-        list.add(listCommands.lrem(RedisKey.inFlightList(clientId, cleanSession), 0, String.valueOf(packetId)));
         RedisAsyncCommands<String, String> commands = this.conn.async();
+        list.add(commands.lrem(RedisKey.inFlightList(clientId, cleanSession), 0, String.valueOf(packetId)));
         list.add(commands.del(RedisKey.inFlightMessage(clientId, packetId)));
         return list;
     }
@@ -308,8 +307,8 @@ public class RedisStorage {
         List<RedisFuture> list = new ArrayList<>();
         RedisHashAsyncCommands<String, String> commands = this.conn.async();
         list.add(commands.hset(RedisKey.topicFilter(topicLevels), clientId, qos));
-        for (int i = 0; i < topicLevels.size() - 1; i++) {
-            list.add(commands.hincrby(RedisKey.topicFilterChild(topicLevels.subList(0, i + 1)), topicLevels.get(i + 1), 1));
+        for (int i = 0; i < topicLevels.size(); i++) {
+            list.add(commands.hincrby(RedisKey.topicFilterChild(topicLevels.subList(0, i)), topicLevels.get(i), 1));
         }
         return list;
     }
@@ -339,11 +338,11 @@ public class RedisStorage {
      * @return Possible matching children
      */
     public RedisFuture<List<String>> matchTopicFilterLevel(List<String> topicLevels, int index) {
-        RedisHashAsyncCommands<String, String> commands = this.conn.async();
+        RedisAsyncCommands<String, String> commands = this.conn.async();
         if (index == topicLevels.size() - 1) {
-            return commands.hmget(RedisKey.topicFilterChild(topicLevels.subList(0, index + 1)), topicLevels.get(index), "#");
+            return commands.hmget(RedisKey.topicFilterChild(topicLevels.subList(0, index)), topicLevels.get(index), "#");
         } else {
-            return commands.hmget(RedisKey.topicFilterChild(topicLevels.subList(0, index + 1)), topicLevels.get(index), "+", "#");
+            return commands.hmget(RedisKey.topicFilterChild(topicLevels.subList(0, index)), topicLevels.get(index), "#", "+");
         }
     }
 }

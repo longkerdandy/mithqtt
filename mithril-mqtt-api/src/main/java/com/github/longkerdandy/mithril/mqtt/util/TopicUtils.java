@@ -65,12 +65,12 @@ public class TopicUtils {
                 throw new IllegalArgumentException("Illegal topic filter: " + topicFilter);
             if (tokens[i].contains("#") && !tokens[i].equals("#"))
                 throw new IllegalArgumentException("Illegal topic filter: " + topicFilter);
-            if (tokens[i].equals("#") && i != tokens.length - 1)
+            if (tokens[i].equals("#") && !(i == tokens.length - 1 || (i == tokens.length - 2 && END.equals(tokens[i + 1]))))
                 throw new IllegalArgumentException("Illegal topic filter: " + topicFilter);
             levels.add(StringUtils.isNotEmpty(tokens[i]) ? tokens[i] : EMPTY);
         }
 
-        levels.add(END);
+        if (!topicFilter.endsWith(END)) levels.add(END);
 
         return levels;
     }

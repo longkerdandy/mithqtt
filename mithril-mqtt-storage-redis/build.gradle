@@ -3,5 +3,5 @@ dependencies {
     compile project(':mithril-mqtt-api')
 
     // netty
-    compile 'biz.paluch.redis:lettuce:4.0.Beta1'
+    compile 'biz.paluch.redis:lettuce:4.0.Beta2'
 }
