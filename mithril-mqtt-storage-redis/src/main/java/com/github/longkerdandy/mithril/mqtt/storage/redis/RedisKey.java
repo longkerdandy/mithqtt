@@ -41,6 +41,6 @@ public class RedisKey {
 
     // Hash of topic filter's children
     public static String topicFilterChild(List<String> topicLevels) {
-        return "topic:tree:" + String.join("/", topicLevels);
+        return topicLevels == null || topicLevels.isEmpty() ? "topic:tree:" : "topic:tree:" + String.join("/", topicLevels);
     }
 }
