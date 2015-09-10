@@ -137,7 +137,7 @@ public class RedisStorage {
      * @return MQTT Server Nodes
      */
     public RedisFuture<Set<String>> getConnectedNodes(String clientId) {
-        RedisSetAsyncCommands<String, String> commands = this.conn.async();
+        RedisAsyncCommands<String, String> commands = this.conn.async();
         return commands.smembers(RedisKey.connectedNodes(clientId));
     }
 
@@ -149,7 +149,7 @@ public class RedisStorage {
      * @return The number of nodes that were added
      */
     public RedisFuture<Long> updateConnectedNodes(String clientId, String node) {
-        RedisSetAsyncCommands<String, String> commands = this.conn.async();
+        RedisAsyncCommands<String, String> commands = this.conn.async();
         return commands.sadd(RedisKey.connectedNodes(clientId), node);
     }
 
@@ -161,7 +161,7 @@ public class RedisStorage {
      * @return The number of nodes that were removed
      */
     public RedisFuture<Long> removeConnectedNodes(String clientId, String node) {
-        RedisSetAsyncCommands<String, String> commands = this.conn.async();
+        RedisAsyncCommands<String, String> commands = this.conn.async();
         return commands.srem(RedisKey.connectedNodes(clientId), node);
     }
 
@@ -200,7 +200,7 @@ public class RedisStorage {
      * @return In-flight message's Packet Ids
      */
     public RedisFuture<List<String>> getInFlightIds(String clientId, boolean cleanSession) {
-        RedisListAsyncCommands<String, String> commands = this.conn.async();
+        RedisAsyncCommands<String, String> commands = this.conn.async();
         return commands.lrange(RedisKey.inFlightList(clientId, cleanSession), 0, -1);
     }
 
@@ -212,7 +212,7 @@ public class RedisStorage {
      * @return In-flight message in Map format
      */
     public RedisFuture<Map<String, String>> getInFlightMessage(String clientId, int packetId) {
-        RedisHashAsyncCommands<String, String> commands = this.conn.async();
+        RedisAsyncCommands<String, String> commands = this.conn.async();
         return commands.hgetall(RedisKey.inFlightMessage(clientId, packetId));
     }
 
@@ -255,7 +255,7 @@ public class RedisStorage {
      * @return Subscriptions
      */
     public RedisFuture<Map<String, String>> getTopicNameSubscriptions(List<String> topicLevels) {
-        RedisHashAsyncCommands<String, String> commands = this.conn.async();
+        RedisAsyncCommands<String, String> commands = this.conn.async();
         return commands.hgetall(RedisKey.topicName(topicLevels));
     }
 
@@ -268,7 +268,7 @@ public class RedisStorage {
      * @return True if new value was set; False if value was updated
      */
     public RedisFuture<Boolean> updateTopicNameSubscription(List<String> topicLevels, String clientId, String qos) {
-        RedisHashAsyncCommands<String, String> commands = this.conn.async();
+        RedisAsyncCommands<String, String> commands = this.conn.async();
         return commands.hset(RedisKey.topicName(topicLevels), clientId, qos);
     }
 
@@ -280,7 +280,7 @@ public class RedisStorage {
      * @return The number of fields that were removed
      */
     public RedisFuture<Long> removeTopicNameSubscription(List<String> topicLevels, String clientId) {
-        RedisHashAsyncCommands<String, String> commands = this.conn.async();
+        RedisAsyncCommands<String, String> commands = this.conn.async();
         return commands.hdel(RedisKey.topicName(topicLevels), clientId);
     }
 
@@ -291,7 +291,7 @@ public class RedisStorage {
      * @return Subscriptions
      */
     public RedisFuture<Map<String, String>> getTopicFilterSubscriptions(List<String> topicLevels) {
-        RedisHashAsyncCommands<String, String> commands = this.conn.async();
+        RedisAsyncCommands<String, String> commands = this.conn.async();
         return commands.hgetall(RedisKey.topicFilter(topicLevels));
     }
 
@@ -305,7 +305,7 @@ public class RedisStorage {
      */
     public List<RedisFuture> updateTopicFilterSubscription(List<String> topicLevels, String clientId, String qos) {
         List<RedisFuture> list = new ArrayList<>();
-        RedisHashAsyncCommands<String, String> commands = this.conn.async();
+        RedisAsyncCommands<String, String> commands = this.conn.async();
         list.add(commands.hset(RedisKey.topicFilter(topicLevels), clientId, qos));
         for (int i = 0; i < topicLevels.size(); i++) {
             list.add(commands.hincrby(RedisKey.topicFilterChild(topicLevels.subList(0, i)), topicLevels.get(i), 1));
@@ -322,7 +322,7 @@ public class RedisStorage {
      */
     public List<RedisFuture> removeTopicFilterSubscription(List<String> topicLevels, String clientId) {
         List<RedisFuture> list = new ArrayList<>();
-        RedisHashAsyncCommands<String, String> commands = this.conn.async();
+        RedisAsyncCommands<String, String> commands = this.conn.async();
         list.add(commands.hdel(RedisKey.topicFilter(topicLevels), clientId));
         for (int i = 0; i < topicLevels.size() - 1; i++) {
             list.add(commands.hincrby(RedisKey.topicFilterChild(topicLevels.subList(0, i + 1)), topicLevels.get(i + 1), -1));
