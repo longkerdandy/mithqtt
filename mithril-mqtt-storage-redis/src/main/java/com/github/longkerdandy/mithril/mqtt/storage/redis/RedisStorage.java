@@ -1,6 +1,6 @@
 package com.github.longkerdandy.mithril.mqtt.storage.redis;
 
-import com.github.longkerdandy.mithril.mqtt.util.TopicUtils;
+import com.github.longkerdandy.mithril.mqtt.util.Topics;
 import com.lambdaworks.redis.RedisClient;
 import com.lambdaworks.redis.RedisFuture;
 import com.lambdaworks.redis.api.StatefulRedisConnection;
@@ -12,7 +12,7 @@ import org.apache.commons.lang3.BooleanUtils;
 import java.io.UnsupportedEncodingException;
 import java.util.*;
 
-import static com.github.longkerdandy.mithril.mqtt.util.TopicUtils.END;
+import static com.github.longkerdandy.mithril.mqtt.util.Topics.END;
 import static io.netty.buffer.Unpooled.wrappedBuffer;
 
 /**
@@ -234,14 +234,14 @@ public class RedisStorage {
     /**
      * Get the topic's subscriptions
      * Include both clean session's subscriptions
-     * Topic Levels must be sanitized using TopicUtils
+     * Topic Levels must be sanitized using Topics
      *
      * @param topicLevels List of topic levels
      * @return Subscriptions
      */
     public RedisFuture<Map<String, String>> getTopicSubscriptions(List<String> topicLevels) {
         RedisAsyncCommands<String, String> commands = this.conn.async();
-        if (TopicUtils.isSanitizedTopicFilter(topicLevels)) {
+        if (Topics.isTopicFilter(topicLevels)) {
             return commands.hgetall(RedisKey.topicFilter(topicLevels));
         } else {
             return commands.hgetall(RedisKey.topicName(topicLevels));
@@ -264,7 +264,7 @@ public class RedisStorage {
     /**
      * Update topic name subscription for the client
      * We separate subscriptions with different clean session
-     * Topic Levels must be sanitized using TopicUtils
+     * Topic Levels must be sanitized using Topics
      *
      * @param clientId     Client Id
      * @param cleanSession Clean Session
@@ -276,7 +276,7 @@ public class RedisStorage {
         List<RedisFuture> list = new ArrayList<>();
         RedisAsyncCommands<String, String> commands = this.conn.async();
         list.add(commands.hset(RedisKey.subscription(clientId, cleanSession), String.join("/", topicLevels), qos));
-        if (TopicUtils.isSanitizedTopicFilter(topicLevels)) {
+        if (Topics.isTopicFilter(topicLevels)) {
             list.add(commands.hset(RedisKey.topicFilter(topicLevels), clientId, qos));
             for (int i = 0; i < topicLevels.size(); i++) {
                 list.add(commands.hincrby(RedisKey.topicFilterChild(topicLevels.subList(0, i)), topicLevels.get(i), 1));
@@ -290,7 +290,7 @@ public class RedisStorage {
     /***
      * Remove topic name subscription for the client
      * We separate subscriptions with different clean session
-     * Topic Levels must be sanitized using TopicUtils
+     * Topic Levels must be sanitized using Topics
      *
      * @param clientId     Client Id
      * @param cleanSession Clean Session
@@ -301,7 +301,7 @@ public class RedisStorage {
         List<RedisFuture> list = new ArrayList<>();
         RedisAsyncCommands<String, String> commands = this.conn.async();
         list.add(commands.hdel(RedisKey.subscription(clientId, cleanSession), String.join("/", topicLevels)));
-        if (TopicUtils.isSanitizedTopicFilter(topicLevels)) {
+        if (Topics.isTopicFilter(topicLevels)) {
             list.add(commands.hdel(RedisKey.topicFilter(topicLevels), clientId));
             for (int i = 0; i < topicLevels.size(); i++) {
                 list.add(commands.hincrby(RedisKey.topicFilterChild(topicLevels.subList(0, i)), topicLevels.get(i), -1));
@@ -325,9 +325,9 @@ public class RedisStorage {
         RedisAsyncCommands<String, String> commands = this.conn.async();
         commands.hgetall(RedisKey.subscription(clientId, cleanSession)).thenAccept(map -> {
             map.forEach((k, v) -> {
-                if (TopicUtils.isSanitizedTopicFilter(k)) {
+                if (Topics.isTopicFilter(k)) {
                     list.add(commands.hdel(RedisKey.topicFilter(k), clientId));
-                    List<String> levels = TopicUtils.sanitizeTopicFilter(k);
+                    List<String> levels = Topics.sanitizeTopicFilter(k);
                     for (int i = 0; i < levels.size(); i++) {
                         list.add(commands.hincrby(RedisKey.topicFilterChild(levels.subList(0, i)), levels.get(i), -1));
                     }
@@ -342,7 +342,7 @@ public class RedisStorage {
 
     /**
      * Find the matching children from the topic filter tree
-     * Topic Levels must be sanitized using TopicUtils
+     * Topic Levels must be sanitized using Topics
      *
      * @param topicLevels List of topic levels
      * @param index       Current match level

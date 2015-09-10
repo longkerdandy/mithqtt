@@ -33,7 +33,7 @@ public class RedisKey {
     // Key - Topic Name or Topic Filter
     // Value - Qos Level
     public static String subscription(String clientId, boolean cleanSession) {
-        return "client:" + clientId + BooleanUtils.toString(cleanSession, "1", "0") + ":subscription";
+        return "client:" + clientId + ":" + BooleanUtils.toString(cleanSession, "1", "0") + ":subscription";
     }
 
     // Hash of topic name's subscriptions

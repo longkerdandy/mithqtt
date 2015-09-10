@@ -8,14 +8,51 @@ import java.util.List;
 /**
  * MQTT Topic Utils
  */
-public class TopicUtils {
+public class Topics {
 
     // Present an empty level in the wildcard topic filter
     public static final String EMPTY = "~";
     // Present the end of the wildcard topic filter
     public static final String END = "^";
 
-    private TopicUtils() {
+    private Topics() {
+    }
+
+    /**
+     * Validate the topic, add EMPTY and END, return as a List of levels
+     *
+     * @param topic Topic Name or Topic Filter
+     * @return List of levels
+     */
+    public static List<String> sanitize(String topic) {
+        if (topic.contains("+") || topic.endsWith("#") || topic.endsWith("#/" + END)) {
+            return sanitizeTopicFilter(topic);
+        } else {
+            return sanitizeTopicName(topic);
+        }
+    }
+
+    /**
+     * Restore sanitized topic to original topic
+     *
+     * @param topic Topic
+     * @return Original Topic Name or Topic Filter
+     */
+    public static String antidote(String topic) {
+        return topic.replaceAll(EMPTY, "").substring(0, topic.length() - 2);
+    }
+
+    /**
+     * Restore sanitized topic levels to original topic
+     *
+     * @param topicLevels Topic Levels
+     * @return Original Topic Name or Topic Filter
+     */
+    public static String antidote(List<String> topicLevels) {
+        StringBuilder builder = new StringBuilder();
+        topicLevels.forEach(builder::append);
+        String topic = builder.toString();
+        return antidote(topic);
     }
 
     /**
@@ -78,22 +115,22 @@ public class TopicUtils {
     }
 
     /**
-     * Is sanitized topic a topic filter (contains wildcard)
+     * Is sanitized topic levels a topic filter (contains wildcard)
      *
      * @param topicLevels Sanitized Topic Levels
      * @return True if is topic filter
      */
-    public static boolean isSanitizedTopicFilter(List<String> topicLevels) {
+    public static boolean isTopicFilter(List<String> topicLevels) {
         return topicLevels.contains("+") || topicLevels.get(topicLevels.size() - 2).equals("#");
     }
 
     /**
-     * Is sanitized topic a topic filter (contains wildcard)
+     * Is topic a topic filter (contains wildcard)
      *
-     * @param topic Sanitized Topic
+     * @param topic Topic (May Sanitized)
      * @return True if is topic filter
      */
-    public static boolean isSanitizedTopicFilter(String topic) {
-        return topic.contains("+") || topic.endsWith("#" + END);
+    public static boolean isTopicFilter(String topic) {
+        return topic.contains("+") || topic.endsWith("#") || topic.endsWith("#/" + END);
     }
 }

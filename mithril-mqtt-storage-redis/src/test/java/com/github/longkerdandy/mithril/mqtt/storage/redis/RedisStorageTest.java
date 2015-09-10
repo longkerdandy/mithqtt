@@ -1,6 +1,6 @@
 package com.github.longkerdandy.mithril.mqtt.storage.redis;
 
-import com.github.longkerdandy.mithril.mqtt.util.TopicUtils;
+import com.github.longkerdandy.mithril.mqtt.util.Topics;
 import com.lambdaworks.redis.RedisFuture;
 import org.junit.After;
 import org.junit.AfterClass;
@@ -14,7 +14,7 @@ import java.util.Map;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.TimeUnit;
 
-import static com.github.longkerdandy.mithril.mqtt.util.TopicUtils.END;
+import static com.github.longkerdandy.mithril.mqtt.util.Topics.END;
 
 /**
  * Redis Storage Test
@@ -35,23 +35,59 @@ public class RedisStorageTest {
     }
 
     @Test
-    public void matchTopicFilter() throws ExecutionException, InterruptedException {
-        complete(redis.updateSubscription("client1", true, TopicUtils.sanitizeTopicFilter("a/+/e"), "0"));
-        complete(redis.updateSubscription("client1", true, TopicUtils.sanitizeTopicFilter("a/+"), "1"));
-        complete(redis.updateSubscription("client1", true, TopicUtils.sanitizeTopicFilter("a/c/f/#"), "2"));
-        complete(redis.updateSubscription("client2", true, TopicUtils.sanitizeTopicFilter("a/#"), "0"));
-        complete(redis.updateSubscription("client2", true, TopicUtils.sanitizeTopicFilter("a/c/+/+"), "1"));
-        complete(redis.updateSubscription("client2", true, TopicUtils.sanitizeTopicFilter("a/d/#"), "2"));
+    public void subscriptionTest() throws ExecutionException, InterruptedException {
+        complete(redis.updateSubscription("client1", true, Topics.sanitizeTopicFilter("a/+/e"), "0"));
+        complete(redis.updateSubscription("client1", true, Topics.sanitizeTopicFilter("a/+"), "1"));
+        complete(redis.updateSubscription("client1", true, Topics.sanitizeTopicName("a/c/e"), "2"));
+        complete(redis.updateSubscription("client2", true, Topics.sanitizeTopicFilter("a/#"), "0"));
+        complete(redis.updateSubscription("client2", true, Topics.sanitizeTopicFilter("a/+"), "1"));
+        complete(redis.updateSubscription("client2", true, Topics.sanitizeTopicName("a/c/e"), "2"));
 
-        assert redis.getTopicSubscriptions(TopicUtils.sanitizeTopicFilter("a/+/e")).get().get("client1").equals("0");
-        assert redis.getTopicSubscriptions(TopicUtils.sanitizeTopicFilter("a/+")).get().get("client1").equals("1");
-        assert redis.getTopicSubscriptions(TopicUtils.sanitizeTopicFilter("a/c/f/#")).get().get("client1").equals("2");
-        assert redis.getTopicSubscriptions(TopicUtils.sanitizeTopicFilter("a/#")).get().get("client2").equals("0");
-        assert redis.getTopicSubscriptions(TopicUtils.sanitizeTopicFilter("a/c/+/+")).get().get("client2").equals("1");
-        assert redis.getTopicSubscriptions(TopicUtils.sanitizeTopicFilter("a/d/#")).get().get("client2").equals("2");
+        assert redis.getClientSubscriptions("client1", true).get().get("a/+/e/^").equals("0");
+        assert redis.getClientSubscriptions("client1", true).get().get("a/+/^").equals("1");
+        assert redis.getClientSubscriptions("client1", true).get().get("a/c/e/^").equals("2");
+        assert redis.getClientSubscriptions("client2", true).get().get("a/#/^").equals("0");
+        assert redis.getClientSubscriptions("client2", true).get().get("a/+/^").equals("1");
+        assert redis.getClientSubscriptions("client2", true).get().get("a/c/e/^").equals("2");
+
+        assert redis.getTopicSubscriptions(Topics.sanitizeTopicFilter("a/+/e")).get().get("client1").equals("0");
+        assert redis.getTopicSubscriptions(Topics.sanitizeTopicFilter("a/+")).get().get("client1").equals("1");
+        assert redis.getTopicSubscriptions(Topics.sanitizeTopicFilter("a/+")).get().get("client2").equals("1");
+        assert redis.getTopicSubscriptions(Topics.sanitizeTopicName("a/c/e")).get().get("client1").equals("2");
+        assert redis.getTopicSubscriptions(Topics.sanitizeTopicName("a/c/e")).get().get("client2").equals("2");
+        assert redis.getTopicSubscriptions(Topics.sanitizeTopicFilter("a/#")).get().get("client2").equals("0");
+
+        complete(redis.removeSubscription("client1", true, Topics.sanitizeTopicFilter("a/+")));
+
+        assert !redis.getTopicSubscriptions(Topics.sanitizeTopicFilter("a/+")).get().containsKey("client1");
+        assert !redis.getClientSubscriptions("client1", true).get().containsKey("a/+/^");
+
+        complete(redis.removeAllSubscriptions("client2", true));
+
+        assert redis.getClientSubscriptions("client2", true).get().isEmpty();
+        assert !redis.getTopicSubscriptions(Topics.sanitizeTopicFilter("a/+")).get().containsKey("client2");
+        assert !redis.getTopicSubscriptions(Topics.sanitizeTopicName("a/c/e")).get().containsKey("client2");
+        assert !redis.getTopicSubscriptions(Topics.sanitizeTopicFilter("a/#")).get().containsKey("client2");
+    }
+
+    @Test
+    public void matchTopicFilter() throws ExecutionException, InterruptedException {
+        complete(redis.updateSubscription("client1", true, Topics.sanitizeTopicFilter("a/+/e"), "0"));
+        complete(redis.updateSubscription("client1", true, Topics.sanitizeTopicFilter("a/+"), "1"));
+        complete(redis.updateSubscription("client1", true, Topics.sanitizeTopicFilter("a/c/f/#"), "2"));
+        complete(redis.updateSubscription("client2", true, Topics.sanitizeTopicFilter("a/#"), "0"));
+        complete(redis.updateSubscription("client2", true, Topics.sanitizeTopicFilter("a/c/+/+"), "1"));
+        complete(redis.updateSubscription("client2", true, Topics.sanitizeTopicFilter("a/d/#"), "2"));
+
+        assert redis.getTopicSubscriptions(Topics.sanitizeTopicFilter("a/+/e")).get().get("client1").equals("0");
+        assert redis.getTopicSubscriptions(Topics.sanitizeTopicFilter("a/+")).get().get("client1").equals("1");
+        assert redis.getTopicSubscriptions(Topics.sanitizeTopicFilter("a/c/f/#")).get().get("client1").equals("2");
+        assert redis.getTopicSubscriptions(Topics.sanitizeTopicFilter("a/#")).get().get("client2").equals("0");
+        assert redis.getTopicSubscriptions(Topics.sanitizeTopicFilter("a/c/+/+")).get().get("client2").equals("1");
+        assert redis.getTopicSubscriptions(Topics.sanitizeTopicFilter("a/d/#")).get().get("client2").equals("2");
 
         Map<String, String> result = new HashMap<>();
-        match(TopicUtils.sanitizeTopicName("a/c/f"), 0, result);
+        match(Topics.sanitizeTopicName("a/c/f"), 0, result);
         assert result.get("client1").equals("2");
         assert result.get("client2").equals("0");
     }
