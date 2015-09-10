@@ -11,9 +11,9 @@ import java.util.List;
 public class TopicUtils {
 
     // Present an empty level in the wildcard topic filter
-    public static final String EMPTY = "\u2BCE";
+    public static final String EMPTY = "~";
     // Present the end of the wildcard topic filter
-    public static final String END = "\u2BCC";
+    public static final String END = "^";
 
     private TopicUtils() {
     }
@@ -40,7 +40,7 @@ public class TopicUtils {
             levels.add(StringUtils.isNotEmpty(token) ? token : EMPTY);
         }
 
-        levels.add(END);
+        if (!topicName.endsWith(END)) levels.add(END);
 
         return levels;
     }
@@ -53,6 +53,8 @@ public class TopicUtils {
      */
     public static List<String> sanitizeTopicFilter(String topicFilter) {
         if (StringUtils.isEmpty(topicFilter)) throw new IllegalArgumentException("Empty topic filer");
+        if (!topicFilter.contains("+") && !topicFilter.contains("#"))
+            throw new IllegalArgumentException("Topic filter does not contain wildcard");
 
         List<String> levels = new ArrayList<>();
 
@@ -73,5 +75,25 @@ public class TopicUtils {
         if (!topicFilter.endsWith(END)) levels.add(END);
 
         return levels;
+    }
+
+    /**
+     * Is sanitized topic a topic filter (contains wildcard)
+     *
+     * @param topicLevels Sanitized Topic Levels
+     * @return True if is topic filter
+     */
+    public static boolean isSanitizedTopicFilter(List<String> topicLevels) {
+        return topicLevels.contains("+") || topicLevels.get(topicLevels.size() - 2).equals("#");
+    }
+
+    /**
+     * Is sanitized topic a topic filter (contains wildcard)
+     *
+     * @param topic Sanitized Topic
+     * @return True if is topic filter
+     */
+    public static boolean isSanitizedTopicFilter(String topic) {
+        return topic.contains("+") || topic.endsWith("#" + END);
     }
 }

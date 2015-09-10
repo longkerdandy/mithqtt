@@ -36,19 +36,19 @@ public class RedisStorageTest {
 
     @Test
     public void matchTopicFilter() throws ExecutionException, InterruptedException {
-        complete(redis.updateTopicFilterSubscription(TopicUtils.sanitizeTopicFilter("a/+/e"), "client1", "0"));
-        complete(redis.updateTopicFilterSubscription(TopicUtils.sanitizeTopicFilter("a/+"), "client1", "1"));
-        complete(redis.updateTopicFilterSubscription(TopicUtils.sanitizeTopicFilter("a/c/f/#"), "client1", "2"));
-        complete(redis.updateTopicFilterSubscription(TopicUtils.sanitizeTopicFilter("a/#"), "client2", "0"));
-        complete(redis.updateTopicFilterSubscription(TopicUtils.sanitizeTopicFilter("a/c/+/+"), "client2", "1"));
-        complete(redis.updateTopicFilterSubscription(TopicUtils.sanitizeTopicFilter("a/d/#"), "client2", "2"));
+        complete(redis.updateSubscription("client1", true, TopicUtils.sanitizeTopicFilter("a/+/e"), "0"));
+        complete(redis.updateSubscription("client1", true, TopicUtils.sanitizeTopicFilter("a/+"), "1"));
+        complete(redis.updateSubscription("client1", true, TopicUtils.sanitizeTopicFilter("a/c/f/#"), "2"));
+        complete(redis.updateSubscription("client2", true, TopicUtils.sanitizeTopicFilter("a/#"), "0"));
+        complete(redis.updateSubscription("client2", true, TopicUtils.sanitizeTopicFilter("a/c/+/+"), "1"));
+        complete(redis.updateSubscription("client2", true, TopicUtils.sanitizeTopicFilter("a/d/#"), "2"));
 
-        assert redis.getTopicFilterSubscriptions(TopicUtils.sanitizeTopicFilter("a/+/e")).get().get("client1").equals("0");
-        assert redis.getTopicFilterSubscriptions(TopicUtils.sanitizeTopicFilter("a/+")).get().get("client1").equals("1");
-        assert redis.getTopicFilterSubscriptions(TopicUtils.sanitizeTopicFilter("a/c/f/#")).get().get("client1").equals("2");
-        assert redis.getTopicFilterSubscriptions(TopicUtils.sanitizeTopicFilter("a/#")).get().get("client2").equals("0");
-        assert redis.getTopicFilterSubscriptions(TopicUtils.sanitizeTopicFilter("a/c/+/+")).get().get("client2").equals("1");
-        assert redis.getTopicFilterSubscriptions(TopicUtils.sanitizeTopicFilter("a/d/#")).get().get("client2").equals("2");
+        assert redis.getTopicSubscriptions(TopicUtils.sanitizeTopicFilter("a/+/e")).get().get("client1").equals("0");
+        assert redis.getTopicSubscriptions(TopicUtils.sanitizeTopicFilter("a/+")).get().get("client1").equals("1");
+        assert redis.getTopicSubscriptions(TopicUtils.sanitizeTopicFilter("a/c/f/#")).get().get("client1").equals("2");
+        assert redis.getTopicSubscriptions(TopicUtils.sanitizeTopicFilter("a/#")).get().get("client2").equals("0");
+        assert redis.getTopicSubscriptions(TopicUtils.sanitizeTopicFilter("a/c/+/+")).get().get("client2").equals("1");
+        assert redis.getTopicSubscriptions(TopicUtils.sanitizeTopicFilter("a/d/#")).get().get("client2").equals("2");
 
         Map<String, String> result = new HashMap<>();
         match(TopicUtils.sanitizeTopicName("a/c/f"), 0, result);
@@ -74,13 +74,13 @@ public class RedisStorageTest {
             int c = children.get(0) == null ? 0 : Integer.parseInt(children.get(0)); // char
             int s = children.get(1) == null ? 0 : Integer.parseInt(children.get(1)); // #
             if (c > 0) {
-                result.putAll(redis.getTopicFilterSubscriptions(topicLevels).get());
+                result.putAll(redis.getTopicSubscriptions(topicLevels).get());
             }
             if (s > 0) {
                 List<String> newTopicLevels = topicLevels.subList(0, index);
                 newTopicLevels.add("#");
                 newTopicLevels.add(END);
-                result.putAll(redis.getTopicFilterSubscriptions(newTopicLevels).get());
+                result.putAll(redis.getTopicSubscriptions(newTopicLevels).get());
             }
         }
         // not last one
@@ -95,7 +95,7 @@ public class RedisStorageTest {
                 List<String> newTopicLevels = topicLevels.subList(0, index);
                 newTopicLevels.add("#");
                 newTopicLevels.add(END);
-                result.putAll(redis.getTopicFilterSubscriptions(newTopicLevels).get());
+                result.putAll(redis.getTopicSubscriptions(newTopicLevels).get());
             }
             if (p > 0) {
                 List<String> newTopicLevels = new ArrayList<>(topicLevels);

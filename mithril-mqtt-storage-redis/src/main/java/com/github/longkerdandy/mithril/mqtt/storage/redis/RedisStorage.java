@@ -3,12 +3,8 @@ package com.github.longkerdandy.mithril.mqtt.storage.redis;
 import com.github.longkerdandy.mithril.mqtt.util.TopicUtils;
 import com.lambdaworks.redis.RedisClient;
 import com.lambdaworks.redis.RedisFuture;
-import com.lambdaworks.redis.ScriptOutputType;
 import com.lambdaworks.redis.api.StatefulRedisConnection;
 import com.lambdaworks.redis.api.async.RedisAsyncCommands;
-import com.lambdaworks.redis.api.async.RedisHashAsyncCommands;
-import com.lambdaworks.redis.api.async.RedisListAsyncCommands;
-import com.lambdaworks.redis.api.async.RedisSetAsyncCommands;
 import io.netty.buffer.ByteBuf;
 import io.netty.handler.codec.mqtt.*;
 import org.apache.commons.lang3.BooleanUtils;
@@ -236,105 +232,111 @@ public class RedisStorage {
     }
 
     /**
-     * Remove all subscriptions for the client
+     * Get the topic's subscriptions
+     * Include both clean session's subscriptions
+     * Topic Levels must be sanitized using TopicUtils
+     *
+     * @param topicLevels List of topic levels
+     * @return Subscriptions
+     */
+    public RedisFuture<Map<String, String>> getTopicSubscriptions(List<String> topicLevels) {
+        RedisAsyncCommands<String, String> commands = this.conn.async();
+        if (TopicUtils.isSanitizedTopicFilter(topicLevels)) {
+            return commands.hgetall(RedisKey.topicFilter(topicLevels));
+        } else {
+            return commands.hgetall(RedisKey.topicName(topicLevels));
+        }
+    }
+
+    /**
+     * Get the client's subscriptions
      * We separate subscriptions with different clean session
      *
      * @param clientId     Client Id
      * @param cleanSession Clean Session
-     * @return The number of subscriptions have been removed
-     */
-    public RedisFuture<Integer> removeSubscriptions(String clientId, boolean cleanSession) {
-        RedisAsyncCommands<String, String> commands = this.conn.async();
-        String[] keys = new String[]{};
-        String[] values = new String[]{};
-        return commands.evalsha("digest", ScriptOutputType.INTEGER, keys, values);
-    }
-
-    /**
-     * Get the topic name's subscriptions
-     * Topic Levels must be sanitized using TopicUtils
-     *
-     * @param topicLevels List of topic levels
      * @return Subscriptions
      */
-    public RedisFuture<Map<String, String>> getTopicNameSubscriptions(List<String> topicLevels) {
+    public RedisFuture<Map<String, String>> getClientSubscriptions(String clientId, boolean cleanSession) {
         RedisAsyncCommands<String, String> commands = this.conn.async();
-        return commands.hgetall(RedisKey.topicName(topicLevels));
+        return commands.hgetall(RedisKey.subscription(clientId, cleanSession));
     }
 
     /**
      * Update topic name subscription for the client
+     * We separate subscriptions with different clean session
      * Topic Levels must be sanitized using TopicUtils
      *
-     * @param topicLevels List of topic levels
-     * @param clientId    Client Id
-     * @param qos         Subscription QoS
-     * @return True if new value was set; False if value was updated
+     * @param clientId     Client Id
+     * @param cleanSession Clean Session
+     * @param topicLevels  List of topic levels
+     * @param qos          Subscription QoS
+     * @return RedisFutures (add to client's subscriptions, add to topic's subscriptions, add to topic filter tree)
      */
-    public RedisFuture<Boolean> updateTopicNameSubscription(List<String> topicLevels, String clientId, String qos) {
+    public List<RedisFuture> updateSubscription(String clientId, boolean cleanSession, List<String> topicLevels, String qos) {
+        List<RedisFuture> list = new ArrayList<>();
         RedisAsyncCommands<String, String> commands = this.conn.async();
-        return commands.hset(RedisKey.topicName(topicLevels), clientId, qos);
+        list.add(commands.hset(RedisKey.subscription(clientId, cleanSession), String.join("/", topicLevels), qos));
+        if (TopicUtils.isSanitizedTopicFilter(topicLevels)) {
+            list.add(commands.hset(RedisKey.topicFilter(topicLevels), clientId, qos));
+            for (int i = 0; i < topicLevels.size(); i++) {
+                list.add(commands.hincrby(RedisKey.topicFilterChild(topicLevels.subList(0, i)), topicLevels.get(i), 1));
+            }
+        } else {
+            list.add(commands.hset(RedisKey.topicName(topicLevels), clientId, qos));
+        }
+        return list;
     }
 
     /***
      * Remove topic name subscription for the client
+     * We separate subscriptions with different clean session
      * Topic Levels must be sanitized using TopicUtils
      *
-     * @param topicLevels List of topic levels
-     * @param clientId    Client Id
-     * @return The number of fields that were removed
+     * @param clientId     Client Id
+     * @param cleanSession Clean Session
+     * @param topicLevels  List of topic levels
+     * @return RedisFutures (remove from client's subscriptions, remove from topic's subscriptions, remove from topic filter tree)
      */
-    public RedisFuture<Long> removeTopicNameSubscription(List<String> topicLevels, String clientId) {
-        RedisAsyncCommands<String, String> commands = this.conn.async();
-        return commands.hdel(RedisKey.topicName(topicLevels), clientId);
-    }
-
-    /**
-     * Get the topic filter's subscriptions
-     * Topic Levels must be sanitized using TopicUtils
-     *
-     * @param topicLevels List of topic levels
-     * @return Subscriptions
-     */
-    public RedisFuture<Map<String, String>> getTopicFilterSubscriptions(List<String> topicLevels) {
-        RedisAsyncCommands<String, String> commands = this.conn.async();
-        return commands.hgetall(RedisKey.topicFilter(topicLevels));
-    }
-
-    /**
-     * Update topic filter subscription for the client
-     * Topic Levels must be sanitized using TopicUtils
-     *
-     * @param topicLevels List of topic levels
-     * @param clientId    Client Id
-     * @param qos         Subscription QoS
-     * @return RedisFutures (add to subscriptions, add to topic filter tree)
-     */
-    public List<RedisFuture> updateTopicFilterSubscription(List<String> topicLevels, String clientId, String qos) {
+    public List<RedisFuture> removeSubscription(String clientId, boolean cleanSession, List<String> topicLevels) {
         List<RedisFuture> list = new ArrayList<>();
         RedisAsyncCommands<String, String> commands = this.conn.async();
-        list.add(commands.hset(RedisKey.topicFilter(topicLevels), clientId, qos));
-        for (int i = 0; i < topicLevels.size(); i++) {
-            list.add(commands.hincrby(RedisKey.topicFilterChild(topicLevels.subList(0, i)), topicLevels.get(i), 1));
+        list.add(commands.hdel(RedisKey.subscription(clientId, cleanSession), String.join("/", topicLevels)));
+        if (TopicUtils.isSanitizedTopicFilter(topicLevels)) {
+            list.add(commands.hdel(RedisKey.topicFilter(topicLevels), clientId));
+            for (int i = 0; i < topicLevels.size(); i++) {
+                list.add(commands.hincrby(RedisKey.topicFilterChild(topicLevels.subList(0, i)), topicLevels.get(i), -1));
+            }
+        } else {
+            list.add(commands.hdel(RedisKey.topicName(topicLevels), clientId));
         }
         return list;
     }
 
     /**
-     * Remove topic filter subscription for the client
-     * Topic Levels must be sanitized using TopicUtils
+     * Remove all subscriptions for the client
+     * We separate subscriptions with different clean session
      *
-     * @param topicLevels List of topic levels
-     * @param clientId    Client Id
-     * @return RedisFutures (remove from subscriptions, remove from topic filter tree)
+     * @param clientId     Client Id
+     * @param cleanSession Clean Session
+     * @return RedisFutures (remove from topic's subscriptions, remove from topic filter tree, remove from client's subscriptions)
      */
-    public List<RedisFuture> removeTopicFilterSubscription(List<String> topicLevels, String clientId) {
+    public List<RedisFuture> removeAllSubscriptions(String clientId, boolean cleanSession) {
         List<RedisFuture> list = new ArrayList<>();
         RedisAsyncCommands<String, String> commands = this.conn.async();
-        list.add(commands.hdel(RedisKey.topicFilter(topicLevels), clientId));
-        for (int i = 0; i < topicLevels.size() - 1; i++) {
-            list.add(commands.hincrby(RedisKey.topicFilterChild(topicLevels.subList(0, i + 1)), topicLevels.get(i + 1), -1));
-        }
+        commands.hgetall(RedisKey.subscription(clientId, cleanSession)).thenAccept(map -> {
+            map.forEach((k, v) -> {
+                if (TopicUtils.isSanitizedTopicFilter(k)) {
+                    list.add(commands.hdel(RedisKey.topicFilter(k), clientId));
+                    List<String> levels = TopicUtils.sanitizeTopicFilter(k);
+                    for (int i = 0; i < levels.size(); i++) {
+                        list.add(commands.hincrby(RedisKey.topicFilterChild(levels.subList(0, i)), levels.get(i), -1));
+                    }
+                } else {
+                    list.add(commands.hdel(RedisKey.topicName(k), clientId));
+                }
+            });
+            list.add(commands.del(RedisKey.subscription(clientId, cleanSession)));
+        });
         return list;
     }
 
