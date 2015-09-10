@@ -1,5 +1,6 @@
 package com.github.longkerdandy.mithril.mqtt.storage.redis;
 
+import com.github.longkerdandy.mithril.mqtt.util.TopicUtils;
 import com.lambdaworks.redis.RedisClient;
 import com.lambdaworks.redis.RedisFuture;
 import com.lambdaworks.redis.ScriptOutputType;
@@ -15,6 +16,7 @@ import org.apache.commons.lang3.BooleanUtils;
 import java.io.UnsupportedEncodingException;
 import java.util.*;
 
+import static com.github.longkerdandy.mithril.mqtt.util.TopicUtils.END;
 import static io.netty.buffer.Unpooled.wrappedBuffer;
 
 /**
@@ -250,6 +252,7 @@ public class RedisStorage {
 
     /**
      * Get the topic name's subscriptions
+     * Topic Levels must be sanitized using TopicUtils
      *
      * @param topicLevels List of topic levels
      * @return Subscriptions
@@ -261,6 +264,7 @@ public class RedisStorage {
 
     /**
      * Update topic name subscription for the client
+     * Topic Levels must be sanitized using TopicUtils
      *
      * @param topicLevels List of topic levels
      * @param clientId    Client Id
@@ -274,6 +278,7 @@ public class RedisStorage {
 
     /***
      * Remove topic name subscription for the client
+     * Topic Levels must be sanitized using TopicUtils
      *
      * @param topicLevels List of topic levels
      * @param clientId    Client Id
@@ -286,6 +291,7 @@ public class RedisStorage {
 
     /**
      * Get the topic filter's subscriptions
+     * Topic Levels must be sanitized using TopicUtils
      *
      * @param topicLevels List of topic levels
      * @return Subscriptions
@@ -297,6 +303,7 @@ public class RedisStorage {
 
     /**
      * Update topic filter subscription for the client
+     * Topic Levels must be sanitized using TopicUtils
      *
      * @param topicLevels List of topic levels
      * @param clientId    Client Id
@@ -315,6 +322,7 @@ public class RedisStorage {
 
     /**
      * Remove topic filter subscription for the client
+     * Topic Levels must be sanitized using TopicUtils
      *
      * @param topicLevels List of topic levels
      * @param clientId    Client Id
@@ -332,6 +340,7 @@ public class RedisStorage {
 
     /**
      * Find the matching children from the topic filter tree
+     * Topic Levels must be sanitized using TopicUtils
      *
      * @param topicLevels List of topic levels
      * @param index       Current match level
@@ -340,7 +349,7 @@ public class RedisStorage {
     public RedisFuture<List<String>> matchTopicFilterLevel(List<String> topicLevels, int index) {
         RedisAsyncCommands<String, String> commands = this.conn.async();
         if (index == topicLevels.size() - 1) {
-            return commands.hmget(RedisKey.topicFilterChild(topicLevels.subList(0, index)), topicLevels.get(index), "#");
+            return commands.hmget(RedisKey.topicFilterChild(topicLevels.subList(0, index)), END, "#");
         } else {
             return commands.hmget(RedisKey.topicFilterChild(topicLevels.subList(0, index)), topicLevels.get(index), "#", "+");
         }
