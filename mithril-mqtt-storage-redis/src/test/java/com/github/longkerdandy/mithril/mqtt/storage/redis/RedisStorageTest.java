@@ -37,11 +37,11 @@ public class RedisStorageTest {
 
     @Test
     public void connectedTest() throws ExecutionException, InterruptedException {
-        complete(redis.updateConnectedNodes("client1", "node1"));
-        complete(redis.updateConnectedNodes("client2", "node1"));
-        complete(redis.updateConnectedNodes("client3", "node1"));
-        complete(redis.updateConnectedNodes("client4", "node2"));
-        complete(redis.updateConnectedNodes("client5", "node2"));
+        complete(redis.addConnectedNodes("client1", "node1"));
+        complete(redis.addConnectedNodes("client2", "node1"));
+        complete(redis.addConnectedNodes("client3", "node1"));
+        complete(redis.addConnectedNodes("client4", "node2"));
+        complete(redis.addConnectedNodes("client5", "node2"));
 
         assert redis.getConnectedNodes("client1").get().contains("node1");
         assert redis.getConnectedNodes("client2").get().contains("node1");
@@ -73,7 +73,7 @@ public class RedisStorageTest {
     public void existTest() throws ExecutionException, InterruptedException {
         assert redis.isClientExist("client1").get() == 0;
 
-        redis.updateClientExist("client1").get();
+        redis.markClientExist("client1").get();
 
         assert redis.isClientExist("client1").get() == 1;
     }

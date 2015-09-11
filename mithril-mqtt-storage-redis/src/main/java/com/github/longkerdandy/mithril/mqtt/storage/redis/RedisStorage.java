@@ -158,7 +158,7 @@ public class RedisStorage {
      * @param node     MQTT Server Node
      * @return RedisFutures (add to server's clients, add to client's servers)
      */
-    public List<RedisFuture> updateConnectedNodes(String clientId, String node) {
+    public List<RedisFuture> addConnectedNodes(String clientId, String node) {
         List<RedisFuture> list = new ArrayList<>();
         RedisAsyncCommands<String, String> commands = this.conn.async();
         list.add(commands.sadd(RedisKey.connectedClients(node), clientId));
@@ -193,12 +193,12 @@ public class RedisStorage {
     }
 
     /**
-     * Mark client (session) exist
+     * Mark client (session) as exist
      *
      * @param clientId Client Id
      * @return OK if was executed correctly
      */
-    public RedisFuture<String> updateClientExist(String clientId) {
+    public RedisFuture<String> markClientExist(String clientId) {
         RedisAsyncCommands<String, String> commands = this.conn.async();
         return commands.set(RedisKey.clientExist(clientId), "1");
     }
@@ -215,7 +215,7 @@ public class RedisStorage {
      * @param cleanSession Clean Session
      * @return In-flight message's Packet Ids
      */
-    public RedisFuture<List<String>> getInFlightIds(String clientId, boolean cleanSession) {
+    public RedisFuture<List<String>> getAllInFlightMessageIds(String clientId, boolean cleanSession) {
         RedisAsyncCommands<String, String> commands = this.conn.async();
         return commands.lrange(RedisKey.inFlightList(clientId, cleanSession), 0, -1);
     }
@@ -233,18 +233,36 @@ public class RedisStorage {
     }
 
     /**
+     * Add in-flight message for the client
+     * We separate packet ids with different clean session
+     *
+     * @param clientId     Client Id
+     * @param cleanSession Clean Session
+     * @param packetId     Packet Id
+     * @param map          Message as Map
+     * @return RedisFutures (add to client's in-flight list, save the message)
+     */
+    public List<RedisFuture> addInFlightMessage(String clientId, boolean cleanSession, int packetId, Map<String, String> map) {
+        List<RedisFuture> list = new ArrayList<>();
+        RedisAsyncCommands<String, String> commands = this.conn.async();
+        list.add(commands.lpush(RedisKey.inFlightList(clientId, cleanSession), String.valueOf(packetId)));
+        list.add(commands.hmset(RedisKey.inFlightMessage(clientId, packetId), map));
+        return list;
+    }
+
+    /**
      * Remove specific in-flight message for the client
      * We separate packet ids with different clean session
      *
      * @param clientId     Client Id
      * @param cleanSession Clean Session
      * @param packetId     Packet Id
-     * @return RedisFutures (Remove from the List, remove the Hash)
+     * @return RedisFutures (remove from client's in-flight list, remove the message)
      */
     public List<RedisFuture> removeInFlightMessage(String clientId, boolean cleanSession, int packetId) {
         List<RedisFuture> list = new ArrayList<>();
         RedisAsyncCommands<String, String> commands = this.conn.async();
-        list.add(commands.lrem(RedisKey.inFlightList(clientId, cleanSession), 0, String.valueOf(packetId)));
+        list.add(commands.lrem(RedisKey.inFlightList(clientId, cleanSession), 0, String.valueOf(packetId)));    // remove all elements
         list.add(commands.del(RedisKey.inFlightMessage(clientId, packetId)));
         return list;
     }

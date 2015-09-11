@@ -280,7 +280,7 @@ public class AsyncRedisHandler extends SimpleChannelInboundHandler<MqttMessage> 
                     if (!this.cleanSession) {
                         if (exist == 1) {
                             // Only care about messages in the session with clean session = 0
-                            this.redis.getInFlightIds(this.clientId, false).thenAccept(ids -> {
+                            this.redis.getAllInFlightMessageIds(this.clientId, false).thenAccept(ids -> {
                                 for (String packetId : ids) {
                                     this.redis.getInFlightMessage(this.clientId, Integer.parseInt(packetId)).thenAccept(map -> {
                                         MqttMessage mqtt = mapToMqtt(map);
@@ -298,7 +298,7 @@ public class AsyncRedisHandler extends SimpleChannelInboundHandler<MqttMessage> 
                     else {
                         if (exist == 1) {
                             // Only care about messages in the session with clean session = 0
-                            this.redis.getInFlightIds(this.clientId, false).thenAccept(ids -> {
+                            this.redis.getAllInFlightMessageIds(this.clientId, false).thenAccept(ids -> {
                                 List<String> keys = new ArrayList<>();
                                 keys.add(RedisKey.clientExist(this.clientId));
                                 keys.add(RedisKey.inFlightList(this.clientId, false));
@@ -339,7 +339,7 @@ public class AsyncRedisHandler extends SimpleChannelInboundHandler<MqttMessage> 
 
                     // Always clear data in the session with clean session = 1
                     this.redis.removeAllSubscriptions(this.clientId, true);
-                    this.redis.getInFlightIds(this.clientId, true).thenAccept(ids -> {
+                    this.redis.getAllInFlightMessageIds(this.clientId, true).thenAccept(ids -> {
                         List<String> keys = new ArrayList<>();
                         keys.add(RedisKey.inFlightList(this.clientId, true));
                         keys.addAll(ids.stream().map(packetId -> RedisKey.inFlightMessage(this.clientId, Integer.parseInt(packetId))).collect(Collectors.toList()));
@@ -349,8 +349,8 @@ public class AsyncRedisHandler extends SimpleChannelInboundHandler<MqttMessage> 
                     // Save connection state, add to local registry and remote storage
                     this.connected = true;
                     this.registry.saveSession(this.clientId, ctx);
-                    this.redis.updateConnectedNodes(this.clientId, this.config.getString("node.id"));
-                    if (exist != 1 && !cleanSession) this.redis.updateClientExist(this.clientId);
+                    this.redis.addConnectedNodes(this.clientId, this.config.getString("node.id"));
+                    if (exist != 1 && !cleanSession) this.redis.markClientExist(this.clientId);
                 });
             }
 

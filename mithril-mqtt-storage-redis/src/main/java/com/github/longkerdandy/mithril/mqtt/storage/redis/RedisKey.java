@@ -10,11 +10,13 @@ import java.util.List;
 public class RedisKey {
 
     // Set of server's connected clients
+    // Value - Client Id
     public static String connectedClients(String node) {
         return "server:" + node + ":client";
     }
 
     // Set of client's connected nodes
+    // Value - MQTT Server Node
     public static String connectedNodes(String clientId) {
         return "client:" + clientId + ":node";
     }
@@ -25,11 +27,13 @@ public class RedisKey {
     }
 
     // List of client's in-flight messages' packet id
+    // Value - MQTT Message's Packet Id in order
     public static String inFlightList(String clientId, boolean cleanSession) {
         return "client:" + clientId + ":" + BooleanUtils.toString(cleanSession, "1", "0") + ":" + ":in.flight";
     }
 
     // Hash of client's in-flight message
+    // MQTT Message in Hash
     public static String inFlightMessage(String clientId, int packetId) {
         return "client:" + clientId + ":in.flight:" + packetId;
     }
