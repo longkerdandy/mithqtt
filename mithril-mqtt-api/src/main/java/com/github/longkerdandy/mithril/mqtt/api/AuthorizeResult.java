@@ -13,10 +13,6 @@ public enum AuthorizeResult {
         this.value = value;
     }
 
-    public int value() {
-        return value;
-    }
-
     public static AuthorizeResult valueOf(int value) {
         for (AuthorizeResult r : values()) {
             if (r.value == value) {
@@ -24,5 +20,9 @@ public enum AuthorizeResult {
             }
         }
         throw new IllegalArgumentException("invalid authorize result: " + value);
+    }
+
+    public int value() {
+        return value;
     }
 }

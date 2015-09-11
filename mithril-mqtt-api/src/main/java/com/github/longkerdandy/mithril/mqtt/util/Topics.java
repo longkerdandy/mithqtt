@@ -39,7 +39,7 @@ public class Topics {
      * @return Original Topic Name or Topic Filter
      */
     public static String antidote(String topic) {
-        return topic.replaceAll(EMPTY, "").substring(0, topic.length() - 2);
+        return topic.substring(0, topic.length() - 2).replaceAll(EMPTY, "");
     }
 
     /**
@@ -49,10 +49,7 @@ public class Topics {
      * @return Original Topic Name or Topic Filter
      */
     public static String antidote(List<String> topicLevels) {
-        StringBuilder builder = new StringBuilder();
-        topicLevels.forEach(builder::append);
-        String topic = builder.toString();
-        return antidote(topic);
+        return antidote(String.join("/", topicLevels));
     }
 
     /**
