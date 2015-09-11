@@ -70,6 +70,15 @@ public class RedisStorageTest {
     }
 
     @Test
+    public void existTest() throws ExecutionException, InterruptedException {
+        assert redis.isClientExist("client1").get() == 0;
+
+        redis.updateClientExist("client1").get();
+
+        assert redis.isClientExist("client1").get() == 1;
+    }
+
+    @Test
     public void subscriptionTest() throws ExecutionException, InterruptedException {
         complete(redis.updateSubscription("client1", true, Topics.sanitizeTopicFilter("a/+/e"), "0"));
         complete(redis.updateSubscription("client1", true, Topics.sanitizeTopicFilter("a/+"), "1"));

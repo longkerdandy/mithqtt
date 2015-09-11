@@ -193,12 +193,12 @@ public class RedisStorage {
     }
 
     /**
-     * Set client (session) exist
+     * Mark client (session) exist
      *
      * @param clientId Client Id
      * @return OK if was executed correctly
      */
-    public RedisFuture<String> setClientExist(String clientId) {
+    public RedisFuture<String> updateClientExist(String clientId) {
         RedisAsyncCommands<String, String> commands = this.conn.async();
         return commands.set(RedisKey.clientExist(clientId), "1");
     }

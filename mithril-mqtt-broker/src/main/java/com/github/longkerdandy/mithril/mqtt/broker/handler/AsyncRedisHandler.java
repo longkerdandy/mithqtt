@@ -350,7 +350,7 @@ public class AsyncRedisHandler extends SimpleChannelInboundHandler<MqttMessage> 
                     this.connected = true;
                     this.registry.saveSession(this.clientId, ctx);
                     this.redis.updateConnectedNodes(this.clientId, this.config.getString("node.id"));
-                    if (exist != 1 && !cleanSession) this.redis.setClientExist(this.clientId);
+                    if (exist != 1 && !cleanSession) this.redis.updateClientExist(this.clientId);
                 });
             }
 
