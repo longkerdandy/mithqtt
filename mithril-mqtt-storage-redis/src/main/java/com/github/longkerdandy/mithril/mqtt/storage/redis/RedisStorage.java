@@ -1,8 +1,7 @@
 package com.github.longkerdandy.mithril.mqtt.storage.redis;
 
 import com.github.longkerdandy.mithril.mqtt.util.Topics;
-import com.lambdaworks.redis.RedisClient;
-import com.lambdaworks.redis.RedisFuture;
+import com.lambdaworks.redis.*;
 import com.lambdaworks.redis.api.StatefulRedisConnection;
 import com.lambdaworks.redis.api.async.RedisAsyncCommands;
 import io.netty.buffer.ByteBuf;
@@ -126,6 +125,19 @@ public class RedisStorage {
     }
 
     /**
+     * Iteration connected clients for the mqtt server node
+     *
+     * @param node   MQTT Server Node
+     * @param cursor Scan Cursor
+     * @param count  Limit
+     * @return Clients and Cursor
+     */
+    public RedisFuture<ValueScanCursor<String>> getConnectedClients(String node, String cursor, long count) {
+        RedisAsyncCommands<String, String> commands = this.conn.async();
+        return commands.sscan(RedisKey.connectedClients(node), ScanCursor.of(cursor), ScanArgs.Builder.limit(count));
+    }
+
+    /**
      * Get connected mqtt server nodes for the client
      * Client may have more than one connected nodes because:
      * Slow detection of tcp disconnected event
@@ -144,11 +156,14 @@ public class RedisStorage {
      *
      * @param clientId Client Id
      * @param node     MQTT Server Node
-     * @return The number of nodes that were added
+     * @return RedisFutures (add to server's clients, add to client's servers)
      */
-    public RedisFuture<Long> updateConnectedNodes(String clientId, String node) {
+    public List<RedisFuture> updateConnectedNodes(String clientId, String node) {
+        List<RedisFuture> list = new ArrayList<>();
         RedisAsyncCommands<String, String> commands = this.conn.async();
-        return commands.sadd(RedisKey.connectedNodes(clientId), node);
+        list.add(commands.sadd(RedisKey.connectedClients(node), clientId));
+        list.add(commands.sadd(RedisKey.connectedNodes(clientId), node));
+        return list;
     }
 
     /**
@@ -156,11 +171,14 @@ public class RedisStorage {
      *
      * @param clientId Client Id
      * @param node     MQTT Server Node
-     * @return The number of nodes that were removed
+     * @return RedisFutures (remove from server's clients, remove from client's servers)
      */
-    public RedisFuture<Long> removeConnectedNodes(String clientId, String node) {
+    public List<RedisFuture> removeConnectedNodes(String clientId, String node) {
+        List<RedisFuture> list = new ArrayList<>();
         RedisAsyncCommands<String, String> commands = this.conn.async();
-        return commands.srem(RedisKey.connectedNodes(clientId), node);
+        list.add(commands.srem(RedisKey.connectedClients(node), clientId));
+        list.add(commands.srem(RedisKey.connectedNodes(clientId), node));
+        return list;
     }
 
     /**

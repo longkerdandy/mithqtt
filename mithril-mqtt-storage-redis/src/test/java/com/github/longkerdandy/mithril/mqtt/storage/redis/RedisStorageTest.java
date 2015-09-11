@@ -2,6 +2,7 @@ package com.github.longkerdandy.mithril.mqtt.storage.redis;
 
 import com.github.longkerdandy.mithril.mqtt.util.Topics;
 import com.lambdaworks.redis.RedisFuture;
+import com.lambdaworks.redis.ValueScanCursor;
 import org.junit.After;
 import org.junit.AfterClass;
 import org.junit.BeforeClass;
@@ -32,6 +33,40 @@ public class RedisStorageTest {
     @AfterClass
     public static void destroy() {
         redis.destroy();
+    }
+
+    @Test
+    public void connectedTest() throws ExecutionException, InterruptedException {
+        complete(redis.updateConnectedNodes("client1", "node1"));
+        complete(redis.updateConnectedNodes("client2", "node1"));
+        complete(redis.updateConnectedNodes("client3", "node1"));
+        complete(redis.updateConnectedNodes("client4", "node2"));
+        complete(redis.updateConnectedNodes("client5", "node2"));
+
+        assert redis.getConnectedNodes("client1").get().contains("node1");
+        assert redis.getConnectedNodes("client2").get().contains("node1");
+        assert redis.getConnectedNodes("client3").get().contains("node1");
+        assert redis.getConnectedNodes("client4").get().contains("node2");
+        assert redis.getConnectedNodes("client5").get().contains("node2");
+
+        ValueScanCursor<String> vcs1 = redis.getConnectedClients("node1", "0", 100).get();
+        assert vcs1.getValues().contains("client1");
+        assert vcs1.getValues().contains("client2");
+        assert vcs1.getValues().contains("client3");
+        ValueScanCursor<String> vcs2 = redis.getConnectedClients("node2", "0", 100).get();
+        assert vcs2.getValues().contains("client4");
+        assert vcs2.getValues().contains("client5");
+
+        complete(redis.removeConnectedNodes("client3", "node1"));
+        complete(redis.removeConnectedNodes("client4", "node1"));   // not exist
+
+        assert redis.getConnectedNodes("client3").get().isEmpty();
+        assert redis.getConnectedNodes("client4").get().contains("node2");
+
+        vcs1 = redis.getConnectedClients("node1", "0", 100).get();
+        assert !vcs1.getValues().contains("client3");
+        vcs2 = redis.getConnectedClients("node2", "0", 100).get();
+        assert vcs2.getValues().contains("client4");
     }
 
     @Test

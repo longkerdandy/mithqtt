@@ -9,6 +9,11 @@ import java.util.List;
  */
 public class RedisKey {
 
+    // Set of server's connected clients
+    public static String connectedClients(String node) {
+        return "server:" + node + ":client";
+    }
+
     // Set of client's connected nodes
     public static String connectedNodes(String clientId) {
         return "client:" + clientId + ":node";
