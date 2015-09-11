@@ -11,9 +11,9 @@ import java.util.UUID;
 /**
  * UUID Utils
  */
-public class UuidUtils {
+public class UUIDs {
 
-    private UuidUtils() {
+    private UUIDs() {
     }
 
     /**

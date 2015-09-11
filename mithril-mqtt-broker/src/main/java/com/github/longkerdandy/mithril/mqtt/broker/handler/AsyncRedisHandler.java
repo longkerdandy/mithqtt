@@ -22,7 +22,7 @@ import java.util.List;
 import java.util.stream.Collectors;
 
 import static com.github.longkerdandy.mithril.mqtt.storage.redis.RedisStorage.mapToMqtt;
-import static com.github.longkerdandy.mithril.mqtt.util.UuidUtils.shortUuid;
+import static com.github.longkerdandy.mithril.mqtt.util.UUIDs.shortUuid;
 
 /**
  * Asynchronous MQTT Handler using Redis
