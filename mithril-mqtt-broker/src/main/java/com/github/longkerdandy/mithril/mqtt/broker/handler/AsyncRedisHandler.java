@@ -122,6 +122,12 @@ public class AsyncRedisHandler extends SimpleChannelInboundHandler<MqttMessage> 
         }
     }
 
+    /**
+     * Handle CONNECT MQTT Message
+     *
+     * @param ctx ChannelHandlerContext
+     * @param msg CONNECT MQTT Message
+     */
     protected void onConnect(ChannelHandlerContext ctx, MqttConnectMessage msg) {
         this.clientId = msg.payload().clientIdentifier();
         this.cleanSession = msg.variableHeader().isCleanSession();
@@ -279,7 +285,12 @@ public class AsyncRedisHandler extends SimpleChannelInboundHandler<MqttMessage> 
                     // Optionally, QoS 0 messages pending transmission to the Client.
                     if (!this.cleanSession) {
                         if (exist == 1) {
-                            // Only care about messages in the session with clean session = 0
+                            // Resend messages in the session with clean session = 0
+                            this.redis.handleAllInFlightMessage(this.clientId, false, map -> {
+                                MqttMessage mqtt = mapToMqtt(map);
+                                this.registry.sendMessage(ctx, mqtt, this.clientId, Integer.parseInt(map.getOrDefault("packetId", "0")), false);
+                            });
+                            /*
                             this.redis.getAllInFlightMessageIds(this.clientId, false).thenAccept(ids -> {
                                 for (String packetId : ids) {
                                     this.redis.getInFlightMessage(this.clientId, Integer.parseInt(packetId)).thenAccept(map -> {
@@ -289,6 +300,7 @@ public class AsyncRedisHandler extends SimpleChannelInboundHandler<MqttMessage> 
                                 }
                                 ctx.flush();
                             });
+                            */
                         }
                     }
                     // If CleanSession is set to 1, the Client and Server MUST discard any previous Session and start a new
@@ -297,7 +309,7 @@ public class AsyncRedisHandler extends SimpleChannelInboundHandler<MqttMessage> 
                     // When CleanSession is set to 1 the Client and Server need not process the deletion of state atomically.
                     else {
                         if (exist == 1) {
-                            // Only care about messages in the session with clean session = 0
+                            // Clear exist and messages|subscriptions in the session with clean session = 0
                             this.redis.getAllInFlightMessageIds(this.clientId, false).thenAccept(ids -> {
                                 List<String> keys = new ArrayList<>();
                                 keys.add(RedisKey.clientExist(this.clientId));
@@ -337,7 +349,7 @@ public class AsyncRedisHandler extends SimpleChannelInboundHandler<MqttMessage> 
                     if (this.keepAlive <= 0 || this.keepAlive > this.config.getInt("mqtt.keepalive.max"))
                         this.keepAlive = this.config.getInt("mqtt.keepalive.default");
 
-                    // Always clear data in the session with clean session = 1
+                    // Always clear messages|subscriptions in the session with clean session = 1
                     this.redis.removeAllSubscriptions(this.clientId, true);
                     this.redis.getAllInFlightMessageIds(this.clientId, true).thenAccept(ids -> {
                         List<String> keys = new ArrayList<>();

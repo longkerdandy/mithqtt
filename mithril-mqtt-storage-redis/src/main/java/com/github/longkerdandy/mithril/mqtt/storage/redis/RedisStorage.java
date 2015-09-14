@@ -10,6 +10,7 @@ import org.apache.commons.lang3.BooleanUtils;
 
 import java.io.UnsupportedEncodingException;
 import java.util.*;
+import java.util.function.Consumer;
 
 import static com.github.longkerdandy.mithril.mqtt.util.Topics.END;
 import static io.netty.buffer.Unpooled.wrappedBuffer;
@@ -230,6 +231,27 @@ public class RedisStorage {
     public RedisFuture<Map<String, String>> getInFlightMessage(String clientId, int packetId) {
         RedisAsyncCommands<String, String> commands = this.conn.async();
         return commands.hgetall(RedisKey.inFlightMessage(clientId, packetId));
+    }
+
+    /**
+     * Get and handle all in-flight message for the client
+     * We separate packet ids with different clean session
+     * Including:
+     * QoS 1 and QoS 2 PUBLISH messages which have been sent to the Client, but have not been acknowledged.
+     * QoS 0, QoS 1 and QoS 2 PUBLISH messages pending transmission to the Client.
+     * QoS 2 PUBREL messages which have been sent from the Client, but have not been acknowledged.
+     *
+     * @param clientId     Client Id
+     * @param cleanSession Clean Session
+     * @param handler      In-flight message handler
+     */
+    public void handleAllInFlightMessage(String clientId, boolean cleanSession, Consumer<Map<String, String>> handler) {
+        RedisAsyncCommands<String, String> commands = this.conn.async();
+        commands.lrange(RedisKey.inFlightList(clientId, cleanSession), 0, -1).thenAccept(ids -> {
+            for (String packetId : ids) {
+                commands.hgetall(RedisKey.inFlightMessage(clientId, Integer.parseInt(packetId))).thenAccept(handler);
+            }
+        });
     }
 
     /**

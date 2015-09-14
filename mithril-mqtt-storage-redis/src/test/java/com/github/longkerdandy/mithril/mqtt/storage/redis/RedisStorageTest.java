@@ -154,7 +154,7 @@ public class RedisStorageTest {
     }
 
     @Test
-    public void matchTopicFilter() throws ExecutionException, InterruptedException {
+    public void matchTopicFilterTest() throws ExecutionException, InterruptedException {
         complete(redis.updateSubscription("client1", true, Topics.sanitizeTopicFilter("a/+/e"), "0"));
         complete(redis.updateSubscription("client1", true, Topics.sanitizeTopicFilter("a/+"), "1"));
         complete(redis.updateSubscription("client1", true, Topics.sanitizeTopicFilter("a/c/f/#"), "2"));
@@ -173,19 +173,35 @@ public class RedisStorageTest {
         match(Topics.sanitizeTopicName("a/c/f"), 0, result);
         assert result.get("client1").equals("2");
         assert result.get("client2").equals("0");
+
+        result.clear();
+        match(Topics.sanitizeTopicName("a/d/e"), 0, result);
+        assert result.get("client1").equals("0");
+        assert result.containsKey("client2");
+
+        result.clear();
+        match(Topics.sanitizeTopicName("a/b/c/d"), 0, result);
+        assert !result.containsKey("client1");
+        assert result.get("client2").equals("0");
     }
 
     @After
-    public void clear() {
-        redis.conn.sync().flushdb();
+    public void clear() throws ExecutionException, InterruptedException {
+        redis.conn.async().flushdb().get();
     }
 
+    /**
+     * Wait asynchronous tasks completed
+     */
     protected void complete(List<RedisFuture> futures) throws InterruptedException {
         for (RedisFuture future : futures) {
             future.await(10, TimeUnit.SECONDS);
         }
     }
 
+    /**
+     * Traverse topic tree, find all matched subscribers
+     */
     protected void match(List<String> topicLevels, int index, Map<String, String> result) throws ExecutionException, InterruptedException {
         List<String> children = redis.matchTopicFilterLevel(topicLevels, index).get();
         // last one
@@ -196,7 +212,7 @@ public class RedisStorageTest {
                 result.putAll(redis.getTopicSubscriptions(topicLevels).get());
             }
             if (s > 0) {
-                List<String> newTopicLevels = topicLevels.subList(0, index);
+                List<String> newTopicLevels = new ArrayList<>(topicLevels.subList(0, index));
                 newTopicLevels.add("#");
                 newTopicLevels.add(END);
                 result.putAll(redis.getTopicSubscriptions(newTopicLevels).get());
@@ -211,7 +227,7 @@ public class RedisStorageTest {
                 match(topicLevels, index + 1, result);
             }
             if (s > 0) {
-                List<String> newTopicLevels = topicLevels.subList(0, index);
+                List<String> newTopicLevels = new ArrayList<>(topicLevels.subList(0, index));
                 newTopicLevels.add("#");
                 newTopicLevels.add(END);
                 result.putAll(redis.getTopicSubscriptions(newTopicLevels).get());
@@ -219,7 +235,7 @@ public class RedisStorageTest {
             if (p > 0) {
                 List<String> newTopicLevels = new ArrayList<>(topicLevels);
                 newTopicLevels.set(index, "+");
-                match(topicLevels, index + 1, result);
+                match(newTopicLevels, index + 1, result);
             }
         }
     }
