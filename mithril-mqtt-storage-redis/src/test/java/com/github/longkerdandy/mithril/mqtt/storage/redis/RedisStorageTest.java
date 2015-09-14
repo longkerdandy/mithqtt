@@ -1,13 +1,18 @@
 package com.github.longkerdandy.mithril.mqtt.storage.redis;
 
+import com.fasterxml.jackson.databind.JsonNode;
+import com.github.longkerdandy.mithril.mqtt.storage.redis.util.JSONs;
 import com.github.longkerdandy.mithril.mqtt.util.Topics;
 import com.lambdaworks.redis.RedisFuture;
 import com.lambdaworks.redis.ValueScanCursor;
+import io.netty.buffer.Unpooled;
+import io.netty.handler.codec.mqtt.*;
 import org.junit.After;
 import org.junit.AfterClass;
 import org.junit.BeforeClass;
 import org.junit.Test;
 
+import java.io.IOException;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
@@ -15,6 +20,8 @@ import java.util.Map;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.TimeUnit;
 
+import static com.github.longkerdandy.mithril.mqtt.storage.redis.RedisStorage.mapToMqtt;
+import static com.github.longkerdandy.mithril.mqtt.storage.redis.RedisStorage.mqttToMap;
 import static com.github.longkerdandy.mithril.mqtt.util.Topics.END;
 
 /**
@@ -76,6 +83,38 @@ public class RedisStorageTest {
         redis.markClientExist("client1").get();
 
         assert redis.isClientExist("client1").get() == 1;
+    }
+
+    @Test
+    public void inFlightTest() throws IOException, InterruptedException, ExecutionException {
+        String json = "{\"menu\": {\n" +
+                "  \"id\": \"file\",\n" +
+                "  \"value\": \"File\",\n" +
+                "  \"popup\": {\n" +
+                "    \"menuitem\": [\n" +
+                "      {\"value\": \"New\", \"onclick\": \"CreateNewDoc()\"},\n" +
+                "      {\"value\": \"Open\", \"onclick\": \"OpenDoc()\"},\n" +
+                "      {\"value\": \"Close\", \"onclick\": \"CloseDoc()\"}\n" +
+                "    ]\n" +
+                "  }\n" +
+                "}}";
+        JsonNode jn = JSONs.ObjectMapper.readTree(json);
+        MqttMessage mqtt = MqttMessageFactory.newMessage(
+                new MqttFixedHeader(MqttMessageType.PUBLISH, false, MqttQoS.AT_LEAST_ONCE, false, 0),
+                new MqttPublishVariableHeader("menuTopic", 123456),
+                Unpooled.wrappedBuffer(JSONs.ObjectMapper.writeValueAsBytes(jn))
+        );
+
+        complete(redis.addInFlightMessage("client1", true, 123456, mqttToMap(mqtt)));
+        mqtt = mapToMqtt(redis.getInFlightMessage("client1", 123456).get());
+
+        assert mqtt.fixedHeader().messageType() == MqttMessageType.PUBLISH;
+        assert !mqtt.fixedHeader().isDup();
+        assert mqtt.fixedHeader().qosLevel() == MqttQoS.AT_LEAST_ONCE;
+        assert !mqtt.fixedHeader().isRetain();
+        assert mqtt.fixedHeader().remainingLength() == 0;
+        assert ((MqttPublishVariableHeader) mqtt.variableHeader()).topicName().equals("menuTopic");
+        assert ((MqttPublishVariableHeader) mqtt.variableHeader()).messageId() == 123456;
     }
 
     @Test

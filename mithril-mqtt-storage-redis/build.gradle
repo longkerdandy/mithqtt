@@ -4,4 +4,8 @@ dependencies {
 
     // netty
     compile 'biz.paluch.redis:lettuce:4.0.Beta2'
+
+    // json
+    testCompile 'com.fasterxml.jackson.core:jackson-core:2.6.1'
+    testCompile 'com.fasterxml.jackson.core:jackson-databind:2.6.1'
 }
