@@ -51,6 +51,7 @@ public class RedisKey {
     public static String topicName(List<String> topicLevels) {
         return "topic:n:" + String.join("/", topicLevels);
     }
+
     // Hash of topic name's subscriptions
     // Key - Client Id (which subscribed to this topic name)
     // Value - QoS Level

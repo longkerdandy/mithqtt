@@ -5,6 +5,7 @@ import com.github.longkerdandy.mithril.mqtt.storage.redis.util.JSONs;
 import com.github.longkerdandy.mithril.mqtt.util.Topics;
 import com.lambdaworks.redis.RedisFuture;
 import com.lambdaworks.redis.ValueScanCursor;
+import io.netty.buffer.ByteBuf;
 import io.netty.buffer.Unpooled;
 import io.netty.handler.codec.mqtt.*;
 import org.junit.After;
@@ -91,7 +92,7 @@ public class RedisStorageTest {
                 "  \"id\": \"file\",\n" +
                 "  \"value\": \"File\",\n" +
                 "  \"popup\": {\n" +
-                "    \"menuitem\": [\n" +
+                "    \"menuItem\": [\n" +
                 "      {\"value\": \"New\", \"onclick\": \"CreateNewDoc()\"},\n" +
                 "      {\"value\": \"Open\", \"onclick\": \"OpenDoc()\"},\n" +
                 "      {\"value\": \"Close\", \"onclick\": \"CloseDoc()\"}\n" +
@@ -115,6 +116,22 @@ public class RedisStorageTest {
         assert mqtt.fixedHeader().remainingLength() == 0;
         assert ((MqttPublishVariableHeader) mqtt.variableHeader()).topicName().equals("menuTopic");
         assert ((MqttPublishVariableHeader) mqtt.variableHeader()).messageId() == 123456;
+        jn = JSONs.ObjectMapper.readTree(((ByteBuf) mqtt.payload()).array());
+        assert jn.get("menu").get("id").textValue().endsWith("file");
+        assert jn.get("menu").get("value").textValue().endsWith("File");
+        assert jn.get("menu").get("popup").get("menuItem").get(0).get("value").textValue().equals("New");
+        assert jn.get("menu").get("popup").get("menuItem").get(0).get("onclick").textValue().equals("CreateNewDoc()");
+        assert jn.get("menu").get("popup").get("menuItem").get(1).get("value").textValue().equals("Open");
+        assert jn.get("menu").get("popup").get("menuItem").get(1).get("onclick").textValue().equals("OpenDoc()");
+        assert jn.get("menu").get("popup").get("menuItem").get(2).get("value").textValue().equals("Close");
+        assert jn.get("menu").get("popup").get("menuItem").get(2).get("onclick").textValue().equals("CloseDoc()");
+
+        assert redis.getAllInFlightMessageIds("client1", true).get().contains("123456");
+
+        complete(redis.removeInFlightMessage("client1", true, 123456));
+
+        assert redis.getInFlightMessage("client1", 123456).get().isEmpty();
+        assert !redis.getAllInFlightMessageIds("client1", true).get().contains("123456");
     }
 
     @Test

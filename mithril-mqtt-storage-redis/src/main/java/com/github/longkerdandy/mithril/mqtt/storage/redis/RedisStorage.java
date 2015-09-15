@@ -37,6 +37,8 @@ public class RedisStorage {
      * @return MqttMessage
      */
     public static MqttMessage mapToMqtt(Map<String, String> map) {
+        if (map == null || map.isEmpty()) return null;
+
         int type = Integer.parseInt(map.get("type"));
         if (type == MqttMessageType.PUBLISH.value()) {
             byte[] payload = null;
@@ -79,8 +81,10 @@ public class RedisStorage {
      * @return Map
      */
     public static Map<String, String> mqttToMap(MqttMessage msg) {
+        Map<String, String> map = new HashMap<>();
+        if (msg == null) return map;
+
         if (msg.fixedHeader().messageType() == MqttMessageType.PUBLISH) {
-            Map<String, String> map = new HashMap<>();
             map.put("type", String.valueOf(MqttMessageType.PUBLISH.value()));
             map.put("retain", BooleanUtils.toString(msg.fixedHeader().isRetain(), "1", "0"));
             map.put("qos", String.valueOf(msg.fixedHeader().qosLevel().value()));
@@ -93,7 +97,6 @@ public class RedisStorage {
             }
             return map;
         } else if (msg.fixedHeader().messageType() == MqttMessageType.PUBREL) {
-            Map<String, String> map = new HashMap<>();
             map.put("type", String.valueOf(MqttMessageType.PUBREL.value()));
             map.put("qos", "1");
             map.put("packetId", String.valueOf(((MqttPublishVariableHeader) msg.variableHeader()).messageId()));
