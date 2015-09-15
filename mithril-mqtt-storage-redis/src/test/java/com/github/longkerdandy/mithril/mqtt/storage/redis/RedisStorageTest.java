@@ -87,6 +87,17 @@ public class RedisStorageTest {
     }
 
     @Test
+    public void packetIdTest() throws ExecutionException, InterruptedException {
+        assert redis.getNextPacketId("client1").get() == 1;
+        assert redis.getNextPacketId("client1").get() == 2;
+        assert redis.getNextPacketId("client1").get() == 3;
+
+        assert redis.resetNextPacketId("client1").get().equals("3");
+
+        assert redis.getNextPacketId("client1").get() == 1;
+    }
+
+    @Test
     public void inFlightTest() throws IOException, InterruptedException, ExecutionException {
         String json = "{\"menu\": {\n" +
                 "  \"id\": \"file\",\n" +
@@ -187,17 +198,17 @@ public class RedisStorageTest {
         assert redis.getTopicSubscriptions(Topics.sanitizeTopicFilter("a/d/#")).get().get("client2").equals("2");
 
         Map<String, String> result = new HashMap<>();
-        match(Topics.sanitizeTopicName("a/c/f"), 0, result);
+        getMatchFilterSubscriptions(Topics.sanitizeTopicName("a/c/f"), 0, result);
         assert result.get("client1").equals("2");
         assert result.get("client2").equals("0");
 
         result.clear();
-        match(Topics.sanitizeTopicName("a/d/e"), 0, result);
+        getMatchFilterSubscriptions(Topics.sanitizeTopicName("a/d/e"), 0, result);
         assert result.get("client1").equals("0");
         assert result.containsKey("client2");
 
         result.clear();
-        match(Topics.sanitizeTopicName("a/b/c/d"), 0, result);
+        getMatchFilterSubscriptions(Topics.sanitizeTopicName("a/b/c/d"), 0, result);
         assert !result.containsKey("client1");
         assert result.get("client2").equals("0");
     }
@@ -219,8 +230,8 @@ public class RedisStorageTest {
     /**
      * Traverse topic tree, find all matched subscribers
      */
-    protected void match(List<String> topicLevels, int index, Map<String, String> result) throws ExecutionException, InterruptedException {
-        List<String> children = redis.matchTopicFilterLevel(topicLevels, index).get();
+    protected void getMatchFilterSubscriptions(List<String> topicLevels, int index, Map<String, String> result) throws ExecutionException, InterruptedException {
+        List<String> children = redis.getMatchTopicFilter(topicLevels, index).get();
         // last one
         if (children.size() == 2) {
             int c = children.get(0) == null ? 0 : Integer.parseInt(children.get(0)); // char
@@ -241,7 +252,7 @@ public class RedisStorageTest {
             int s = children.get(1) == null ? 0 : Integer.parseInt(children.get(1)); // #
             int p = children.get(2) == null ? 0 : Integer.parseInt(children.get(2)); // +
             if (c > 0) {
-                match(topicLevels, index + 1, result);
+                getMatchFilterSubscriptions(topicLevels, index + 1, result);
             }
             if (s > 0) {
                 List<String> newTopicLevels = new ArrayList<>(topicLevels.subList(0, index));
@@ -252,7 +263,7 @@ public class RedisStorageTest {
             if (p > 0) {
                 List<String> newTopicLevels = new ArrayList<>(topicLevels);
                 newTopicLevels.set(index, "+");
-                match(newTopicLevels, index + 1, result);
+                getMatchFilterSubscriptions(newTopicLevels, index + 1, result);
             }
         }
     }

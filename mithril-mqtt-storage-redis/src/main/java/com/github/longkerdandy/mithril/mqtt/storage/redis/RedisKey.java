@@ -26,6 +26,11 @@ public class RedisKey {
         return "client:" + clientId + ":exist";
     }
 
+    // Key indicates next packet id for the client
+    public static String nextPacketId(String clientId) {
+        return "client:" + clientId + ":pid";
+    }
+
     // List of client's in-flight messages' packet id
     // Value - MQTT Message's Packet Id in order
     public static String inFlightList(String clientId, boolean cleanSession) {

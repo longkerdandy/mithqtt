@@ -7,6 +7,7 @@ import com.github.longkerdandy.mithril.mqtt.broker.session.SessionRegistry;
 import com.github.longkerdandy.mithril.mqtt.broker.util.Validator;
 import com.github.longkerdandy.mithril.mqtt.storage.redis.RedisKey;
 import com.github.longkerdandy.mithril.mqtt.storage.redis.RedisStorage;
+import com.github.longkerdandy.mithril.mqtt.util.Topics;
 import io.netty.channel.ChannelHandlerContext;
 import io.netty.channel.SimpleChannelInboundHandler;
 import io.netty.handler.codec.mqtt.*;
@@ -383,8 +384,120 @@ public class AsyncRedisHandler extends SimpleChannelInboundHandler<MqttMessage> 
         });
     }
 
+    /**
+     * Handle CONNECT MQTT Message
+     *
+     * @param ctx ChannelHandlerContext
+     * @param msg CONNECT MQTT Message
+     */
     protected void onPublish(ChannelHandlerContext ctx, MqttPublishMessage msg) {
+        if (!this.connected) {
+            logger.trace("Protocol violation: Client {} must first sent a CONNECT message, now received PUBLISH message, disconnect the client", this.clientId);
+            ctx.close();
+            return;
+        }
 
+        boolean dup = msg.fixedHeader().isDup();
+        MqttQoS qos = msg.fixedHeader().qosLevel();
+        boolean retain = msg.fixedHeader().isRetain();
+        String topicName = msg.variableHeader().topicName();
+        List<String> topicLevels = Topics.sanitizeTopicName(topicName);
+        int packetId = msg.variableHeader().messageId();
+
+        // Authorize client publish using provided Authenticator
+        this.authenticator.authPublish(this.clientId, this.userName, topicName, qos.value(), retain).thenAccept(result -> {
+
+                    // Authorize successful
+                    if (result == AuthorizeResult.OK) {
+                        logger.trace("Authorization Success: For client {}", this.clientId);
+
+                        // The Server uses a PUBLISH Packet to send an Application Message to each Client which has a
+                        // matching subscription.
+                        // When Clients make subscriptions with Topic Filters that include wildcards, it is possible for a Client’s
+                        // subscriptions to overlap so that a published message might match multiple filters. In this case the Server
+                        // MUST deliver the message to the Client respecting the maximum QoS of all the matching subscriptions.
+                        // In addition, the Server MAY deliver further copies of the message, one for each
+                        // additional matching subscription and respecting the subscription’s QoS in each case.
+                        this.redis.handleMatchSubscriptions(topicLevels, 0, map -> {
+                            // loop subscriptions
+                            map.forEach((sClientId, sQos) -> {
+                                // generate next packet id
+                                this.redis.getNextPacketId(sClientId).thenAccept(sPacketId -> {
+                                    if (sPacketId >= 6000) {
+                                        // if > 60000, reset packet id
+                                        this.redis.resetNextPacketId(sClientId).thenAccept(sResetPacketId -> {
+                                            // PUBLISH message for the subscriber
+                                            MqttMessage sMsg = MqttMessageFactory.newMessage(
+                                                    new MqttFixedHeader(MqttMessageType.PUBLISH, false, MqttQoS.valueOf(Integer.valueOf(sQos)), false, 0),
+                                                    new MqttPublishVariableHeader(topicName, Integer.valueOf(sResetPacketId) + 1),
+                                                    msg.payload().duplicate());
+                                            // get subscriber's connected node
+                                            this.redis.getConnectedNodes(sClientId).thenAccept(nodes -> {
+                                                // loop and send to each node
+                                                nodes.forEach(node -> {
+                                                    if (node.equals(this.config.getString("node.id"))) {
+                                                        this.registry.sendMessage(sMsg, sClientId, Integer.valueOf(sResetPacketId) + 1, true);
+                                                    } else {
+                                                        this.communicator.oneToOne(node, sMsg, null);
+                                                    }
+                                                });
+                                            });
+                                        });
+                                    } else {
+                                        // PUBLISH message for the subscriber
+                                        MqttMessage sMsg = MqttMessageFactory.newMessage(
+                                                new MqttFixedHeader(MqttMessageType.PUBLISH, false, MqttQoS.valueOf(Integer.valueOf(sQos)), false, 0),
+                                                new MqttPublishVariableHeader(topicName, sPacketId.intValue()),
+                                                msg.payload().duplicate());
+                                        // get subscriber's connected node
+                                        this.redis.getConnectedNodes(sClientId).thenAccept(nodes -> {
+                                            // loop and send to each node
+                                            nodes.forEach(node -> {
+                                                if (node.equals(this.config.getString("node.id"))) {
+                                                    this.registry.sendMessage(sMsg, sClientId, sPacketId.intValue(), true);
+                                                } else {
+                                                    this.communicator.oneToOne(node, sMsg, null);
+                                                }
+                                            });
+                                        });
+                                    }
+                                });
+                            });
+                        });
+                    }
+                }
+        );
+
+        // QoS Level Expected Response
+        // QoS 0     None
+        // QoS 1     PUBACK Packet
+        // QoS 2     PUBREC Packet
+        // If a Server implementation does not authorize a PUBLISH to be performed by a Client; it has no way of
+        // informing that Client. It MUST either make a positive acknowledgement, according to the normal QoS
+        // rules, or close the Network Connection
+        if (qos == MqttQoS.AT_LEAST_ONCE) {
+            logger.trace("Response: Send PUBACK back to client {}", this.clientId);
+            this.registry.sendMessage(
+                    ctx,
+                    MqttMessageFactory.newMessage(
+                            new MqttFixedHeader(MqttMessageType.PUBACK, false, MqttQoS.AT_MOST_ONCE, false, 0),
+                            MqttMessageIdVariableHeader.from(packetId),
+                            null),
+                    this.clientId,
+                    null,
+                    true);
+        } else if (qos == MqttQoS.EXACTLY_ONCE) {
+            logger.trace("Response: Send PUBREC back to client {}", this.clientId);
+            this.registry.sendMessage(
+                    ctx,
+                    MqttMessageFactory.newMessage(
+                            new MqttFixedHeader(MqttMessageType.PUBREC, false, MqttQoS.AT_MOST_ONCE, false, 0),
+                            MqttMessageIdVariableHeader.from(packetId),
+                            null),
+                    this.clientId,
+                    null,
+                    true);
+        }
     }
 
     protected void onPubAck(ChannelHandlerContext ctx, MqttMessage msg) {

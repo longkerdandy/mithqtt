@@ -208,6 +208,28 @@ public class RedisStorage {
     }
 
     /**
+     * Get next packet id for the client
+     *
+     * @param clientId Client Id
+     * @return Next Packet Id
+     */
+    public RedisFuture<Long> getNextPacketId(String clientId) {
+        RedisAsyncCommands<String, String> commands = this.conn.async();
+        return commands.incr(RedisKey.nextPacketId(clientId));
+    }
+
+    /**
+     * Reset next packet id for the client, return current packet id
+     *
+     * @param clientId Client Id
+     * @return Current Packet Id
+     */
+    public RedisFuture<String> resetNextPacketId(String clientId) {
+        RedisAsyncCommands<String, String> commands = this.conn.async();
+        return commands.getset(RedisKey.nextPacketId(clientId), "0");
+    }
+
+    /**
      * Get all in-flight message's packet ids for the client
      * We separate packet ids with different clean session
      * Including:
@@ -402,19 +424,71 @@ public class RedisStorage {
     }
 
     /**
-     * Find the matching children from the topic filter tree
+     * Get possible topic filter tree nodes matching the topic
      * Topic Levels must be sanitized using Topics
      *
      * @param topicLevels List of topic levels
      * @param index       Current match level
      * @return Possible matching children
      */
-    public RedisFuture<List<String>> matchTopicFilterLevel(List<String> topicLevels, int index) {
+    protected RedisFuture<List<String>> getMatchTopicFilter(List<String> topicLevels, int index) {
         RedisAsyncCommands<String, String> commands = this.conn.async();
         if (index == topicLevels.size() - 1) {
             return commands.hmget(RedisKey.topicFilterChild(topicLevels.subList(0, index)), END, "#");
         } else {
             return commands.hmget(RedisKey.topicFilterChild(topicLevels.subList(0, index)), topicLevels.get(index), "#", "+");
         }
+    }
+
+    /**
+     * Get and handle all topic subscriptions matching the topic
+     * This is a recursion method
+     * Topic Levels must be sanitized using Topics
+     *
+     * @param topicLevels List of topic levels
+     * @param index       Current match level (use 0 if you have doubt)
+     * @param handler     Subscriptions Handler (Key - Client Id, Value - QoS Level)
+     */
+    public void handleMatchSubscriptions(List<String> topicLevels, int index, Consumer<Map<String, String>> handler) {
+        // topic name
+        if (index == 0) getTopicSubscriptions(topicLevels).thenAccept(handler);
+
+        // topic filter
+        getMatchTopicFilter(topicLevels, index).thenAccept(children -> {
+            // last one
+            if (children.size() == 2) {
+                int c = children.get(0) == null ? 0 : Integer.parseInt(children.get(0)); // char
+                int s = children.get(1) == null ? 0 : Integer.parseInt(children.get(1)); // #
+                if (c > 0) {
+                    getTopicSubscriptions(topicLevels).thenAccept(handler);
+                }
+                if (s > 0) {
+                    List<String> newTopicLevels = new ArrayList<>(topicLevels.subList(0, index));
+                    newTopicLevels.add("#");
+                    newTopicLevels.add(END);
+                    getTopicSubscriptions(newTopicLevels).thenAccept(handler);
+                }
+            }
+            // not last one
+            else if (children.size() == 3) {
+                int c = children.get(0) == null ? 0 : Integer.parseInt(children.get(0)); // char
+                int s = children.get(1) == null ? 0 : Integer.parseInt(children.get(1)); // #
+                int p = children.get(2) == null ? 0 : Integer.parseInt(children.get(2)); // +
+                if (c > 0) {
+                    handleMatchSubscriptions(topicLevels, index + 1, handler);
+                }
+                if (s > 0) {
+                    List<String> newTopicLevels = new ArrayList<>(topicLevels.subList(0, index));
+                    newTopicLevels.add("#");
+                    newTopicLevels.add(END);
+                    getTopicSubscriptions(newTopicLevels).thenAccept(handler);
+                }
+                if (p > 0) {
+                    List<String> newTopicLevels = new ArrayList<>(topicLevels);
+                    newTopicLevels.set(index, "+");
+                    handleMatchSubscriptions(newTopicLevels, index + 1, handler);
+                }
+            }
+        });
     }
 }

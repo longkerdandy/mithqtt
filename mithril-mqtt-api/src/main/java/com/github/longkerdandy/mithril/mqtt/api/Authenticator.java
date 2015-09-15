@@ -26,5 +26,5 @@ public interface Authenticator {
      * @param qos       QoS Level
      * @return Authorize Result
      */
-    CompletableFuture<AuthorizeResult> authPublish(String clientId, String userName, String topicName, String qos);
+    CompletableFuture<AuthorizeResult> authPublish(String clientId, String userName, String topicName, int qos, boolean retain);
 }

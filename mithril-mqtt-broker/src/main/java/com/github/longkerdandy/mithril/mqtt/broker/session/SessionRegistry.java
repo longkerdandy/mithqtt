@@ -54,6 +54,23 @@ public class SessionRegistry {
     }
 
     /**
+     * Send MQTT message to specific client
+     *
+     * @param msg      MQTT Message to be sent
+     * @param clientId Client Id
+     * @param packetId Packet Id
+     * @param flush    Flush?
+     */
+    public void sendMessage(MqttMessage msg, String clientId, Integer packetId, boolean flush) {
+        String pid = packetId == null || packetId <= 0 ? "" : String.valueOf(packetId);
+        ChannelHandlerContext ctx = getSession(clientId);
+        if (ctx == null) {
+            logger.trace("Message {} {} failed to send to {}: Client session not exist", msg.fixedHeader().messageType(), pid, clientId);
+        }
+        sendMessage(ctx, msg, clientId, packetId, flush);
+    }
+
+    /**
      * Send MQTT message to specific session
      *
      * @param ctx      ChannelHandlerContext as Session
@@ -69,16 +86,9 @@ public class SessionRegistry {
             @Override
             public void operationComplete(ChannelFuture future) throws Exception {
                 if (future.isSuccess()) {
-                    logger.debug("Message {} {} has been sent to {} successfully",
-                            msg.fixedHeader().messageType(),
-                            pid,
-                            clientId);
+                    logger.debug("Message {} {} has been sent to {} successfully", msg.fixedHeader().messageType(), pid, clientId);
                 } else {
-                    logger.debug("Message {} {} failed to send to {}: {}",
-                            msg.fixedHeader().messageType(),
-                            pid,
-                            clientId,
-                            ExceptionUtils.getMessage(future.cause()));
+                    logger.debug("Message {} {} failed to send to {}: {}", msg.fixedHeader().messageType(), pid, clientId, ExceptionUtils.getMessage(future.cause()));
                 }
             }
         });
