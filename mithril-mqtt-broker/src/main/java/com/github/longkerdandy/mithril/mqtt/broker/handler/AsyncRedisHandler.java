@@ -23,6 +23,7 @@ import java.util.List;
 import java.util.stream.Collectors;
 
 import static com.github.longkerdandy.mithril.mqtt.storage.redis.RedisStorage.mapToMqtt;
+import static com.github.longkerdandy.mithril.mqtt.storage.redis.RedisStorage.mqttToMap;
 import static com.github.longkerdandy.mithril.mqtt.util.UUIDs.shortUuid;
 
 /**
@@ -247,27 +248,30 @@ public class AsyncRedisHandler extends SimpleChannelInboundHandler<MqttMessage> 
 
                     // If the ClientId represents a Client already connected to the Server then the Server MUST
                     // disconnect the existing Client
-                    this.redis.getConnectedNodes(this.clientId).thenAccept(nodes -> {
-                        // Disconnect local node
-                        if (nodes.contains(this.config.getString("node.id"))) {
-                            nodes.remove(this.config.getString("node.id"));
-                            ChannelHandlerContext lastSession = this.registry.getSession(this.clientId);
-                            if (lastSession != null) {
-                                logger.trace("Disconnect Existed: Disconnect existed client {} from local node {}", this.clientId, this.config.getString("node.id"));
-                                lastSession.close();
-                                this.registry.removeSession(this.clientId, lastSession);
+                    this.redis.getConnectedNode(this.clientId).thenAccept(node -> {
+                        if (StringUtils.isNotBlank(node)) {
+                            if (node.equals(this.config.getString("node.id"))) {
+                                logger.trace("Disconnect Exist: Try to disconnect exist client {} from local node {}", this.clientId, this.config.getString("node.id"));
+                                ChannelHandlerContext lastSession = this.registry.getSession(this.clientId);
+                                if (lastSession != null) {
+                                    lastSession.close();
+                                    this.registry.removeSession(this.clientId, lastSession);
+                                }
+                            } else {
+                                logger.trace("Disconnect Exist: Try to disconnect exist client {} from remote node {}", this.clientId, node);
+                                this.communicator.oneToOne(node,
+                                        MqttMessageFactory.newMessage(
+                                                new MqttFixedHeader(MqttMessageType.DISCONNECT, false, MqttQoS.AT_MOST_ONCE, false, 0),
+                                                null,
+                                                null
+                                        ),
+                                        new HashMap<String, Object>() {{
+                                            put("clientId", clientId);
+                                            put("userName", userName);
+                                            put("cleanSession", cleanSession);
+                                        }});
                             }
                         }
-                        // Disconnect remote nodes
-                        this.communicator.oneToMany(nodes,
-                                MqttMessageFactory.newMessage(
-                                        new MqttFixedHeader(MqttMessageType.DISCONNECT, false, MqttQoS.AT_MOST_ONCE, false, 0),
-                                        null,
-                                        null
-                                ),
-                                new HashMap<String, String>() {{
-                                    put("clientId", clientId);
-                                }});
                     });
 
                     // If CleanSession is set to 0, the Server MUST resume communications with the Client based on state from
@@ -362,7 +366,7 @@ public class AsyncRedisHandler extends SimpleChannelInboundHandler<MqttMessage> 
                     // Save connection state, add to local registry and remote storage
                     this.connected = true;
                     this.registry.saveSession(this.clientId, ctx);
-                    this.redis.addConnectedNodes(this.clientId, this.config.getString("node.id"));
+                    this.redis.updateConnectedNode(this.clientId, this.config.getString("node.id"));
                     if (exist != 1 && !cleanSession) this.redis.markClientExist(this.clientId);
                 });
             }
@@ -409,7 +413,12 @@ public class AsyncRedisHandler extends SimpleChannelInboundHandler<MqttMessage> 
 
                     // Authorize successful
                     if (result == AuthorizeResult.OK) {
-                        logger.trace("Authorization Success: For client {}", this.clientId);
+                        logger.trace("Authorization Success: Client {} authorized to publish to topic {}", this.clientId, topicName);
+
+
+                        if (qos == MqttQoS.EXACTLY_ONCE) {
+
+                        }
 
                         // The Server uses a PUBLISH Packet to send an Application Message to each Client which has a
                         // matching subscription.
@@ -418,52 +427,31 @@ public class AsyncRedisHandler extends SimpleChannelInboundHandler<MqttMessage> 
                         // MUST deliver the message to the Client respecting the maximum QoS of all the matching subscriptions.
                         // In addition, the Server MAY deliver further copies of the message, one for each
                         // additional matching subscription and respecting the subscription’s QoS in each case.
-                        this.redis.handleMatchSubscriptions(topicLevels, 0, map -> {
-                            // loop subscriptions
-                            map.forEach((sClientId, sQos) -> {
-                                // generate next packet id
+                        this.redis.handleMatchSubscriptions(topicLevels, 0, map -> map.forEach((sClientId, sQos) ->
                                 this.redis.getNextPacketId(sClientId).thenAccept(sPacketId -> {
-                                    if (sPacketId >= 6000) {
-                                        // if > 60000, reset packet id
-                                        this.redis.resetNextPacketId(sClientId).thenAccept(sResetPacketId -> {
-                                            // PUBLISH message for the subscriber
-                                            MqttMessage sMsg = MqttMessageFactory.newMessage(
-                                                    new MqttFixedHeader(MqttMessageType.PUBLISH, false, MqttQoS.valueOf(Integer.valueOf(sQos)), false, 0),
-                                                    new MqttPublishVariableHeader(topicName, Integer.valueOf(sResetPacketId) + 1),
-                                                    msg.payload().duplicate());
-                                            // get subscriber's connected node
-                                            this.redis.getConnectedNodes(sClientId).thenAccept(nodes -> {
-                                                // loop and send to each node
-                                                nodes.forEach(node -> {
-                                                    if (node.equals(this.config.getString("node.id"))) {
-                                                        this.registry.sendMessage(sMsg, sClientId, Integer.valueOf(sResetPacketId) + 1, true);
-                                                    } else {
-                                                        this.communicator.oneToOne(node, sMsg, null);
-                                                    }
-                                                });
-                                            });
-                                        });
-                                    } else {
-                                        // PUBLISH message for the subscriber
-                                        MqttMessage sMsg = MqttMessageFactory.newMessage(
-                                                new MqttFixedHeader(MqttMessageType.PUBLISH, false, MqttQoS.valueOf(Integer.valueOf(sQos)), false, 0),
-                                                new MqttPublishVariableHeader(topicName, sPacketId.intValue()),
-                                                msg.payload().duplicate());
-                                        // get subscriber's connected node
-                                        this.redis.getConnectedNodes(sClientId).thenAccept(nodes -> {
-                                            // loop and send to each node
-                                            nodes.forEach(node -> {
-                                                if (node.equals(this.config.getString("node.id"))) {
-                                                    this.registry.sendMessage(sMsg, sClientId, sPacketId.intValue(), true);
-                                                } else {
-                                                    this.communicator.oneToOne(node, sMsg, null);
-                                                }
-                                            });
-                                        });
+
+                                    // PUBLISH message for the subscriber
+                                    MqttMessage sMsg = MqttMessageFactory.newMessage(
+                                            new MqttFixedHeader(MqttMessageType.PUBLISH, false, MqttQoS.valueOf(Integer.valueOf(sQos)), false, 0),
+                                            new MqttPublishVariableHeader(topicName, sPacketId.intValue()),
+                                            msg.payload().duplicate());
+
+                                    // Store In-Flight PUBLISH message
+                                    if (qos == MqttQoS.AT_LEAST_ONCE || qos == MqttQoS.EXACTLY_ONCE) {
+                                        this.redis.addInFlightMessage(this.clientId, this.cleanSession, sPacketId.intValue(), mqttToMap(sMsg));
                                     }
-                                });
-                            });
-                        });
+
+                                    // Send to subscriber's connected node
+                                    this.redis.getConnectedNode(sClientId).thenAccept(node -> {
+                                        if (StringUtils.isNotBlank(node)) {
+                                            if (node.equals(this.config.getString("node.id"))) {
+                                                this.registry.sendMessage(sMsg, sClientId, sPacketId.intValue(), true);
+                                            } else {
+                                                this.communicator.oneToOne(node, sMsg, null);
+                                            }
+                                        }
+                                    });
+                                })));
                     }
                 }
         );

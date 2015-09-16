@@ -9,7 +9,10 @@ import io.netty.handler.codec.mqtt.*;
 import org.apache.commons.lang3.BooleanUtils;
 
 import java.io.UnsupportedEncodingException;
-import java.util.*;
+import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
 import java.util.function.Consumer;
 
 import static com.github.longkerdandy.mithril.mqtt.util.Topics.END;
@@ -142,31 +145,28 @@ public class RedisStorage {
     }
 
     /**
-     * Get connected mqtt server nodes for the client
-     * Client may have more than one connected nodes because:
-     * Slow detection of tcp disconnected event
-     * Clients use the the same client id
+     * Get connected mqtt broker node for the client
      *
      * @param clientId Client Id
-     * @return MQTT Server Nodes
+     * @return MQTT Broker Node
      */
-    public RedisFuture<Set<String>> getConnectedNodes(String clientId) {
+    public RedisFuture<String> getConnectedNode(String clientId) {
         RedisAsyncCommands<String, String> commands = this.conn.async();
-        return commands.smembers(RedisKey.connectedNodes(clientId));
+        return commands.get(RedisKey.connectedNode(clientId));
     }
 
     /**
-     * Add connected mqtt server node for the client
+     * Update connected mqtt broker node for the client
      *
      * @param clientId Client Id
-     * @param node     MQTT Server Node
+     * @param node     MQTT Broker Node
      * @return RedisFutures (add to server's clients, add to client's servers)
      */
-    public List<RedisFuture> addConnectedNodes(String clientId, String node) {
+    public List<RedisFuture> updateConnectedNode(String clientId, String node) {
         List<RedisFuture> list = new ArrayList<>();
         RedisAsyncCommands<String, String> commands = this.conn.async();
         list.add(commands.sadd(RedisKey.connectedClients(node), clientId));
-        list.add(commands.sadd(RedisKey.connectedNodes(clientId), node));
+        list.add(commands.set(RedisKey.connectedNode(clientId), node));
         return list;
     }
 
@@ -181,7 +181,9 @@ public class RedisStorage {
         List<RedisFuture> list = new ArrayList<>();
         RedisAsyncCommands<String, String> commands = this.conn.async();
         list.add(commands.srem(RedisKey.connectedClients(node), clientId));
-        list.add(commands.srem(RedisKey.connectedNodes(clientId), node));
+        String[] keys = new String[]{RedisKey.connectedNode(clientId)};
+        String[] values = new String[]{node};
+        list.add(commands.eval(RedisLua.CHECKDEL, ScriptOutputType.INTEGER, keys, values));
         return list;
     }
 
@@ -215,18 +217,9 @@ public class RedisStorage {
      */
     public RedisFuture<Long> getNextPacketId(String clientId) {
         RedisAsyncCommands<String, String> commands = this.conn.async();
-        return commands.incr(RedisKey.nextPacketId(clientId));
-    }
-
-    /**
-     * Reset next packet id for the client, return current packet id
-     *
-     * @param clientId Client Id
-     * @return Current Packet Id
-     */
-    public RedisFuture<String> resetNextPacketId(String clientId) {
-        RedisAsyncCommands<String, String> commands = this.conn.async();
-        return commands.getset(RedisKey.nextPacketId(clientId), "0");
+        String[] keys = new String[]{RedisKey.nextPacketId(clientId)};
+        String[] values = new String[]{"65535"};
+        return commands.eval(RedisLua.INCRLIMIT, ScriptOutputType.INTEGER, keys, values);
     }
 
     /**

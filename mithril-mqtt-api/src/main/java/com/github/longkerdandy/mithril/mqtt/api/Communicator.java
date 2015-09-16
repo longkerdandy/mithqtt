@@ -17,7 +17,7 @@ public interface Communicator {
      * @param msg      Mqtt Message
      * @param metadata Metadata
      */
-    void oneToOne(String node, MqttMessage msg, Map<String, String> metadata);
+    void oneToOne(String node, MqttMessage msg, Map<String, Object> metadata);
 
     /**
      * One to Many communication between server nodes
@@ -26,5 +26,5 @@ public interface Communicator {
      * @param msg      Mqtt Message
      * @param metadata Metadata
      */
-    void oneToMany(Set<String> nodes, MqttMessage msg, Map<String, String> metadata);
+    void oneToMany(Set<String> nodes, MqttMessage msg, Map<String, Object> metadata);
 }

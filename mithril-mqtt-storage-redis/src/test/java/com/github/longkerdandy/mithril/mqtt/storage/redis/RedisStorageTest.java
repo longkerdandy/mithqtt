@@ -45,17 +45,17 @@ public class RedisStorageTest {
 
     @Test
     public void connectedTest() throws ExecutionException, InterruptedException {
-        complete(redis.addConnectedNodes("client1", "node1"));
-        complete(redis.addConnectedNodes("client2", "node1"));
-        complete(redis.addConnectedNodes("client3", "node1"));
-        complete(redis.addConnectedNodes("client4", "node2"));
-        complete(redis.addConnectedNodes("client5", "node2"));
+        complete(redis.updateConnectedNode("client1", "node1"));
+        complete(redis.updateConnectedNode("client2", "node1"));
+        complete(redis.updateConnectedNode("client3", "node1"));
+        complete(redis.updateConnectedNode("client4", "node2"));
+        complete(redis.updateConnectedNode("client5", "node2"));
 
-        assert redis.getConnectedNodes("client1").get().contains("node1");
-        assert redis.getConnectedNodes("client2").get().contains("node1");
-        assert redis.getConnectedNodes("client3").get().contains("node1");
-        assert redis.getConnectedNodes("client4").get().contains("node2");
-        assert redis.getConnectedNodes("client5").get().contains("node2");
+        assert redis.getConnectedNode("client1").get().equals("node1");
+        assert redis.getConnectedNode("client2").get().equals("node1");
+        assert redis.getConnectedNode("client3").get().equals("node1");
+        assert redis.getConnectedNode("client4").get().equals("node2");
+        assert redis.getConnectedNode("client5").get().equals("node2");
 
         ValueScanCursor<String> vcs1 = redis.getConnectedClients("node1", "0", 100).get();
         assert vcs1.getValues().contains("client1");
@@ -68,8 +68,8 @@ public class RedisStorageTest {
         complete(redis.removeConnectedNodes("client3", "node1"));
         complete(redis.removeConnectedNodes("client4", "node1"));   // not exist
 
-        assert redis.getConnectedNodes("client3").get().isEmpty();
-        assert redis.getConnectedNodes("client4").get().contains("node2");
+        assert redis.getConnectedNode("client3").get() == null;
+        assert redis.getConnectedNode("client4").get().equals("node2");
 
         vcs1 = redis.getConnectedClients("node1", "0", 100).get();
         assert !vcs1.getValues().contains("client3");
@@ -92,8 +92,10 @@ public class RedisStorageTest {
         assert redis.getNextPacketId("client1").get() == 2;
         assert redis.getNextPacketId("client1").get() == 3;
 
-        assert redis.resetNextPacketId("client1").get().equals("3");
+        redis.conn.async().set(RedisKey.nextPacketId("client1"), "65533").get();
 
+        assert redis.getNextPacketId("client1").get() == 65534;
+        assert redis.getNextPacketId("client1").get() == 65535;
         assert redis.getNextPacketId("client1").get() == 1;
     }
 

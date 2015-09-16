@@ -15,9 +15,8 @@ public class RedisKey {
         return "server:" + node + ":client";
     }
 
-    // Set of client's connected nodes
-    // Value - MQTT Server Node
-    public static String connectedNodes(String clientId) {
+    // Key indicates client's connected node
+    public static String connectedNode(String clientId) {
         return "client:" + clientId + ":node";
     }
 
