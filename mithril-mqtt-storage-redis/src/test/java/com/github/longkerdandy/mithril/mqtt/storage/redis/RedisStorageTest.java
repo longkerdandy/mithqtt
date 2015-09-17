@@ -87,6 +87,19 @@ public class RedisStorageTest {
     }
 
     @Test
+    public void qos2Test() throws ExecutionException, InterruptedException {
+        assert redis.addQoS2MessageId("client1", true, 10000).get() == 1;
+        assert redis.addQoS2MessageId("client1", true, 10001).get() == 1;
+        assert redis.addQoS2MessageId("client1", true, 10002).get() == 1;
+        assert redis.addQoS2MessageId("client1", true, 10000).get() == 0;
+
+        assert redis.removeQoS2MessageId("client1", true, 10000).get() == 1;
+        assert redis.removeQoS2MessageId("client1", true, 10001).get() == 1;
+        assert redis.removeQoS2MessageId("client1", true, 10002).get() == 1;
+        assert redis.removeQoS2MessageId("client1", true, 10001).get() == 0;
+    }
+
+    @Test
     public void packetIdTest() throws ExecutionException, InterruptedException {
         assert redis.getNextPacketId("client1").get() == 1;
         assert redis.getNextPacketId("client1").get() == 2;

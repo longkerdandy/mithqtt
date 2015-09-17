@@ -405,8 +405,21 @@ public class AsyncRedisHandler extends SimpleChannelInboundHandler<MqttMessage> 
         MqttQoS qos = msg.fixedHeader().qosLevel();
         boolean retain = msg.fixedHeader().isRetain();
         String topicName = msg.variableHeader().topicName();
-        List<String> topicLevels = Topics.sanitizeTopicName(topicName);
         int packetId = msg.variableHeader().messageId();
+
+        // The Topic Name in the PUBLISH Packet MUST NOT contain wildcard characters
+        if (!Topics.isValidTopicName(topicName, this.config)) {
+            logger.trace("Protocol violation: Client {} sent PUBLISH message contains invalid topic name {}", this.clientId, topicName);
+            ctx.close();
+            return;
+        }
+
+        // The Packet Identifier field is only present in PUBLISH Packets where the QoS level is 1 or 2.
+        if (packetId <= 0 && (qos == MqttQoS.AT_LEAST_ONCE || qos == MqttQoS.EXACTLY_ONCE)) {
+            logger.trace("Protocol violation: Client {} sent PUBLISH message does not contain packet id", this.clientId);
+            ctx.close();
+            return;
+        }
 
         // Authorize client publish using provided Authenticator
         this.authenticator.authPublish(this.clientId, this.userName, topicName, qos.value(), retain).thenAccept(result -> {
@@ -415,54 +428,45 @@ public class AsyncRedisHandler extends SimpleChannelInboundHandler<MqttMessage> 
                     if (result == AuthorizeResult.OK) {
                         logger.trace("Authorization Success: Client {} authorized to publish to topic {}", this.clientId, topicName);
 
-
-                        if (qos == MqttQoS.EXACTLY_ONCE) {
-
+                        // In the QoS 0 delivery protocol, the Receiver
+                        // Accepts ownership of the message when it receives the PUBLISH packet.
+                        if (qos == MqttQoS.AT_MOST_ONCE) {
+                            onwardRecipients(msg);
                         }
-
-                        // The Server uses a PUBLISH Packet to send an Application Message to each Client which has a
-                        // matching subscription.
-                        // When Clients make subscriptions with Topic Filters that include wildcards, it is possible for a Client’s
-                        // subscriptions to overlap so that a published message might match multiple filters. In this case the Server
-                        // MUST deliver the message to the Client respecting the maximum QoS of all the matching subscriptions.
-                        // In addition, the Server MAY deliver further copies of the message, one for each
-                        // additional matching subscription and respecting the subscription’s QoS in each case.
-                        this.redis.handleMatchSubscriptions(topicLevels, 0, map -> map.forEach((sClientId, sQos) ->
-                                this.redis.getNextPacketId(sClientId).thenAccept(sPacketId -> {
-
-                                    // PUBLISH message for the subscriber
-                                    MqttMessage sMsg = MqttMessageFactory.newMessage(
-                                            new MqttFixedHeader(MqttMessageType.PUBLISH, false, MqttQoS.valueOf(Integer.valueOf(sQos)), false, 0),
-                                            new MqttPublishVariableHeader(topicName, sPacketId.intValue()),
-                                            msg.payload().duplicate());
-
-                                    // Store In-Flight PUBLISH message
-                                    if (qos == MqttQoS.AT_LEAST_ONCE || qos == MqttQoS.EXACTLY_ONCE) {
-                                        this.redis.addInFlightMessage(this.clientId, this.cleanSession, sPacketId.intValue(), mqttToMap(sMsg));
-                                    }
-
-                                    // Send to subscriber's connected node
-                                    this.redis.getConnectedNode(sClientId).thenAccept(node -> {
-                                        if (StringUtils.isNotBlank(node)) {
-                                            if (node.equals(this.config.getString("node.id"))) {
-                                                this.registry.sendMessage(sMsg, sClientId, sPacketId.intValue(), true);
-                                            } else {
-                                                this.communicator.oneToOne(node, sMsg, null);
-                                            }
-                                        }
-                                    });
-                                })));
+                        // In the QoS 1 delivery protocol, the Receiver
+                        // After it has sent a PUBACK Packet the Receiver MUST treat any incoming PUBLISH packet that
+                        // contains the same Packet Identifier as being a new publication, irrespective of the setting of its
+                        // DUP flag.
+                        else if (qos == MqttQoS.AT_LEAST_ONCE) {
+                            onwardRecipients(msg);
+                        }
+                        // In the QoS 2 delivery protocol, the Receiver
+                        // Until it has received the corresponding PUBREL packet, the Receiver MUST acknowledge any
+                        // subsequent PUBLISH packet with the same Packet Identifier by sending a PUBREC. It MUST
+                        // NOT cause duplicate messages to be delivered to any onward recipients in this case.
+                        else if (qos == MqttQoS.EXACTLY_ONCE) {
+                            // The recipient of a Control Packet that contains the DUP flag set to 1 cannot assume that it has
+                            // seen an earlier copy of this packet.
+                            this.redis.addQoS2MessageId(this.clientId, this.cleanSession, packetId).thenAccept(count -> {
+                                if (!dup || count == 1) {
+                                    onwardRecipients(msg);
+                                }
+                            });
+                        }
                     }
                 }
         );
 
-        // QoS Level Expected Response
-        // QoS 0     None
-        // QoS 1     PUBACK Packet
-        // QoS 2     PUBREC Packet
         // If a Server implementation does not authorize a PUBLISH to be performed by a Client; it has no way of
         // informing that Client. It MUST either make a positive acknowledgement, according to the normal QoS
         // rules, or close the Network Connection
+
+        // In the QoS 1 delivery protocol, the Receiver
+        // MUST respond with a PUBACK Packet containing the Packet Identifier from the incoming
+        // PUBLISH Packet, having accepted ownership of the Application Message
+        // The receiver is not required to complete delivery of the Application Message before sending the
+        // PUBACK. When its original sender receives the PUBACK packet, ownership of the Application
+        // Message is transferred to the receiver.
         if (qos == MqttQoS.AT_LEAST_ONCE) {
             logger.trace("Response: Send PUBACK back to client {}", this.clientId);
             this.registry.sendMessage(
@@ -474,7 +478,14 @@ public class AsyncRedisHandler extends SimpleChannelInboundHandler<MqttMessage> 
                     this.clientId,
                     null,
                     true);
-        } else if (qos == MqttQoS.EXACTLY_ONCE) {
+        }
+        // In the QoS 2 delivery protocol, the Receiver
+        // UST respond with a PUBREC containing the Packet Identifier from the incoming PUBLISH
+        // Packet, having accepted ownership of the Application Message.
+        // The receiver is not required to complete delivery of the Application Message before sending the
+        // PUBREC or PUBCOMP. When its original sender receives the PUBREC packet, ownership of the
+        // Application Message is transferred to the receiver.
+        else if (qos == MqttQoS.EXACTLY_ONCE) {
             logger.trace("Response: Send PUBREC back to client {}", this.clientId);
             this.registry.sendMessage(
                     ctx,
@@ -486,6 +497,66 @@ public class AsyncRedisHandler extends SimpleChannelInboundHandler<MqttMessage> 
                     null,
                     true);
         }
+    }
+
+    /**
+     * Forward PUBLISH message to its recipients
+     *
+     * @param msg PUBLISH MQTT Message
+     */
+    protected void onwardRecipients(MqttPublishMessage msg) {
+        MqttQoS qos = msg.fixedHeader().qosLevel();
+        String topicName = msg.variableHeader().topicName();
+        List<String> topicLevels = Topics.sanitizeTopicName(topicName);
+
+        // The Server uses a PUBLISH Packet to send an Application Message to each Client which has a
+        // matching subscription.
+        // When Clients make subscriptions with Topic Filters that include wildcards, it is possible for a Client’s
+        // subscriptions to overlap so that a published message might match multiple filters. In this case the Server
+        // MUST deliver the message to the Client respecting the maximum QoS of all the matching subscriptions.
+        // In addition, the Server MAY deliver further copies of the message, one for each
+        // additional matching subscription and respecting the subscription’s QoS in each case.
+        this.redis.handleMatchSubscriptions(topicLevels, 0, map -> map.forEach((sClientId, sQos) -> {
+
+            // Each time a Client sends a new packet of one of these
+            // types it MUST assign it a currently unused Packet Identifier. If a Client re-sends a
+            // particular Control Packet, then it MUST use the same Packet Identifier in subsequent re-sends of that
+            // packet. The Packet Identifier becomes available for reuse after the Client has processed the
+            // corresponding acknowledgement packet. In the case of a QoS 1 PUBLISH this is the corresponding
+            // PUBACK; in the case of QoS 2 it is PUBCOMP. For SUBSCRIBE or UNSUBSCRIBE it is the
+            // corresponding SUBACK or UNSUBACK. The same conditions apply to a Server when it
+            // sends a PUBLISH with QoS > 0
+            // A PUBLISH Packet MUST NOT contain a Packet Identifier if its QoS value is set to
+            this.redis.getNextPacketId(sClientId).thenAccept(sPacketId -> {
+                MqttMessage sMsg = MqttMessageFactory.newMessage(
+                        new MqttFixedHeader(MqttMessageType.PUBLISH, false, MqttQoS.valueOf(Integer.valueOf(sQos)), false, 0),
+                        new MqttPublishVariableHeader(topicName, sPacketId.intValue()),
+                        msg.payload().duplicate()); // TODO, use ByteBuf.duplicate() is correct?
+
+                // In the QoS 1 delivery protocol, the Sender
+                // MUST treat the PUBLISH Packet as “unacknowledged” until it has received the corresponding
+                // PUBACK packet from the receiver.
+                // In the QoS 2 delivery protocol, the Sender
+                // MUST treat the PUBLISH packet as “unacknowledged” until it has received the corresponding
+                // PUBREC packet from the receiver.
+                if (Integer.valueOf(sQos) == MqttQoS.AT_LEAST_ONCE.value() || Integer.valueOf(sQos) == MqttQoS.EXACTLY_ONCE.value()) {
+                    this.redis.addInFlightMessage(this.clientId, this.cleanSession, sPacketId.intValue(), mqttToMap(sMsg));
+                }
+
+                // Send to recipient
+                this.redis.getConnectedNode(sClientId).thenAccept(node -> {
+                    if (StringUtils.isNotBlank(node)) {
+                        if (node.equals(this.config.getString("node.id"))) {
+                            this.registry.sendMessage(sMsg, sClientId, sPacketId.intValue(), true);
+                        } else {
+                            this.communicator.oneToOne(node, sMsg, new HashMap<String, Object>() {{
+                                put("clientId", sClientId);
+                            }});
+                        }
+                    }
+                });
+            });
+        }));
     }
 
     protected void onPubAck(ChannelHandlerContext ctx, MqttMessage msg) {

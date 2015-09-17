@@ -223,6 +223,33 @@ public class RedisStorage {
     }
 
     /**
+     * Add unacknowledged qos 2 PUBLISH message's packet id from the client
+     *
+     * @param clientId     Client Id
+     * @param cleanSession Clean Session
+     * @param packetId     Packet Id
+     * @return 1 packet id added, 0 packet id exist
+     */
+    public RedisFuture<Long> addQoS2MessageId(String clientId, boolean cleanSession, int packetId) {
+        RedisAsyncCommands<String, String> commands = this.conn.async();
+        return commands.sadd(RedisKey.qos2Set(clientId, cleanSession), String.valueOf(packetId));
+    }
+
+    /**
+     * Remove unacknowledged qos 2 PUBLISH message's packet id from the client
+     * Usually this means acknowledge the PUBLISH message
+     *
+     * @param clientId     Client Id
+     * @param cleanSession Clean Session
+     * @param packetId     Packet Id
+     * @return 1 packet id removed, 0 packet id not exist
+     */
+    public RedisFuture<Long> removeQoS2MessageId(String clientId, boolean cleanSession, int packetId) {
+        RedisAsyncCommands<String, String> commands = this.conn.async();
+        return commands.srem(RedisKey.qos2Set(clientId, cleanSession), String.valueOf(packetId));
+    }
+
+    /**
      * Get all in-flight message's packet ids for the client
      * We separate packet ids with different clean session
      * Including:

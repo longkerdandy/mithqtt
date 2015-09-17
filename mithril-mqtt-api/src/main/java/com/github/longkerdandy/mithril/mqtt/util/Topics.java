@@ -1,5 +1,6 @@
 package com.github.longkerdandy.mithril.mqtt.util;
 
+import org.apache.commons.configuration.PropertiesConfiguration;
 import org.apache.commons.lang3.StringUtils;
 
 import java.util.ArrayList;
@@ -16,6 +17,21 @@ public class Topics {
     public static final String END = "^";
 
     private Topics() {
+    }
+
+    /**
+     * Is topic name valid based on MQTT protocol specification and config
+     *
+     * @param topicName Topic Name
+     * @param config    Config
+     * @return True if valid
+     */
+    public static boolean isValidTopicName(String topicName, PropertiesConfiguration config) {
+        if (StringUtils.isEmpty(topicName)) return false;
+        if (topicName.contains("+")) return false;
+        if (topicName.contains("#")) return false;
+        // TODO: validate based on config
+        return true;
     }
 
     /**

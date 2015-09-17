@@ -30,13 +30,19 @@ public class RedisKey {
         return "client:" + clientId + ":pid";
     }
 
-    // List of client's in-flight messages' packet id
-    // Value - MQTT Message's Packet Id in order
-    public static String inFlightList(String clientId, boolean cleanSession) {
-        return "client:" + clientId + ":" + BooleanUtils.toString(cleanSession, "1", "0") + ":" + ":in.flight";
+    // Set of inbound QoS 2 message's packet id from the client
+    // Value - MQTT Message's Packet Id
+    public static String qos2Set(String clientId, boolean cleanSession) {
+        return "client:" + clientId + ":" + BooleanUtils.toString(cleanSession, "1", "0") + ":qos2";
     }
 
-    // Hash of client's in-flight message
+    // List of outbound in-flight messages' packet id for the client
+    // Value - MQTT Message's Packet Id in order
+    public static String inFlightList(String clientId, boolean cleanSession) {
+        return "client:" + clientId + ":" + BooleanUtils.toString(cleanSession, "1", "0") + ":in.flight";
+    }
+
+    // Hash of outbound in-flight message for the client
     // MQTT Message in Hash
     public static String inFlightMessage(String clientId, int packetId) {
         return "client:" + clientId + ":in.flight:" + packetId;
