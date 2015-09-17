@@ -5,7 +5,6 @@ import com.github.longkerdandy.mithril.mqtt.api.AuthorizeResult;
 import com.github.longkerdandy.mithril.mqtt.api.Communicator;
 import com.github.longkerdandy.mithril.mqtt.broker.session.SessionRegistry;
 import com.github.longkerdandy.mithril.mqtt.broker.util.Validator;
-import com.github.longkerdandy.mithril.mqtt.storage.redis.RedisKey;
 import com.github.longkerdandy.mithril.mqtt.storage.redis.RedisStorage;
 import com.github.longkerdandy.mithril.mqtt.util.Topics;
 import io.netty.channel.ChannelHandlerContext;
@@ -17,10 +16,8 @@ import org.apache.commons.lang3.exception.ExceptionUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
-import java.util.stream.Collectors;
 
 import static com.github.longkerdandy.mithril.mqtt.storage.redis.RedisStorage.mapToMqtt;
 import static com.github.longkerdandy.mithril.mqtt.storage.redis.RedisStorage.mqttToMap;
@@ -291,21 +288,8 @@ public class AsyncRedisHandler extends SimpleChannelInboundHandler<MqttMessage> 
                     if (!this.cleanSession) {
                         if (exist == 1) {
                             // Resend messages in the session with clean session = 0
-                            this.redis.handleAllInFlightMessage(this.clientId, false, map -> {
-                                MqttMessage mqtt = mapToMqtt(map);
-                                this.registry.sendMessage(ctx, mqtt, this.clientId, Integer.parseInt(map.getOrDefault("packetId", "0")), false);
-                            });
-                            /*
-                            this.redis.getAllInFlightMessageIds(this.clientId, false).thenAccept(ids -> {
-                                for (String packetId : ids) {
-                                    this.redis.getInFlightMessage(this.clientId, Integer.parseInt(packetId)).thenAccept(map -> {
-                                        MqttMessage mqtt = mapToMqtt(map);
-                                        this.registry.sendMessage(ctx, mqtt, this.clientId, Integer.parseInt(map.getOrDefault("packetId", "0")), false);
-                                    });
-                                }
-                                ctx.flush();
-                            });
-                            */
+                            this.redis.handleAllInFlightMessage(this.clientId, false, map ->
+                                    this.registry.sendMessage(ctx, mapToMqtt(map), this.clientId, Integer.parseInt(map.getOrDefault("packetId", "0")), true));
                         }
                     }
                     // If CleanSession is set to 1, the Client and Server MUST discard any previous Session and start a new
@@ -315,14 +299,10 @@ public class AsyncRedisHandler extends SimpleChannelInboundHandler<MqttMessage> 
                     else {
                         if (exist == 1) {
                             // Clear exist and messages|subscriptions in the session with clean session = 0
-                            this.redis.getAllInFlightMessageIds(this.clientId, false).thenAccept(ids -> {
-                                List<String> keys = new ArrayList<>();
-                                keys.add(RedisKey.clientExist(this.clientId));
-                                keys.add(RedisKey.inFlightList(this.clientId, false));
-                                keys.addAll(ids.stream().map(packetId -> RedisKey.inFlightMessage(this.clientId, Integer.parseInt(packetId))).collect(Collectors.toList()));
-                                this.redis.removeKeys(keys.toArray(new String[keys.size()]));
-                            });
                             this.redis.removeAllSubscriptions(this.clientId, false);
+                            this.redis.removeAllQoS2MessageId(this.clientId, false);
+                            this.redis.getAllInFlightMessageIds(this.clientId, false).thenAccept(ids ->
+                                    ids.forEach(packetId -> this.redis.removeInFlightMessage(this.clientId, false, Integer.parseInt(packetId))));
                         }
                     }
 
@@ -343,7 +323,7 @@ public class AsyncRedisHandler extends SimpleChannelInboundHandler<MqttMessage> 
                         this.willMessage = (MqttPublishMessage) MqttMessageFactory.newMessage(
                                 new MqttFixedHeader(MqttMessageType.PUBLISH, false, willQos, willRetain, 0),
                                 new MqttPublishVariableHeader(msg.payload().willTopic(), 0),
-                                null
+                                msg.payload().willMessage()     // TODO: payload should be ByteBuf
                         );
                     }
 
@@ -356,12 +336,9 @@ public class AsyncRedisHandler extends SimpleChannelInboundHandler<MqttMessage> 
 
                     // Always clear messages|subscriptions in the session with clean session = 1
                     this.redis.removeAllSubscriptions(this.clientId, true);
-                    this.redis.getAllInFlightMessageIds(this.clientId, true).thenAccept(ids -> {
-                        List<String> keys = new ArrayList<>();
-                        keys.add(RedisKey.inFlightList(this.clientId, true));
-                        keys.addAll(ids.stream().map(packetId -> RedisKey.inFlightMessage(this.clientId, Integer.parseInt(packetId))).collect(Collectors.toList()));
-                        this.redis.removeKeys(keys.toArray(new String[keys.size()]));
-                    });
+                    this.redis.removeAllQoS2MessageId(this.clientId, true);
+                    this.redis.getAllInFlightMessageIds(this.clientId, true).thenAccept(ids ->
+                            ids.forEach(packetId -> this.redis.removeInFlightMessage(this.clientId, true, Integer.parseInt(packetId))));
 
                     // Save connection state, add to local registry and remote storage
                     this.connected = true;
@@ -389,7 +366,7 @@ public class AsyncRedisHandler extends SimpleChannelInboundHandler<MqttMessage> 
     }
 
     /**
-     * Handle CONNECT MQTT Message
+     * Handle PUBLISH MQTT Message
      *
      * @param ctx ChannelHandlerContext
      * @param msg CONNECT MQTT Message
@@ -540,7 +517,7 @@ public class AsyncRedisHandler extends SimpleChannelInboundHandler<MqttMessage> 
                 // MUST treat the PUBLISH packet as “unacknowledged” until it has received the corresponding
                 // PUBREC packet from the receiver.
                 if (Integer.valueOf(sQos) == MqttQoS.AT_LEAST_ONCE.value() || Integer.valueOf(sQos) == MqttQoS.EXACTLY_ONCE.value()) {
-                    this.redis.addInFlightMessage(this.clientId, this.cleanSession, sPacketId.intValue(), mqttToMap(sMsg));
+                    this.redis.addInFlightMessage(sClientId, this.cleanSession, sPacketId.intValue(), mqttToMap(sMsg));
                 }
 
                 // Send to recipient

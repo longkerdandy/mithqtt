@@ -189,6 +189,7 @@ public class RedisStorage {
 
     /**
      * Is client (session) exist?
+     * TODO: clean session?
      *
      * @param clientId Client Id
      * @return 1 if exist
@@ -237,7 +238,6 @@ public class RedisStorage {
 
     /**
      * Remove unacknowledged qos 2 PUBLISH message's packet id from the client
-     * Usually this means acknowledge the PUBLISH message
      *
      * @param clientId     Client Id
      * @param cleanSession Clean Session
@@ -247,6 +247,18 @@ public class RedisStorage {
     public RedisFuture<Long> removeQoS2MessageId(String clientId, boolean cleanSession, int packetId) {
         RedisAsyncCommands<String, String> commands = this.conn.async();
         return commands.srem(RedisKey.qos2Set(clientId, cleanSession), String.valueOf(packetId));
+    }
+
+    /**
+     * Remove all unacknowledged qos 2 PUBLISH message's packet id from the client
+     *
+     * @param clientId     Client Id
+     * @param cleanSession Clean Session
+     * @return 1 packet id removed, 0 packet id not exist
+     */
+    public RedisFuture<Long> removeAllQoS2MessageId(String clientId, boolean cleanSession) {
+        RedisAsyncCommands<String, String> commands = this.conn.async();
+        return commands.del(RedisKey.qos2Set(clientId, cleanSession));
     }
 
     /**
