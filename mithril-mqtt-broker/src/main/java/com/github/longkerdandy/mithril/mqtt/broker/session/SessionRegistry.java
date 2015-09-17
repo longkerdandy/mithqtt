@@ -62,10 +62,11 @@ public class SessionRegistry {
      * @param flush    Flush?
      */
     public void sendMessage(MqttMessage msg, String clientId, Integer packetId, boolean flush) {
-        String pid = packetId == null || packetId <= 0 ? "" : String.valueOf(packetId);
         ChannelHandlerContext ctx = getSession(clientId);
         if (ctx == null) {
-            logger.trace("Message {} {} failed to send to {}: Client session not exist", msg.fixedHeader().messageType(), pid, clientId);
+            String pid = packetId == null || packetId <= 0 ? "" : String.valueOf(packetId);
+            logger.trace("Message {} {} failed to send to {}: Client not connected to this node", msg.fixedHeader().messageType(), pid, clientId);
+            return;
         }
         sendMessage(ctx, msg, clientId, packetId, flush);
     }

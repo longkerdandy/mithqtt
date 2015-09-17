@@ -78,28 +78,6 @@ public class RedisStorageTest {
     }
 
     @Test
-    public void existTest() throws ExecutionException, InterruptedException {
-        assert redis.isClientExist("client1").get() == 0;
-
-        redis.markClientExist("client1").get();
-
-        assert redis.isClientExist("client1").get() == 1;
-    }
-
-    @Test
-    public void qos2Test() throws ExecutionException, InterruptedException {
-        assert redis.addQoS2MessageId("client1", true, 10000).get() == 1;
-        assert redis.addQoS2MessageId("client1", true, 10001).get() == 1;
-        assert redis.addQoS2MessageId("client1", true, 10002).get() == 1;
-        assert redis.addQoS2MessageId("client1", true, 10000).get() == 0;
-
-        assert redis.removeQoS2MessageId("client1", true, 10000).get() == 1;
-        assert redis.removeQoS2MessageId("client1", true, 10001).get() == 1;
-        assert redis.removeQoS2MessageId("client1", true, 10002).get() == 1;
-        assert redis.removeQoS2MessageId("client1", true, 10001).get() == 0;
-    }
-
-    @Test
     public void packetIdTest() throws ExecutionException, InterruptedException {
         assert redis.getNextPacketId("client1").get() == 1;
         assert redis.getNextPacketId("client1").get() == 2;
@@ -110,6 +88,30 @@ public class RedisStorageTest {
         assert redis.getNextPacketId("client1").get() == 65534;
         assert redis.getNextPacketId("client1").get() == 65535;
         assert redis.getNextPacketId("client1").get() == 1;
+    }
+
+    @Test
+    public void existTest() throws ExecutionException, InterruptedException {
+        assert redis.getSessionExist("client1").get() == null;
+        redis.updateSessionExist("client1", false).get();
+        assert redis.getSessionExist("client1").get().equals("0");
+        redis.updateSessionExist("client1", true).get();
+        assert redis.getSessionExist("client1").get().equals("1");
+        redis.removeSessionExist("client1").get();
+        assert redis.getSessionExist("client1").get() == null;
+    }
+
+    @Test
+    public void qos2Test() throws ExecutionException, InterruptedException {
+        assert redis.addQoS2MessageId("client1", 10000).get() == 1;
+        assert redis.addQoS2MessageId("client1", 10001).get() == 1;
+        assert redis.addQoS2MessageId("client1", 10002).get() == 1;
+        assert redis.addQoS2MessageId("client1", 10000).get() == 0;
+
+        assert redis.removeQoS2MessageId("client1", 10000).get() == 1;
+        assert redis.removeQoS2MessageId("client1", 10001).get() == 1;
+        assert redis.removeQoS2MessageId("client1", 10002).get() == 1;
+        assert redis.removeQoS2MessageId("client1", 10001).get() == 0;
     }
 
     @Test
@@ -132,7 +134,7 @@ public class RedisStorageTest {
                 Unpooled.wrappedBuffer(JSONs.ObjectMapper.writeValueAsBytes(jn))
         );
 
-        complete(redis.addInFlightMessage("client1", true, 123456, mqttToMap(mqtt)));
+        complete(redis.addInFlightMessage("client1", 123456, mqttToMap(mqtt)));
         mqtt = mapToMqtt(redis.getInFlightMessage("client1", 123456).get());
 
         assert mqtt.fixedHeader().messageType() == MqttMessageType.PUBLISH;
@@ -152,29 +154,42 @@ public class RedisStorageTest {
         assert jn.get("menu").get("popup").get("menuItem").get(2).get("value").textValue().equals("Close");
         assert jn.get("menu").get("popup").get("menuItem").get(2).get("onclick").textValue().equals("CloseDoc()");
 
-        assert redis.getAllInFlightMessageIds("client1", true).get().contains("123456");
+        assert redis.getAllInFlightMessageIds("client1").get().contains("123456");
 
-        complete(redis.removeInFlightMessage("client1", true, 123456));
+        complete(redis.removeInFlightMessage("client1", 123456));
 
         assert redis.getInFlightMessage("client1", 123456).get().isEmpty();
-        assert !redis.getAllInFlightMessageIds("client1", true).get().contains("123456");
+        assert !redis.getAllInFlightMessageIds("client1").get().contains("123456");
+
+        mqtt = MqttMessageFactory.newMessage(mqtt.fixedHeader(), new MqttPublishVariableHeader("menuTopic", 10000), mqtt.payload());
+        complete(redis.addInFlightMessage("client1", 10000, mqttToMap(mqtt)));
+        mqtt = MqttMessageFactory.newMessage(mqtt.fixedHeader(), new MqttPublishVariableHeader("menuTopic", 10001), mqtt.payload());
+        complete(redis.addInFlightMessage("client1", 10001, mqttToMap(mqtt)));
+        mqtt = MqttMessageFactory.newMessage(mqtt.fixedHeader(), new MqttPublishVariableHeader("menuTopic", 10002), mqtt.payload());
+        complete(redis.addInFlightMessage("client1", 10002, mqttToMap(mqtt)));
+
+        List<String> ids = redis.getAllInFlightMessageIds("client1").get();
+        assert ids.size() == 3;
+        assert ids.get(0).equals("10000");
+        assert ids.get(1).equals("10001");
+        assert ids.get(2).equals("10002");
     }
 
     @Test
     public void subscriptionTest() throws ExecutionException, InterruptedException {
-        complete(redis.updateSubscription("client1", true, Topics.sanitizeTopicFilter("a/+/e"), "0"));
-        complete(redis.updateSubscription("client1", true, Topics.sanitizeTopicFilter("a/+"), "1"));
-        complete(redis.updateSubscription("client1", true, Topics.sanitizeTopicName("a/c/e"), "2"));
-        complete(redis.updateSubscription("client2", true, Topics.sanitizeTopicFilter("a/#"), "0"));
-        complete(redis.updateSubscription("client2", true, Topics.sanitizeTopicFilter("a/+"), "1"));
-        complete(redis.updateSubscription("client2", true, Topics.sanitizeTopicName("a/c/e"), "2"));
+        complete(redis.updateSubscription("client1", Topics.sanitizeTopicFilter("a/+/e"), "0"));
+        complete(redis.updateSubscription("client1", Topics.sanitizeTopicFilter("a/+"), "1"));
+        complete(redis.updateSubscription("client1", Topics.sanitizeTopicName("a/c/e"), "2"));
+        complete(redis.updateSubscription("client2", Topics.sanitizeTopicFilter("a/#"), "0"));
+        complete(redis.updateSubscription("client2", Topics.sanitizeTopicFilter("a/+"), "1"));
+        complete(redis.updateSubscription("client2", Topics.sanitizeTopicName("a/c/e"), "2"));
 
-        assert redis.getClientSubscriptions("client1", true).get().get("a/+/e/^").equals("0");
-        assert redis.getClientSubscriptions("client1", true).get().get("a/+/^").equals("1");
-        assert redis.getClientSubscriptions("client1", true).get().get("a/c/e/^").equals("2");
-        assert redis.getClientSubscriptions("client2", true).get().get("a/#/^").equals("0");
-        assert redis.getClientSubscriptions("client2", true).get().get("a/+/^").equals("1");
-        assert redis.getClientSubscriptions("client2", true).get().get("a/c/e/^").equals("2");
+        assert redis.getClientSubscriptions("client1").get().get("a/+/e/^").equals("0");
+        assert redis.getClientSubscriptions("client1").get().get("a/+/^").equals("1");
+        assert redis.getClientSubscriptions("client1").get().get("a/c/e/^").equals("2");
+        assert redis.getClientSubscriptions("client2").get().get("a/#/^").equals("0");
+        assert redis.getClientSubscriptions("client2").get().get("a/+/^").equals("1");
+        assert redis.getClientSubscriptions("client2").get().get("a/c/e/^").equals("2");
 
         assert redis.getTopicSubscriptions(Topics.sanitizeTopicFilter("a/+/e")).get().get("client1").equals("0");
         assert redis.getTopicSubscriptions(Topics.sanitizeTopicFilter("a/+")).get().get("client1").equals("1");
@@ -183,14 +198,14 @@ public class RedisStorageTest {
         assert redis.getTopicSubscriptions(Topics.sanitizeTopicName("a/c/e")).get().get("client2").equals("2");
         assert redis.getTopicSubscriptions(Topics.sanitizeTopicFilter("a/#")).get().get("client2").equals("0");
 
-        complete(redis.removeSubscription("client1", true, Topics.sanitizeTopicFilter("a/+")));
+        complete(redis.removeSubscription("client1", Topics.sanitizeTopicFilter("a/+")));
 
         assert !redis.getTopicSubscriptions(Topics.sanitizeTopicFilter("a/+")).get().containsKey("client1");
-        assert !redis.getClientSubscriptions("client1", true).get().containsKey("a/+/^");
+        assert !redis.getClientSubscriptions("client1").get().containsKey("a/+/^");
 
-        complete(redis.removeAllSubscriptions("client2", true));
+        complete(redis.removeAllSubscriptions("client2"));
 
-        assert redis.getClientSubscriptions("client2", true).get().isEmpty();
+        assert redis.getClientSubscriptions("client2").get().isEmpty();
         assert !redis.getTopicSubscriptions(Topics.sanitizeTopicFilter("a/+")).get().containsKey("client2");
         assert !redis.getTopicSubscriptions(Topics.sanitizeTopicName("a/c/e")).get().containsKey("client2");
         assert !redis.getTopicSubscriptions(Topics.sanitizeTopicFilter("a/#")).get().containsKey("client2");
@@ -198,12 +213,12 @@ public class RedisStorageTest {
 
     @Test
     public void matchTopicFilterTest() throws ExecutionException, InterruptedException {
-        complete(redis.updateSubscription("client1", true, Topics.sanitizeTopicFilter("a/+/e"), "0"));
-        complete(redis.updateSubscription("client1", true, Topics.sanitizeTopicFilter("a/+"), "1"));
-        complete(redis.updateSubscription("client1", true, Topics.sanitizeTopicFilter("a/c/f/#"), "2"));
-        complete(redis.updateSubscription("client2", true, Topics.sanitizeTopicFilter("a/#"), "0"));
-        complete(redis.updateSubscription("client2", true, Topics.sanitizeTopicFilter("a/c/+/+"), "1"));
-        complete(redis.updateSubscription("client2", true, Topics.sanitizeTopicFilter("a/d/#"), "2"));
+        complete(redis.updateSubscription("client1", Topics.sanitizeTopicFilter("a/+/e"), "0"));
+        complete(redis.updateSubscription("client1", Topics.sanitizeTopicFilter("a/+"), "1"));
+        complete(redis.updateSubscription("client1", Topics.sanitizeTopicFilter("a/c/f/#"), "2"));
+        complete(redis.updateSubscription("client2", Topics.sanitizeTopicFilter("a/#"), "0"));
+        complete(redis.updateSubscription("client2", Topics.sanitizeTopicFilter("a/c/+/+"), "1"));
+        complete(redis.updateSubscription("client2", Topics.sanitizeTopicFilter("a/d/#"), "2"));
 
         assert redis.getTopicSubscriptions(Topics.sanitizeTopicFilter("a/+/e")).get().get("client1").equals("0");
         assert redis.getTopicSubscriptions(Topics.sanitizeTopicFilter("a/+")).get().get("client1").equals("1");

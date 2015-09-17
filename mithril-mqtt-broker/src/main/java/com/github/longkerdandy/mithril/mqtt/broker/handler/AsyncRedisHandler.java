@@ -55,6 +55,7 @@ public class AsyncRedisHandler extends SimpleChannelInboundHandler<MqttMessage> 
     }
 
     @Override
+    @SuppressWarnings("ThrowableResultOfMethodCallIgnored")
     protected void messageReceived(ChannelHandlerContext ctx, MqttMessage msg) throws Exception {
         // Disconnect if The MQTT message is invalid
         if (msg.decoderResult().isFailure()) {
@@ -138,9 +139,8 @@ public class AsyncRedisHandler extends SimpleChannelInboundHandler<MqttMessage> 
         // CONNECT Packet with a CONNACK return code 0x02 (Identifier rejected) and then close the Network
         // Connection
         if (StringUtils.isBlank(this.clientId)) {
-            this.clientId = shortUuid();
             if (!this.cleanSession) {
-                logger.trace("Protocol violation: Empty client id with clean session set to 0, send CONNACK and disconnect the client");
+                logger.trace("Protocol violation: Empty client id with clean session 0, send CONNACK and disconnect the client");
                 this.registry.sendMessage(
                         ctx,
                         MqttMessageFactory.newMessage(
@@ -153,6 +153,7 @@ public class AsyncRedisHandler extends SimpleChannelInboundHandler<MqttMessage> 
                 ctx.close();
                 return;
             }
+            this.clientId = shortUuid();
         }
 
         // Validate clientId based on configuration
@@ -226,9 +227,8 @@ public class AsyncRedisHandler extends SimpleChannelInboundHandler<MqttMessage> 
                 // Session state, it MUST set Session Present to 1 in the CONNACK packet. If the Server
                 // does not have stored Session state, it MUST set Session Present to 0 in the CONNACK packet. This is in
                 // addition to setting a zero return code in the CONNACK packet.
-                this.redis.isClientExist(this.clientId).thenAccept(exist -> {
-                    boolean sessionPresent = false;
-                    if (exist == 1 && !this.cleanSession) sessionPresent = true;
+                this.redis.getSessionExist(this.clientId).thenAccept(exist -> {
+                    boolean sessionPresent = "0".equals(exist) && !this.cleanSession;
 
                     // The first packet sent from the Server to the Client MUST be a CONNACK Packet
                     logger.trace("Connection Accepted: Send CONNACK back to client {}", this.clientId);
@@ -245,31 +245,31 @@ public class AsyncRedisHandler extends SimpleChannelInboundHandler<MqttMessage> 
 
                     // If the ClientId represents a Client already connected to the Server then the Server MUST
                     // disconnect the existing Client
-                    this.redis.getConnectedNode(this.clientId).thenAccept(node -> {
-                        if (StringUtils.isNotBlank(node)) {
-                            if (node.equals(this.config.getString("node.id"))) {
-                                logger.trace("Disconnect Exist: Try to disconnect exist client {} from local node {}", this.clientId, this.config.getString("node.id"));
-                                ChannelHandlerContext lastSession = this.registry.getSession(this.clientId);
-                                if (lastSession != null) {
-                                    lastSession.close();
-                                    this.registry.removeSession(this.clientId, lastSession);
+                    if (exist != null) {
+                        this.redis.getConnectedNode(this.clientId).thenAccept(node -> {
+                            if (node != null) {
+                                if (node.equals(this.config.getString("node.id"))) {
+                                    logger.trace("Disconnect Exist: Try to disconnect exist client {} from local node {}", this.clientId, this.config.getString("node.id"));
+                                    ChannelHandlerContext lastSession = this.registry.getSession(this.clientId);
+                                    if (lastSession != null) {
+                                        lastSession.close();
+                                        this.registry.removeSession(this.clientId, lastSession);
+                                    }
+                                } else {
+                                    logger.trace("Disconnect Exist: Try to disconnect exist client {} from remote node {}", this.clientId, node);
+                                    this.communicator.oneToOne(node,
+                                            MqttMessageFactory.newMessage(
+                                                    new MqttFixedHeader(MqttMessageType.DISCONNECT, false, MqttQoS.AT_MOST_ONCE, false, 0),
+                                                    null,
+                                                    null
+                                            ),
+                                            new HashMap<String, Object>() {{
+                                                put("clientId", clientId);
+                                            }});
                                 }
-                            } else {
-                                logger.trace("Disconnect Exist: Try to disconnect exist client {} from remote node {}", this.clientId, node);
-                                this.communicator.oneToOne(node,
-                                        MqttMessageFactory.newMessage(
-                                                new MqttFixedHeader(MqttMessageType.DISCONNECT, false, MqttQoS.AT_MOST_ONCE, false, 0),
-                                                null,
-                                                null
-                                        ),
-                                        new HashMap<String, Object>() {{
-                                            put("clientId", clientId);
-                                            put("userName", userName);
-                                            put("cleanSession", cleanSession);
-                                        }});
                             }
-                        }
-                    });
+                        });
+                    }
 
                     // If CleanSession is set to 0, the Server MUST resume communications with the Client based on state from
                     // the current Session (as identified by the Client identifier). If there is no Session associated with the Client
@@ -286,10 +286,11 @@ public class AsyncRedisHandler extends SimpleChannelInboundHandler<MqttMessage> 
                     // QoS 2 messages which have been received from the Client, but have not been completely acknowledged.
                     // Optionally, QoS 0 messages pending transmission to the Client.
                     if (!this.cleanSession) {
-                        if (exist == 1) {
-                            // Resend messages in the session with clean session = 0
-                            this.redis.handleAllInFlightMessage(this.clientId, false, map ->
+                        if ("0".equals(exist)) {
+                            this.redis.handleAllInFlightMessage(this.clientId, map ->
                                     this.registry.sendMessage(ctx, mapToMqtt(map), this.clientId, Integer.parseInt(map.getOrDefault("packetId", "0")), true));
+                        } else if ("1".equals(exist)) {
+                            this.redis.removeAllSessionState(this.clientId);
                         }
                     }
                     // If CleanSession is set to 1, the Client and Server MUST discard any previous Session and start a new
@@ -297,12 +298,8 @@ public class AsyncRedisHandler extends SimpleChannelInboundHandler<MqttMessage> 
                     // MUST NOT be reused in any subsequent Session.
                     // When CleanSession is set to 1 the Client and Server need not process the deletion of state atomically.
                     else {
-                        if (exist == 1) {
-                            // Clear exist and messages|subscriptions in the session with clean session = 0
-                            this.redis.removeAllSubscriptions(this.clientId, false);
-                            this.redis.removeAllQoS2MessageId(this.clientId, false);
-                            this.redis.getAllInFlightMessageIds(this.clientId, false).thenAccept(ids ->
-                                    ids.forEach(packetId -> this.redis.removeInFlightMessage(this.clientId, false, Integer.parseInt(packetId))));
+                        if (exist != null) {
+                            this.redis.removeAllSessionState(this.clientId);
                         }
                     }
 
@@ -334,17 +331,11 @@ public class AsyncRedisHandler extends SimpleChannelInboundHandler<MqttMessage> 
                     if (this.keepAlive <= 0 || this.keepAlive > this.config.getInt("mqtt.keepalive.max"))
                         this.keepAlive = this.config.getInt("mqtt.keepalive.default");
 
-                    // Always clear messages|subscriptions in the session with clean session = 1
-                    this.redis.removeAllSubscriptions(this.clientId, true);
-                    this.redis.removeAllQoS2MessageId(this.clientId, true);
-                    this.redis.getAllInFlightMessageIds(this.clientId, true).thenAccept(ids ->
-                            ids.forEach(packetId -> this.redis.removeInFlightMessage(this.clientId, true, Integer.parseInt(packetId))));
-
                     // Save connection state, add to local registry and remote storage
                     this.connected = true;
                     this.registry.saveSession(this.clientId, ctx);
                     this.redis.updateConnectedNode(this.clientId, this.config.getString("node.id"));
-                    if (exist != 1 && !cleanSession) this.redis.markClientExist(this.clientId);
+                    this.redis.updateSessionExist(this.clientId, this.cleanSession);
                 });
             }
 
@@ -424,7 +415,7 @@ public class AsyncRedisHandler extends SimpleChannelInboundHandler<MqttMessage> 
                         else if (qos == MqttQoS.EXACTLY_ONCE) {
                             // The recipient of a Control Packet that contains the DUP flag set to 1 cannot assume that it has
                             // seen an earlier copy of this packet.
-                            this.redis.addQoS2MessageId(this.clientId, this.cleanSession, packetId).thenAccept(count -> {
+                            this.redis.addQoS2MessageId(this.clientId, packetId).thenAccept(count -> {
                                 if (!dup || count == 1) {
                                     onwardRecipients(msg);
                                 }
@@ -482,7 +473,6 @@ public class AsyncRedisHandler extends SimpleChannelInboundHandler<MqttMessage> 
      * @param msg PUBLISH MQTT Message
      */
     protected void onwardRecipients(MqttPublishMessage msg) {
-        MqttQoS qos = msg.fixedHeader().qosLevel();
         String topicName = msg.variableHeader().topicName();
         List<String> topicLevels = Topics.sanitizeTopicName(topicName);
 
@@ -517,12 +507,12 @@ public class AsyncRedisHandler extends SimpleChannelInboundHandler<MqttMessage> 
                 // MUST treat the PUBLISH packet as “unacknowledged” until it has received the corresponding
                 // PUBREC packet from the receiver.
                 if (Integer.valueOf(sQos) == MqttQoS.AT_LEAST_ONCE.value() || Integer.valueOf(sQos) == MqttQoS.EXACTLY_ONCE.value()) {
-                    this.redis.addInFlightMessage(sClientId, this.cleanSession, sPacketId.intValue(), mqttToMap(sMsg));
+                    this.redis.addInFlightMessage(sClientId, sPacketId.intValue(), mqttToMap(sMsg));
                 }
 
-                // Send to recipient
+                // Forward to recipient
                 this.redis.getConnectedNode(sClientId).thenAccept(node -> {
-                    if (StringUtils.isNotBlank(node)) {
+                    if (node != null) {
                         if (node.equals(this.config.getString("node.id"))) {
                             this.registry.sendMessage(sMsg, sClientId, sPacketId.intValue(), true);
                         } else {

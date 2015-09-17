@@ -1,7 +1,5 @@
 package com.github.longkerdandy.mithril.mqtt.storage.redis;
 
-import org.apache.commons.lang3.BooleanUtils;
-
 import java.util.List;
 
 /**
@@ -20,9 +18,9 @@ public class RedisKey {
         return "client:" + clientId + ":node";
     }
 
-    // Key indicates client existence
-    public static String clientExist(String clientId) {
-        return "client:" + clientId + ":exist";
+    // Key indicates client session state
+    public static String session(String clientId) {
+        return "client:" + clientId + ":session";
     }
 
     // Key indicates next packet id for the client
@@ -32,14 +30,14 @@ public class RedisKey {
 
     // Set of inbound QoS 2 message's packet id from the client
     // Value - MQTT Message's Packet Id
-    public static String qos2Set(String clientId, boolean cleanSession) {
-        return "client:" + clientId + ":" + BooleanUtils.toString(cleanSession, "1", "0") + ":qos2";
+    public static String qos2Set(String clientId) {
+        return "client:" + clientId + ":qos2";
     }
 
     // List of outbound in-flight messages' packet id for the client
     // Value - MQTT Message's Packet Id in order
-    public static String inFlightList(String clientId, boolean cleanSession) {
-        return "client:" + clientId + ":" + BooleanUtils.toString(cleanSession, "1", "0") + ":in.flight";
+    public static String inFlightList(String clientId) {
+        return "client:" + clientId + ":in.flight";
     }
 
     // Hash of outbound in-flight message for the client
@@ -51,8 +49,8 @@ public class RedisKey {
     // Hash of client's subscriptions
     // Key - Topic Name or Topic Filter
     // Value - Qos Level
-    public static String subscription(String clientId, boolean cleanSession) {
-        return "client:" + clientId + ":" + BooleanUtils.toString(cleanSession, "1", "0") + ":subscription";
+    public static String subscription(String clientId) {
+        return "client:" + clientId + ":subscription";
     }
 
     // Hash of topic name's subscriptions

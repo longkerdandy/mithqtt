@@ -120,18 +120,6 @@ public class RedisStorage {
     }
 
     /**
-     * Remove multiples keys
-     * USE WITH CAUTION
-     *
-     * @param keys Keys
-     * @return The number of keys have been removed
-     */
-    public RedisFuture<Long> removeKeys(String[] keys) {
-        RedisAsyncCommands<String, String> commands = this.conn.async();
-        return commands.del(keys);
-    }
-
-    /**
      * Iteration connected clients for the mqtt server node
      *
      * @param node   MQTT Server Node
@@ -188,29 +176,6 @@ public class RedisStorage {
     }
 
     /**
-     * Is client (session) exist?
-     * TODO: clean session?
-     *
-     * @param clientId Client Id
-     * @return 1 if exist
-     */
-    public RedisFuture<Long> isClientExist(String clientId) {
-        RedisAsyncCommands<String, String> commands = this.conn.async();
-        return commands.exists(new String[]{RedisKey.clientExist(clientId)});
-    }
-
-    /**
-     * Mark client (session) as exist
-     *
-     * @param clientId Client Id
-     * @return OK if was executed correctly
-     */
-    public RedisFuture<String> markClientExist(String clientId) {
-        RedisAsyncCommands<String, String> commands = this.conn.async();
-        return commands.set(RedisKey.clientExist(clientId), "1");
-    }
-
-    /**
      * Get next packet id for the client
      *
      * @param clientId Client Id
@@ -224,58 +189,118 @@ public class RedisStorage {
     }
 
     /**
-     * Add unacknowledged qos 2 PUBLISH message's packet id from the client
+     * Get session existence for the client
+     *
+     * @param clientId Client Id
+     * @return Session Existence (1 clean session, 0 normal session, null not exist)
+     */
+    public RedisFuture<String> getSessionExist(String clientId) {
+        RedisAsyncCommands<String, String> commands = this.conn.async();
+        return commands.get(RedisKey.session(clientId));
+    }
+
+    /**
+     * Update session existence for the client
      *
      * @param clientId     Client Id
      * @param cleanSession Clean Session
-     * @param packetId     Packet Id
+     * @return OK if was executed correctly
+     */
+    public RedisFuture<String> updateSessionExist(String clientId, boolean cleanSession) {
+        RedisAsyncCommands<String, String> commands = this.conn.async();
+        return commands.set(RedisKey.session(clientId), BooleanUtils.toString(cleanSession, "1", "0"));
+    }
+
+    /**
+     * Remove session existence for the client
+     *
+     * @param clientId Client Id
+     * @return 1 removed, 0 not exist
+     */
+    public RedisFuture<Long> removeSessionExist(String clientId) {
+        RedisAsyncCommands<String, String> commands = this.conn.async();
+        return commands.del(RedisKey.session(clientId));
+    }
+
+    /**
+     * Remove all session state
+     *
+     * @param clientId Client Id
+     */
+    public void removeAllSessionState(String clientId) {
+        removeSessionExist(clientId);
+        removeAllSubscriptions(clientId);
+        removeAllQoS2MessageId(clientId);
+        removeAllInFlightMessage(clientId);
+    }
+
+    /**
+     * Add unacknowledged qos 2 PUBLISH message's packet id from the client
+     *
+     * @param clientId Client Id
+     * @param packetId Packet Id
      * @return 1 packet id added, 0 packet id exist
      */
-    public RedisFuture<Long> addQoS2MessageId(String clientId, boolean cleanSession, int packetId) {
+    public RedisFuture<Long> addQoS2MessageId(String clientId, int packetId) {
         RedisAsyncCommands<String, String> commands = this.conn.async();
-        return commands.sadd(RedisKey.qos2Set(clientId, cleanSession), String.valueOf(packetId));
+        return commands.sadd(RedisKey.qos2Set(clientId), String.valueOf(packetId));
     }
 
     /**
      * Remove unacknowledged qos 2 PUBLISH message's packet id from the client
      *
-     * @param clientId     Client Id
-     * @param cleanSession Clean Session
-     * @param packetId     Packet Id
+     * @param clientId Client Id
+     * @param packetId Packet Id
      * @return 1 packet id removed, 0 packet id not exist
      */
-    public RedisFuture<Long> removeQoS2MessageId(String clientId, boolean cleanSession, int packetId) {
+    public RedisFuture<Long> removeQoS2MessageId(String clientId, int packetId) {
         RedisAsyncCommands<String, String> commands = this.conn.async();
-        return commands.srem(RedisKey.qos2Set(clientId, cleanSession), String.valueOf(packetId));
+        return commands.srem(RedisKey.qos2Set(clientId), String.valueOf(packetId));
     }
 
     /**
      * Remove all unacknowledged qos 2 PUBLISH message's packet id from the client
      *
-     * @param clientId     Client Id
-     * @param cleanSession Clean Session
+     * @param clientId Client Id
      * @return 1 packet id removed, 0 packet id not exist
      */
-    public RedisFuture<Long> removeAllQoS2MessageId(String clientId, boolean cleanSession) {
+    public RedisFuture<Long> removeAllQoS2MessageId(String clientId) {
         RedisAsyncCommands<String, String> commands = this.conn.async();
-        return commands.del(RedisKey.qos2Set(clientId, cleanSession));
+        return commands.del(RedisKey.qos2Set(clientId));
     }
 
     /**
      * Get all in-flight message's packet ids for the client
-     * We separate packet ids with different clean session
      * Including:
      * QoS 1 and QoS 2 PUBLISH messages which have been sent to the Client, but have not been acknowledged.
      * QoS 0, QoS 1 and QoS 2 PUBLISH messages pending transmission to the Client.
      * QoS 2 PUBREL messages which have been sent from the Client, but have not been acknowledged.
      *
-     * @param clientId     Client Id
-     * @param cleanSession Clean Session
+     * @param clientId Client Id
      * @return In-flight message's Packet Ids
      */
-    public RedisFuture<List<String>> getAllInFlightMessageIds(String clientId, boolean cleanSession) {
+    public RedisFuture<List<String>> getAllInFlightMessageIds(String clientId) {
         RedisAsyncCommands<String, String> commands = this.conn.async();
-        return commands.lrange(RedisKey.inFlightList(clientId, cleanSession), 0, -1);
+        return commands.lrange(RedisKey.inFlightList(clientId), 0, -1);
+    }
+
+    /**
+     * Get and handle all in-flight message for the client
+     * Including:
+     * QoS 1 and QoS 2 PUBLISH messages which have been sent to the Client, but have not been acknowledged.
+     * QoS 0, QoS 1 and QoS 2 PUBLISH messages pending transmission to the Client.
+     * QoS 2 PUBREL messages which have been sent from the Client, but have not been acknowledged.
+     *
+     * @param clientId Client Id
+     * @param handler  In-flight message handler
+     */
+    public void handleAllInFlightMessage(String clientId, Consumer<Map<String, String>> handler) {
+        RedisAsyncCommands<String, String> commands = this.conn.async();
+        commands.lrange(RedisKey.inFlightList(clientId), 0, -1).thenAccept(ids -> {
+            for (String packetId : ids) {
+                commands.hgetall(RedisKey.inFlightMessage(clientId, Integer.parseInt(packetId))).thenAccept(handler);
+            }
+        });
     }
 
     /**
@@ -291,59 +316,49 @@ public class RedisStorage {
     }
 
     /**
-     * Get and handle all in-flight message for the client
-     * We separate packet ids with different clean session
-     * Including:
-     * QoS 1 and QoS 2 PUBLISH messages which have been sent to the Client, but have not been acknowledged.
-     * QoS 0, QoS 1 and QoS 2 PUBLISH messages pending transmission to the Client.
-     * QoS 2 PUBREL messages which have been sent from the Client, but have not been acknowledged.
-     *
-     * @param clientId     Client Id
-     * @param cleanSession Clean Session
-     * @param handler      In-flight message handler
-     */
-    public void handleAllInFlightMessage(String clientId, boolean cleanSession, Consumer<Map<String, String>> handler) {
-        RedisAsyncCommands<String, String> commands = this.conn.async();
-        commands.lrange(RedisKey.inFlightList(clientId, cleanSession), 0, -1).thenAccept(ids -> {
-            for (String packetId : ids) {
-                commands.hgetall(RedisKey.inFlightMessage(clientId, Integer.parseInt(packetId))).thenAccept(handler);
-            }
-        });
-    }
-
-    /**
      * Add in-flight message for the client
-     * We separate packet ids with different clean session
      *
-     * @param clientId     Client Id
-     * @param cleanSession Clean Session
-     * @param packetId     Packet Id
-     * @param map          Message as Map
+     * @param clientId Client Id
+     * @param packetId Packet Id
+     * @param map      Message as Map
      * @return RedisFutures (add to client's in-flight list, save the message)
      */
-    public List<RedisFuture> addInFlightMessage(String clientId, boolean cleanSession, int packetId, Map<String, String> map) {
+    public List<RedisFuture> addInFlightMessage(String clientId, int packetId, Map<String, String> map) {
         List<RedisFuture> list = new ArrayList<>();
         RedisAsyncCommands<String, String> commands = this.conn.async();
-        list.add(commands.lpush(RedisKey.inFlightList(clientId, cleanSession), String.valueOf(packetId)));
+        list.add(commands.rpush(RedisKey.inFlightList(clientId), String.valueOf(packetId)));
         list.add(commands.hmset(RedisKey.inFlightMessage(clientId, packetId), map));
         return list;
     }
 
     /**
      * Remove specific in-flight message for the client
-     * We separate packet ids with different clean session
      *
-     * @param clientId     Client Id
-     * @param cleanSession Clean Session
-     * @param packetId     Packet Id
+     * @param clientId Client Id
+     * @param packetId Packet Id
      * @return RedisFutures (remove from client's in-flight list, remove the message)
      */
-    public List<RedisFuture> removeInFlightMessage(String clientId, boolean cleanSession, int packetId) {
+    public List<RedisFuture> removeInFlightMessage(String clientId, int packetId) {
         List<RedisFuture> list = new ArrayList<>();
         RedisAsyncCommands<String, String> commands = this.conn.async();
-        list.add(commands.lrem(RedisKey.inFlightList(clientId, cleanSession), 0, String.valueOf(packetId)));    // remove all elements
+        list.add(commands.lrem(RedisKey.inFlightList(clientId), 0, String.valueOf(packetId)));    // remove all elements
         list.add(commands.del(RedisKey.inFlightMessage(clientId, packetId)));
         return list;
+    }
+
+    /**
+     * Remove all in-flight message for the client
+     *
+     * @param clientId Client Id
+     */
+    public void removeAllInFlightMessage(String clientId) {
+        RedisAsyncCommands<String, String> commands = this.conn.async();
+        commands.lpop(RedisKey.inFlightList(clientId)).thenAccept(packetId -> {
+            if (packetId != null) {
+                commands.del(RedisKey.inFlightMessage(clientId, Integer.parseInt(packetId)));
+                removeAllInFlightMessage(clientId);
+            }
+        });
     }
 
     /**
@@ -365,32 +380,28 @@ public class RedisStorage {
 
     /**
      * Get the client's subscriptions
-     * We separate subscriptions with different clean session
      *
-     * @param clientId     Client Id
-     * @param cleanSession Clean Session
+     * @param clientId Client Id
      * @return Subscriptions
      */
-    public RedisFuture<Map<String, String>> getClientSubscriptions(String clientId, boolean cleanSession) {
+    public RedisFuture<Map<String, String>> getClientSubscriptions(String clientId) {
         RedisAsyncCommands<String, String> commands = this.conn.async();
-        return commands.hgetall(RedisKey.subscription(clientId, cleanSession));
+        return commands.hgetall(RedisKey.subscription(clientId));
     }
 
     /**
      * Update topic name subscription for the client
-     * We separate subscriptions with different clean session
      * Topic Levels must be sanitized using Topics
      *
-     * @param clientId     Client Id
-     * @param cleanSession Clean Session
-     * @param topicLevels  List of topic levels
-     * @param qos          Subscription QoS
+     * @param clientId    Client Id
+     * @param topicLevels List of topic levels
+     * @param qos         Subscription QoS
      * @return RedisFutures (add to client's subscriptions, add to topic's subscriptions, add to topic filter tree)
      */
-    public List<RedisFuture> updateSubscription(String clientId, boolean cleanSession, List<String> topicLevels, String qos) {
+    public List<RedisFuture> updateSubscription(String clientId, List<String> topicLevels, String qos) {
         List<RedisFuture> list = new ArrayList<>();
         RedisAsyncCommands<String, String> commands = this.conn.async();
-        list.add(commands.hset(RedisKey.subscription(clientId, cleanSession), String.join("/", topicLevels), qos));
+        list.add(commands.hset(RedisKey.subscription(clientId), String.join("/", topicLevels), qos));
         if (Topics.isTopicFilter(topicLevels)) {
             list.add(commands.hset(RedisKey.topicFilter(topicLevels), clientId, qos));
             for (int i = 0; i < topicLevels.size(); i++) {
@@ -404,18 +415,16 @@ public class RedisStorage {
 
     /***
      * Remove topic name subscription for the client
-     * We separate subscriptions with different clean session
      * Topic Levels must be sanitized using Topics
      *
-     * @param clientId     Client Id
-     * @param cleanSession Clean Session
-     * @param topicLevels  List of topic levels
+     * @param clientId    Client Id
+     * @param topicLevels List of topic levels
      * @return RedisFutures (remove from client's subscriptions, remove from topic's subscriptions, remove from topic filter tree)
      */
-    public List<RedisFuture> removeSubscription(String clientId, boolean cleanSession, List<String> topicLevels) {
+    public List<RedisFuture> removeSubscription(String clientId, List<String> topicLevels) {
         List<RedisFuture> list = new ArrayList<>();
         RedisAsyncCommands<String, String> commands = this.conn.async();
-        list.add(commands.hdel(RedisKey.subscription(clientId, cleanSession), String.join("/", topicLevels)));
+        list.add(commands.hdel(RedisKey.subscription(clientId), String.join("/", topicLevels)));
         if (Topics.isTopicFilter(topicLevels)) {
             list.add(commands.hdel(RedisKey.topicFilter(topicLevels), clientId));
             for (int i = 0; i < topicLevels.size(); i++) {
@@ -429,16 +438,14 @@ public class RedisStorage {
 
     /**
      * Remove all subscriptions for the client
-     * We separate subscriptions with different clean session
      *
-     * @param clientId     Client Id
-     * @param cleanSession Clean Session
+     * @param clientId Client Id
      * @return RedisFutures (remove from topic's subscriptions, remove from topic filter tree, remove from client's subscriptions)
      */
-    public List<RedisFuture> removeAllSubscriptions(String clientId, boolean cleanSession) {
+    public List<RedisFuture> removeAllSubscriptions(String clientId) {
         List<RedisFuture> list = new ArrayList<>();
         RedisAsyncCommands<String, String> commands = this.conn.async();
-        commands.hgetall(RedisKey.subscription(clientId, cleanSession)).thenAccept(map -> {
+        commands.hgetall(RedisKey.subscription(clientId)).thenAccept(map -> {
             map.forEach((k, v) -> {
                 if (Topics.isTopicFilter(k)) {
                     list.add(commands.hdel(RedisKey.topicFilter(k), clientId));
@@ -450,7 +457,7 @@ public class RedisStorage {
                     list.add(commands.hdel(RedisKey.topicName(k), clientId));
                 }
             });
-            list.add(commands.del(RedisKey.subscription(clientId, cleanSession)));
+            list.add(commands.del(RedisKey.subscription(clientId)));
         });
         return list;
     }
