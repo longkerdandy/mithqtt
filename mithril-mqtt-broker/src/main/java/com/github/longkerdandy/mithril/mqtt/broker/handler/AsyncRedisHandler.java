@@ -56,7 +56,7 @@ public class AsyncRedisHandler extends SimpleChannelInboundHandler<MqttMessage> 
 
     @Override
     @SuppressWarnings("ThrowableResultOfMethodCallIgnored")
-    protected void messageReceived(ChannelHandlerContext ctx, MqttMessage msg) throws Exception {
+    protected void channelRead0(ChannelHandlerContext ctx, MqttMessage msg) throws Exception {
         // Disconnect if The MQTT message is invalid
         if (msg.decoderResult().isFailure()) {
             Throwable cause = msg.decoderResult().cause();
@@ -67,7 +67,7 @@ public class AsyncRedisHandler extends SimpleChannelInboundHandler<MqttMessage> 
                         ctx,
                         MqttMessageFactory.newMessage(
                                 new MqttFixedHeader(MqttMessageType.CONNACK, false, MqttQoS.AT_MOST_ONCE, false, 0),
-                                new MqttConnAckVariableHeader(MqttConnectReturnCode.CONNECTION_REFUSED_UNACCEPTABLE_PROTOCOL_VERSION),
+                                new MqttConnAckVariableHeader(MqttConnectReturnCode.CONNECTION_REFUSED_UNACCEPTABLE_PROTOCOL_VERSION, false),
                                 null),
                         "INVALID",
                         null,
@@ -78,7 +78,7 @@ public class AsyncRedisHandler extends SimpleChannelInboundHandler<MqttMessage> 
                         ctx,
                         MqttMessageFactory.newMessage(
                                 new MqttFixedHeader(MqttMessageType.CONNACK, false, MqttQoS.AT_MOST_ONCE, false, 0),
-                                new MqttConnAckVariableHeader(MqttConnectReturnCode.CONNECTION_REFUSED_IDENTIFIER_REJECTED),
+                                new MqttConnAckVariableHeader(MqttConnectReturnCode.CONNECTION_REFUSED_IDENTIFIER_REJECTED, false),
                                 null),
                         "INVALID",
                         null,
@@ -145,7 +145,7 @@ public class AsyncRedisHandler extends SimpleChannelInboundHandler<MqttMessage> 
                         ctx,
                         MqttMessageFactory.newMessage(
                                 new MqttFixedHeader(MqttMessageType.CONNACK, false, MqttQoS.AT_MOST_ONCE, false, 0),
-                                new MqttConnAckVariableHeader(MqttConnectReturnCode.CONNECTION_REFUSED_IDENTIFIER_REJECTED),
+                                new MqttConnAckVariableHeader(MqttConnectReturnCode.CONNECTION_REFUSED_IDENTIFIER_REJECTED, false),
                                 null),
                         this.clientId,
                         null,
@@ -163,7 +163,7 @@ public class AsyncRedisHandler extends SimpleChannelInboundHandler<MqttMessage> 
                     ctx,
                     MqttMessageFactory.newMessage(
                             new MqttFixedHeader(MqttMessageType.CONNACK, false, MqttQoS.AT_MOST_ONCE, false, 0),
-                            new MqttConnAckVariableHeader(MqttConnectReturnCode.CONNECTION_REFUSED_IDENTIFIER_REJECTED),
+                            new MqttConnAckVariableHeader(MqttConnectReturnCode.CONNECTION_REFUSED_IDENTIFIER_REJECTED, false),
                             null),
                     this.clientId,
                     null,
@@ -204,7 +204,7 @@ public class AsyncRedisHandler extends SimpleChannelInboundHandler<MqttMessage> 
                     ctx,
                     MqttMessageFactory.newMessage(
                             new MqttFixedHeader(MqttMessageType.CONNACK, false, MqttQoS.AT_MOST_ONCE, false, 0),
-                            new MqttConnAckVariableHeader(MqttConnectReturnCode.CONNECTION_REFUSED_BAD_USER_NAME_OR_PASSWORD),
+                            new MqttConnAckVariableHeader(MqttConnectReturnCode.CONNECTION_REFUSED_BAD_USER_NAME_OR_PASSWORD, false),
                             null),
                     this.clientId,
                     null,
@@ -232,12 +232,11 @@ public class AsyncRedisHandler extends SimpleChannelInboundHandler<MqttMessage> 
 
                     // The first packet sent from the Server to the Client MUST be a CONNACK Packet
                     logger.trace("Connection Accepted: Send CONNACK back to client {}", this.clientId);
-                    // TODO: CONNACK message should contain sessionPresent
                     this.registry.sendMessage(
                             ctx,
                             MqttMessageFactory.newMessage(
                                     new MqttFixedHeader(MqttMessageType.CONNACK, false, MqttQoS.AT_MOST_ONCE, false, 0),
-                                    new MqttConnAckVariableHeader(MqttConnectReturnCode.CONNECTION_ACCEPTED),
+                                    new MqttConnAckVariableHeader(MqttConnectReturnCode.CONNECTION_ACCEPTED, sessionPresent),
                                     null),
                             this.clientId,
                             null,
@@ -346,7 +345,7 @@ public class AsyncRedisHandler extends SimpleChannelInboundHandler<MqttMessage> 
                         ctx,
                         MqttMessageFactory.newMessage(
                                 new MqttFixedHeader(MqttMessageType.CONNACK, false, MqttQoS.AT_MOST_ONCE, false, 0),
-                                new MqttConnAckVariableHeader(MqttConnectReturnCode.CONNECTION_REFUSED_NOT_AUTHORIZED),
+                                new MqttConnAckVariableHeader(MqttConnectReturnCode.CONNECTION_REFUSED_NOT_AUTHORIZED, false),
                                 null),
                         this.clientId,
                         null,
