@@ -530,4 +530,20 @@ public class RedisStorage {
             }
         });
     }
+
+    /**
+     * Add retain message for the topic name
+     *
+     * @param topicLevels Topic Levels
+     * @param packetId    Packet Id
+     * @param map         Message as Map
+     * @return RedisFutures (add to topic name's retain list, save the message)
+     */
+    public List<RedisFuture> addRetainMessage(List<String> topicLevels, int packetId, Map<String, String> map) {
+        List<RedisFuture> list = new ArrayList<>();
+        RedisAsyncCommands<String, String> commands = this.conn.async();
+        list.add(commands.rpush(RedisKey.topicRetainList(topicLevels), String.valueOf(packetId)));
+        list.add(commands.hmset(RedisKey.topicRemainMessage(topicLevels, packetId), map));
+        return list;
+    }
 }

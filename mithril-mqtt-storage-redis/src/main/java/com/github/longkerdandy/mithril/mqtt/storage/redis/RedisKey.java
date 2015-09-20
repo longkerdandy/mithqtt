@@ -87,4 +87,28 @@ public class RedisKey {
     public static String topicFilterChild(List<String> topicLevels) {
         return topicLevels == null || topicLevels.isEmpty() ? "topic:tree:" : "topic:tree:" + String.join("/", topicLevels);
     }
+
+    // List of remain message's packet id for the topic name
+    // Value MQTT Message's Packet Id
+    public static String topicRetainList(List<String> topicLevels) {
+        return "topic:n:" + String.join("/", topicLevels) + ":retain";
+    }
+
+    // List of remain message's packet id for the topic name
+    // Value MQTT Message's Packet Id
+    public static String topicRetainList(String topicName) {
+        return "topic:n:" + topicName + ":retain";
+    }
+
+    // Hash of retain message for the topic name
+    // MQTT Message in Hash
+    public static String topicRemainMessage(List<String> topicLevels, int packetId) {
+        return "topic:n:" + String.join("/", topicLevels) + ":retain:" + packetId;
+    }
+
+    // Hash of retain message for the topic name
+    // MQTT Message in Hash
+    public static String topicRemainMessage(String topicName, String packetId) {
+        return "topic:n:" + topicName + ":retain:" + packetId;
+    }
 }
