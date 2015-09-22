@@ -243,6 +243,51 @@ public class RedisStorageTest {
         assert result.get("client2").equals("0");
     }
 
+    @Test
+    public void retainTest() throws InterruptedException, IOException, ExecutionException {
+        String json = "{\"menu\": {\n" +
+                "  \"id\": \"file\",\n" +
+                "  \"value\": \"File\",\n" +
+                "  \"popup\": {\n" +
+                "    \"menuItem\": [\n" +
+                "      {\"value\": \"New\", \"onclick\": \"CreateNewDoc()\"},\n" +
+                "      {\"value\": \"Open\", \"onclick\": \"OpenDoc()\"},\n" +
+                "      {\"value\": \"Close\", \"onclick\": \"CloseDoc()\"}\n" +
+                "    ]\n" +
+                "  }\n" +
+                "}}";
+        JsonNode jn = JSONs.ObjectMapper.readTree(json);
+        MqttMessage mqtt = MqttMessageFactory.newMessage(
+                new MqttFixedHeader(MqttMessageType.PUBLISH, false, MqttQoS.AT_LEAST_ONCE, false, 0),
+                new MqttPublishVariableHeader("menuTopic", 123456),
+                Unpooled.wrappedBuffer(JSONs.ObjectMapper.writeValueAsBytes(jn))
+        );
+
+        complete(redis.addRetainMessage(Topics.sanitize("a/b/c/d"), 123456, mqttToMap(mqtt)));
+
+        assert redis.getAllRetainMessageIds(Topics.sanitize("a/b/c/d")).get().contains("123456");
+        mqtt = mapToMqtt(redis.getRetainMessage(Topics.sanitize("a/b/c/d"), 123456).get());
+        assert mqtt.fixedHeader().messageType() == MqttMessageType.PUBLISH;
+        assert !mqtt.fixedHeader().isDup();
+        assert mqtt.fixedHeader().qosLevel() == MqttQoS.AT_LEAST_ONCE;
+        assert !mqtt.fixedHeader().isRetain();
+        assert mqtt.fixedHeader().remainingLength() == 0;
+        assert ((MqttPublishVariableHeader) mqtt.variableHeader()).topicName().equals("menuTopic");
+        assert ((MqttPublishVariableHeader) mqtt.variableHeader()).messageId() == 123456;
+        jn = JSONs.ObjectMapper.readTree(((ByteBuf) mqtt.payload()).array());
+        assert jn.get("menu").get("id").textValue().endsWith("file");
+        assert jn.get("menu").get("value").textValue().endsWith("File");
+        assert jn.get("menu").get("popup").get("menuItem").get(0).get("value").textValue().equals("New");
+        assert jn.get("menu").get("popup").get("menuItem").get(0).get("onclick").textValue().equals("CreateNewDoc()");
+        assert jn.get("menu").get("popup").get("menuItem").get(1).get("value").textValue().equals("Open");
+        assert jn.get("menu").get("popup").get("menuItem").get(1).get("onclick").textValue().equals("OpenDoc()");
+        assert jn.get("menu").get("popup").get("menuItem").get(2).get("value").textValue().equals("Close");
+        assert jn.get("menu").get("popup").get("menuItem").get(2).get("onclick").textValue().equals("CloseDoc()");
+
+        assert !redis.getAllRetainMessageIds(Topics.sanitize("a/b/c/d/e")).get().contains("123456");
+        assert mapToMqtt(redis.getRetainMessage(Topics.sanitize("a/b/c/d/e"), 123456).get()) == null;
+    }
+
     @After
     public void clear() throws ExecutionException, InterruptedException {
         redis.conn.async().flushdb().get();

@@ -532,6 +532,32 @@ public class RedisStorage {
     }
 
     /**
+     * Get all retain message's packet ids for the topic name
+     *
+     * @param topicLevels Topic Levels
+     * @return Retain message's Packet Ids
+     */
+    public RedisFuture<List<String>> getAllRetainMessageIds(List<String> topicLevels) {
+        RedisAsyncCommands<String, String> commands = this.conn.async();
+        return commands.lrange(RedisKey.topicRetainList(topicLevels), 0, -1);
+    }
+
+    /**
+     * Get and handle all retain message for the client
+     *
+     * @param topicLevels Topic Levels
+     * @param handler     Retain message handler
+     */
+    public void handleAllRetainMessage(List<String> topicLevels, Consumer<Map<String, String>> handler) {
+        RedisAsyncCommands<String, String> commands = this.conn.async();
+        commands.lrange(RedisKey.topicRetainList(topicLevels), 0, -1).thenAccept(ids -> {
+            for (String packetId : ids) {
+                commands.hgetall(RedisKey.topicRemainMessage(topicLevels, Integer.parseInt(packetId))).thenAccept(handler);
+            }
+        });
+    }
+
+    /**
      * Add retain message for the topic name
      *
      * @param topicLevels Topic Levels
@@ -545,5 +571,32 @@ public class RedisStorage {
         list.add(commands.rpush(RedisKey.topicRetainList(topicLevels), String.valueOf(packetId)));
         list.add(commands.hmset(RedisKey.topicRemainMessage(topicLevels, packetId), map));
         return list;
+    }
+
+    /**
+     * Get specific retain message for the topic name
+     *
+     * @param topicLevels Topic Levels
+     * @param packetId    Packet Id
+     * @return Retain message in Map format
+     */
+    public RedisFuture<Map<String, String>> getRetainMessage(List<String> topicLevels, int packetId) {
+        RedisAsyncCommands<String, String> commands = this.conn.async();
+        return commands.hgetall(RedisKey.topicRemainMessage(topicLevels, packetId));
+    }
+
+    /**
+     * Remove all retain message for the topic name
+     *
+     * @param topicLevels Topic Levels
+     */
+    public void removeAllInFlightMessage(List<String> topicLevels) {
+        RedisAsyncCommands<String, String> commands = this.conn.async();
+        commands.lpop(RedisKey.topicRetainList(topicLevels)).thenAccept(packetId -> {
+            if (packetId != null) {
+                commands.del(RedisKey.topicRemainMessage(topicLevels, Integer.parseInt(packetId)));
+                removeAllInFlightMessage(topicLevels);
+            }
+        });
     }
 }
