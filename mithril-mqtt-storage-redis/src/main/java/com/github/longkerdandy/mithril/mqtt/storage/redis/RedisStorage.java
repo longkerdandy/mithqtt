@@ -590,12 +590,12 @@ public class RedisStorage {
      *
      * @param topicLevels Topic Levels
      */
-    public void removeAllInFlightMessage(List<String> topicLevels) {
+    public void removeAllRetainMessage(List<String> topicLevels) {
         RedisAsyncCommands<String, String> commands = this.conn.async();
         commands.lpop(RedisKey.topicRetainList(topicLevels)).thenAccept(packetId -> {
             if (packetId != null) {
                 commands.del(RedisKey.topicRemainMessage(topicLevels, Integer.parseInt(packetId)));
-                removeAllInFlightMessage(topicLevels);
+                removeAllRetainMessage(topicLevels);
             }
         });
     }

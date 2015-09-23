@@ -380,6 +380,7 @@ public class AsyncRedisHandler extends SimpleChannelInboundHandler<MqttMessage> 
             ctx.close();
             return;
         }
+        List<String> topicLevels = Topics.sanitizeTopicName(topicName);
 
         // The Packet Identifier field is only present in PUBLISH Packets where the QoS level is 1 or 2.
         if (packetId <= 0 && (qos == MqttQoS.AT_LEAST_ONCE || qos == MqttQoS.EXACTLY_ONCE)) {
@@ -394,6 +395,30 @@ public class AsyncRedisHandler extends SimpleChannelInboundHandler<MqttMessage> 
                     // Authorize successful
                     if (result == AuthorizeResult.OK) {
                         logger.trace("Authorization Success: Client {} authorized to publish to topic {}", this.clientId, topicName);
+
+                        // If the RETAIN flag is set to 1, in a PUBLISH Packet sent by a Client to a Server, the Server MUST store
+                        // the Application Message and its QoS, so that it can be delivered to future subscribers whose
+                        // subscriptions match its topic name. When a new subscription is established, the last
+                        // retained message, if any, on each matching topic name MUST be sent to the subscriber.
+                        if (retain) {
+                            // If the Server receives a QoS 0 message with the RETAIN flag set to 1 it MUST discard any message
+                            // previously retained for that topic. It SHOULD store the new QoS 0 message as the new retained
+                            // message for that topic, but MAY choose to discard it at any time - if this happens there will be no retained
+                            // message for that topic.
+                            if (qos == MqttQoS.AT_MOST_ONCE) {
+                                this.redis.removeAllRetainMessage(topicLevels);
+                            }
+
+                            // A PUBLISH Packet with a RETAIN flag set to 1 and a payload containing zero bytes will be processed as
+                            // normal by the Server and sent to Clients with a subscription matching the topic name. Additionally any
+                            // existing retained message with the same topic name MUST be removed and any future subscribers for
+                            // the topic will not receive a retained message. “As normal” means that the RETAIN flag is
+                            // not set in the message received by existing Clients. A zero byte retained message MUST NOT be stored
+                            // as a retained message on the Server
+                            if (msg.payload() != null && msg.payload().isReadable()) {
+                                this.redis.addRetainMessage(topicLevels, packetId, mqttToMap(msg));
+                            }
+                        }
 
                         // In the QoS 0 delivery protocol, the Receiver
                         // Accepts ownership of the message when it receives the PUBLISH packet.
@@ -475,6 +500,11 @@ public class AsyncRedisHandler extends SimpleChannelInboundHandler<MqttMessage> 
         String topicName = msg.variableHeader().topicName();
         List<String> topicLevels = Topics.sanitizeTopicName(topicName);
 
+        // When sending a PUBLISH Packet to a Client the Server MUST set the RETAIN flag to 1 if a message is
+        // sent as a result of a new subscription being made by a Client. It MUST set the RETAIN
+        // flag to 0 when a PUBLISH Packet is sent to a Client because it matches an established subscription
+        // regardless of how the flag was set in the message it received.
+
         // The Server uses a PUBLISH Packet to send an Application Message to each Client which has a
         // matching subscription.
         // When Clients make subscriptions with Topic Filters that include wildcards, it is possible for a Client’s
@@ -526,11 +556,23 @@ public class AsyncRedisHandler extends SimpleChannelInboundHandler<MqttMessage> 
     }
 
     protected void onPubAck(ChannelHandlerContext ctx, MqttMessage msg) {
+        MqttMessageIdVariableHeader variable = (MqttMessageIdVariableHeader) msg.variableHeader();
+        int packetId = variable.messageId();
 
+        // In the QoS 1 delivery protocol, the Sender
+        // MUST treat the PUBLISH Packet as “unacknowledged” until it has received the corresponding
+        // PUBACK packet from the receiver.
+        this.redis.removeInFlightMessage(this.clientId, packetId);
     }
 
     protected void onPubRec(ChannelHandlerContext ctx, MqttMessage msg) {
+        MqttMessageIdVariableHeader variable = (MqttMessageIdVariableHeader) msg.variableHeader();
+        int packetId = variable.messageId();
 
+        // In the QoS 2 delivery protocol, the Sender
+        // MUST treat the PUBLISH packet as “unacknowledged” until it has received the corresponding
+        // PUBREC packet from the receiver.
+        this.redis.removeInFlightMessage(this.clientId, packetId);
     }
 
     protected void onPubRel(ChannelHandlerContext ctx, MqttMessage msg) {
