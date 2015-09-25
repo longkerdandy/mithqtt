@@ -164,14 +164,16 @@ public class RedisStorage {
      *
      * @param clientId Client Id
      * @param node     MQTT Broker Node
-     * @return RedisFutures (add to server's clients, add to client's servers)
+     * @return RedisFuture
      */
-    public List<RedisFuture> updateConnectedNode(String clientId, String node) {
-        List<RedisFuture> list = new ArrayList<>();
+    public RedisFuture<String> updateConnectedNode(String clientId, String node) {
         RedisAsyncCommands<String, String> commands = this.conn.async();
-        list.add(commands.sadd(RedisKey.connectedClients(node), clientId));
-        list.add(commands.set(RedisKey.connectedNode(clientId), node));
-        return list;
+        String[] keys = new String[]{RedisKey.connectedClients(node), RedisKey.connectedNode(clientId)};
+        String[] argv = new String[]{clientId, node};
+        return commands.eval("redis.call('SADD', KEYS[1], ARGV[1])\n" +
+                        "redis.call('SET', KEYS[2], ARGV[2])\n" +
+                        "return redis.status_reply('OK')",
+                ScriptOutputType.STATUS, keys, argv);
     }
 
     /**
@@ -179,16 +181,19 @@ public class RedisStorage {
      *
      * @param clientId Client Id
      * @param node     MQTT Server Node
-     * @return RedisFutures (remove from server's clients, remove from client's servers)
+     * @return RedisFuture
      */
-    public List<RedisFuture> removeConnectedNodes(String clientId, String node) {
-        List<RedisFuture> list = new ArrayList<>();
+    public RedisFuture<String> removeConnectedNode(String clientId, String node) {
         RedisAsyncCommands<String, String> commands = this.conn.async();
-        list.add(commands.srem(RedisKey.connectedClients(node), clientId));
-        String[] keys = new String[]{RedisKey.connectedNode(clientId)};
-        String[] values = new String[]{node};
-        list.add(commands.eval(RedisLua.CHECKDEL, ScriptOutputType.INTEGER, keys, values));
-        return list;
+        String[] keys = new String[]{RedisKey.connectedClients(node), RedisKey.connectedNode(clientId)};
+        String[] argv = new String[]{clientId, node};
+        return commands.eval("redis.call('SREM', KEYS[1], ARGV[1])\n" +
+                        "if ARGV[2] == redis.call('GET', KEYS[2])\n" +
+                        "then\n" +
+                        "   redis.call('DEL', KEYS[2])\n" +
+                        "end\n" +
+                        "return redis.status_reply('OK')",
+                ScriptOutputType.STATUS, keys, argv);
     }
 
     /**

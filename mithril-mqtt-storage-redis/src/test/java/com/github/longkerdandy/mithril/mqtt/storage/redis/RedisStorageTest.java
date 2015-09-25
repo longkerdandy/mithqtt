@@ -45,11 +45,11 @@ public class RedisStorageTest {
 
     @Test
     public void connectedTest() throws ExecutionException, InterruptedException {
-        complete(redis.updateConnectedNode("client1", "node1"));
-        complete(redis.updateConnectedNode("client2", "node1"));
-        complete(redis.updateConnectedNode("client3", "node1"));
-        complete(redis.updateConnectedNode("client4", "node2"));
-        complete(redis.updateConnectedNode("client5", "node2"));
+        assert redis.updateConnectedNode("client1", "node1").get().equals("OK");
+        assert redis.updateConnectedNode("client2", "node1").get().equals("OK");
+        assert redis.updateConnectedNode("client3", "node1").get().equals("OK");
+        assert redis.updateConnectedNode("client4", "node2").get().equals("OK");
+        assert redis.updateConnectedNode("client5", "node2").get().equals("OK");
 
         assert redis.getConnectedNode("client1").get().equals("node1");
         assert redis.getConnectedNode("client2").get().equals("node1");
@@ -65,8 +65,8 @@ public class RedisStorageTest {
         assert vcs2.getValues().contains("client4");
         assert vcs2.getValues().contains("client5");
 
-        complete(redis.removeConnectedNodes("client3", "node1"));
-        complete(redis.removeConnectedNodes("client4", "node1"));   // not exist
+        assert redis.removeConnectedNode("client3", "node1").get().equals("OK");
+        assert redis.removeConnectedNode("client4", "node1").get().equals("OK");   // not exist
 
         assert redis.getConnectedNode("client3").get() == null;
         assert redis.getConnectedNode("client4").get().equals("node2");
