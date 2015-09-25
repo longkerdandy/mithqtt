@@ -177,12 +177,12 @@ public class RedisStorageTest {
 
     @Test
     public void subscriptionTest() throws ExecutionException, InterruptedException {
-        complete(redis.updateSubscription("client1", Topics.sanitizeTopicFilter("a/+/e"), "0"));
-        complete(redis.updateSubscription("client1", Topics.sanitizeTopicFilter("a/+"), "1"));
-        complete(redis.updateSubscription("client1", Topics.sanitizeTopicName("a/c/e"), "2"));
-        complete(redis.updateSubscription("client2", Topics.sanitizeTopicFilter("a/#"), "0"));
-        complete(redis.updateSubscription("client2", Topics.sanitizeTopicFilter("a/+"), "1"));
-        complete(redis.updateSubscription("client2", Topics.sanitizeTopicName("a/c/e"), "2"));
+        assert redis.updateSubscription("client1", Topics.sanitizeTopicFilter("a/+/e"), "0").get().equals("OK");
+        assert redis.updateSubscription("client1", Topics.sanitizeTopicFilter("a/+"), "1").get().equals("OK");
+        assert redis.updateSubscription("client1", Topics.sanitizeTopicName("a/c/e"), "2").get().equals("OK");
+        assert redis.updateSubscription("client2", Topics.sanitizeTopicFilter("a/#"), "0").get().equals("OK");
+        assert redis.updateSubscription("client2", Topics.sanitizeTopicFilter("a/+"), "1").get().equals("OK");
+        assert redis.updateSubscription("client2", Topics.sanitizeTopicName("a/c/e"), "2").get().equals("OK");
 
         assert redis.getClientSubscriptions("client1").get().get("a/+/e/^").equals("0");
         assert redis.getClientSubscriptions("client1").get().get("a/+/^").equals("1");
@@ -198,7 +198,7 @@ public class RedisStorageTest {
         assert redis.getTopicSubscriptions(Topics.sanitizeTopicName("a/c/e")).get().get("client2").equals("2");
         assert redis.getTopicSubscriptions(Topics.sanitizeTopicFilter("a/#")).get().get("client2").equals("0");
 
-        complete(redis.removeSubscription("client1", Topics.sanitizeTopicFilter("a/+")));
+        assert redis.removeSubscription("client1", Topics.sanitizeTopicFilter("a/+")).get().equals("OK");
 
         assert !redis.getTopicSubscriptions(Topics.sanitizeTopicFilter("a/+")).get().containsKey("client1");
         assert !redis.getClientSubscriptions("client1").get().containsKey("a/+/^");
@@ -213,12 +213,12 @@ public class RedisStorageTest {
 
     @Test
     public void matchTopicFilterTest() throws ExecutionException, InterruptedException {
-        complete(redis.updateSubscription("client1", Topics.sanitizeTopicFilter("a/+/e"), "0"));
-        complete(redis.updateSubscription("client1", Topics.sanitizeTopicFilter("a/+"), "1"));
-        complete(redis.updateSubscription("client1", Topics.sanitizeTopicFilter("a/c/f/#"), "2"));
-        complete(redis.updateSubscription("client2", Topics.sanitizeTopicFilter("a/#"), "0"));
-        complete(redis.updateSubscription("client2", Topics.sanitizeTopicFilter("a/c/+/+"), "1"));
-        complete(redis.updateSubscription("client2", Topics.sanitizeTopicFilter("a/d/#"), "2"));
+        assert redis.updateSubscription("client1", Topics.sanitizeTopicFilter("a/+/e"), "0").get().equals("OK");
+        assert redis.updateSubscription("client1", Topics.sanitizeTopicFilter("a/+"), "1").get().equals("OK");
+        assert redis.updateSubscription("client1", Topics.sanitizeTopicFilter("a/c/f/#"), "2").get().equals("OK");
+        assert redis.updateSubscription("client2", Topics.sanitizeTopicFilter("a/#"), "0").get().equals("OK");
+        assert redis.updateSubscription("client2", Topics.sanitizeTopicFilter("a/c/+/+"), "1").get().equals("OK");
+        assert redis.updateSubscription("client2", Topics.sanitizeTopicFilter("a/d/#"), "2").get().equals("OK");
 
         assert redis.getTopicSubscriptions(Topics.sanitizeTopicFilter("a/+/e")).get().get("client1").equals("0");
         assert redis.getTopicSubscriptions(Topics.sanitizeTopicFilter("a/+")).get().get("client1").equals("1");

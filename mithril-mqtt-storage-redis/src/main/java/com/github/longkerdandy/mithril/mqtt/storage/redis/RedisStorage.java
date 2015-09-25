@@ -415,27 +415,54 @@ public class RedisStorage {
     }
 
     /**
-     * Update topic name subscription for the client
+     * Update topic subscription for the client
      * Topic Levels must be sanitized using Topics
      *
      * @param clientId    Client Id
      * @param topicLevels List of topic levels
      * @param qos         Subscription QoS
-     * @return RedisFutures (add to client's subscriptions, add to topic's subscriptions, add to topic filter tree)
+     * @return RedisFuture
      */
-    public List<RedisFuture> updateSubscription(String clientId, List<String> topicLevels, String qos) {
-        List<RedisFuture> list = new ArrayList<>();
+    public RedisFuture updateSubscription(String clientId, List<String> topicLevels, String qos) {
         RedisAsyncCommands<String, String> commands = this.conn.async();
-        list.add(commands.hset(RedisKey.subscription(clientId), String.join("/", topicLevels), qos));
+        List<String> keys = new ArrayList<>();
+        List<String> argv = new ArrayList<>();
         if (Topics.isTopicFilter(topicLevels)) {
-            list.add(commands.hset(RedisKey.topicFilter(topicLevels), clientId, qos));
+            // client's subscriptions
+            keys.add(RedisKey.subscription(clientId));
+            argv.add(String.join("/", topicLevels));
+            argv.add(qos);
+            // topic's subscribers
+            keys.add(RedisKey.topicFilter(topicLevels));
+            argv.add(clientId);
+            argv.add(qos);
+            // topic filter tree
             for (int i = 0; i < topicLevels.size(); i++) {
-                list.add(commands.hincrby(RedisKey.topicFilterChild(topicLevels.subList(0, i)), topicLevels.get(i), 1));
+                keys.add(RedisKey.topicFilterChild(topicLevels.subList(0, i)));
+                argv.add(topicLevels.get(i));
             }
+            return commands.eval("redis.call('HSET', KEYS[1], ARGV[1], ARGV[2])\n" +
+                            "redis.call('HSET', KEYS[2], ARGV[3], ARGV[4])\n" +
+                            "local length = table.getn(KEYS)\n" +
+                            "for i = 3, length do\n" +
+                            "   redis.call('HINCRBY', KEYS[i], ARGV[i+2], 1)\n" +
+                            "end\n" +
+                            "return redis.status_reply('OK')",
+                    ScriptOutputType.STATUS, keys.toArray(new String[keys.size()]), argv.toArray(new String[argv.size()]));
         } else {
-            list.add(commands.hset(RedisKey.topicName(topicLevels), clientId, qos));
+            // client's subscriptions
+            keys.add(RedisKey.subscription(clientId));
+            argv.add(String.join("/", topicLevels));
+            argv.add(qos);
+            // topic's subscribers
+            keys.add(RedisKey.topicName(topicLevels));
+            argv.add(clientId);
+            argv.add(qos);
+            return commands.eval("redis.call('HSET', KEYS[1], ARGV[1], ARGV[2])\n" +
+                            "redis.call('HSET', KEYS[2], ARGV[3], ARGV[4])\n" +
+                            "return redis.status_reply('OK')",
+                    ScriptOutputType.STATUS, keys.toArray(new String[keys.size()]), argv.toArray(new String[argv.size()]));
         }
-        return list;
     }
 
     /***
@@ -444,21 +471,44 @@ public class RedisStorage {
      *
      * @param clientId    Client Id
      * @param topicLevels List of topic levels
-     * @return RedisFutures (remove from client's subscriptions, remove from topic's subscriptions, remove from topic filter tree)
+     * @return RedisFuture
      */
-    public List<RedisFuture> removeSubscription(String clientId, List<String> topicLevels) {
-        List<RedisFuture> list = new ArrayList<>();
+    public RedisFuture removeSubscription(String clientId, List<String> topicLevels) {
         RedisAsyncCommands<String, String> commands = this.conn.async();
-        list.add(commands.hdel(RedisKey.subscription(clientId), String.join("/", topicLevels)));
+        List<String> keys = new ArrayList<>();
+        List<String> argv = new ArrayList<>();
         if (Topics.isTopicFilter(topicLevels)) {
-            list.add(commands.hdel(RedisKey.topicFilter(topicLevels), clientId));
+            // client's subscriptions
+            keys.add(RedisKey.subscription(clientId));
+            argv.add(String.join("/", topicLevels));
+            // topic's subscribers
+            keys.add(RedisKey.topicFilter(topicLevels));
+            argv.add(clientId);
+            // topic filter tree
             for (int i = 0; i < topicLevels.size(); i++) {
-                list.add(commands.hincrby(RedisKey.topicFilterChild(topicLevels.subList(0, i)), topicLevels.get(i), -1));
+                keys.add(RedisKey.topicFilterChild(topicLevels.subList(0, i)));
+                argv.add(topicLevels.get(i));
             }
+            return commands.eval("redis.call('HDEL', KEYS[1], ARGV[1])\n" +
+                            "redis.call('HDEL', KEYS[2], ARGV[2])\n" +
+                            "local length = table.getn(KEYS)\n" +
+                            "for i = 3, length do\n" +
+                            "   redis.call('HINCRBY', KEYS[i], ARGV[i], -1)\n" +
+                            "end\n" +
+                            "return redis.status_reply('OK')",
+                    ScriptOutputType.STATUS, keys.toArray(new String[keys.size()]), argv.toArray(new String[argv.size()]));
         } else {
-            list.add(commands.hdel(RedisKey.topicName(topicLevels), clientId));
+            // client's subscriptions
+            keys.add(RedisKey.subscription(clientId));
+            argv.add(String.join("/", topicLevels));
+            // topic's subscribers
+            keys.add(RedisKey.topicName(topicLevels));
+            argv.add(clientId);
+            return commands.eval("redis.call('HDEL', KEYS[1], ARGV[1])\n" +
+                            "redis.call('HDEL', KEYS[2], ARGV[2])\n" +
+                            "return redis.status_reply('OK')",
+                    ScriptOutputType.STATUS, keys.toArray(new String[keys.size()]), argv.toArray(new String[argv.size()]));
         }
-        return list;
     }
 
     /**
