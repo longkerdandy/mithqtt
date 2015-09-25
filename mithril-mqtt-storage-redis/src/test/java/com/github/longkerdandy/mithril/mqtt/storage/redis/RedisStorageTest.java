@@ -134,7 +134,7 @@ public class RedisStorageTest {
                 Unpooled.wrappedBuffer(JSONs.ObjectMapper.writeValueAsBytes(jn))
         );
 
-        complete(redis.addInFlightMessage("client1", 123456, mqttToMap(mqtt)));
+        assert redis.addInFlightMessage("client1", 123456, mqttToMap(mqtt)).get().equals("OK");
         mqtt = mapToMqtt(redis.getInFlightMessage("client1", 123456).get());
 
         assert mqtt.fixedHeader().messageType() == MqttMessageType.PUBLISH;
@@ -156,17 +156,17 @@ public class RedisStorageTest {
 
         assert redis.getAllInFlightMessageIds("client1").get().contains("123456");
 
-        complete(redis.removeInFlightMessage("client1", 123456));
+        assert redis.removeInFlightMessage("client1", 123456).get().equals("OK");
 
         assert redis.getInFlightMessage("client1", 123456).get().isEmpty();
         assert !redis.getAllInFlightMessageIds("client1").get().contains("123456");
 
         mqtt = MqttMessageFactory.newMessage(mqtt.fixedHeader(), new MqttPublishVariableHeader("menuTopic", 10000), mqtt.payload());
-        complete(redis.addInFlightMessage("client1", 10000, mqttToMap(mqtt)));
+        assert redis.addInFlightMessage("client1", 10000, mqttToMap(mqtt)).get().equals("OK");
         mqtt = MqttMessageFactory.newMessage(mqtt.fixedHeader(), new MqttPublishVariableHeader("menuTopic", 10001), mqtt.payload());
-        complete(redis.addInFlightMessage("client1", 10001, mqttToMap(mqtt)));
+        assert redis.addInFlightMessage("client1", 10001, mqttToMap(mqtt)).get().equals("OK");
         mqtt = MqttMessageFactory.newMessage(mqtt.fixedHeader(), new MqttPublishVariableHeader("menuTopic", 10002), mqtt.payload());
-        complete(redis.addInFlightMessage("client1", 10002, mqttToMap(mqtt)));
+        assert redis.addInFlightMessage("client1", 10002, mqttToMap(mqtt)).get().equals("OK");
 
         List<String> ids = redis.getAllInFlightMessageIds("client1").get();
         assert ids.size() == 3;

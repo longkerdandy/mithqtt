@@ -6,6 +6,7 @@ import com.lambdaworks.redis.api.StatefulRedisConnection;
 import com.lambdaworks.redis.api.async.RedisAsyncCommands;
 import io.netty.buffer.ByteBuf;
 import io.netty.handler.codec.mqtt.*;
+import org.apache.commons.lang3.ArrayUtils;
 import org.apache.commons.lang3.BooleanUtils;
 
 import java.io.UnsupportedEncodingException;
@@ -107,6 +108,21 @@ public class RedisStorage {
         } else {
             throw new IllegalArgumentException("Invalid in-flight MQTT message type: " + msg.fixedHeader().messageType());
         }
+    }
+
+    /**
+     * Convert Map to Array
+     *
+     * @param map Map
+     * @return Array of Key Value pair
+     */
+    protected static String[] mapToArray(Map<String, String> map) {
+        List<String> l = new ArrayList<>();
+        map.forEach((k, v) -> {
+            l.add(k);
+            l.add(v);
+        });
+        return l.toArray(new String[l.size()]);
     }
 
     public void init() {
@@ -321,14 +337,16 @@ public class RedisStorage {
      * @param clientId Client Id
      * @param packetId Packet Id
      * @param map      Message as Map
-     * @return RedisFutures (add to client's in-flight list, save the message)
+     * @return RedisFuture
      */
-    public List<RedisFuture> addInFlightMessage(String clientId, int packetId, Map<String, String> map) {
-        List<RedisFuture> list = new ArrayList<>();
+    public RedisFuture<String> addInFlightMessage(String clientId, int packetId, Map<String, String> map) {
         RedisAsyncCommands<String, String> commands = this.conn.async();
-        list.add(commands.rpush(RedisKey.inFlightList(clientId), String.valueOf(packetId)));
-        list.add(commands.hmset(RedisKey.inFlightMessage(clientId, packetId), map));
-        return list;
+        String[] keys = new String[]{RedisKey.inFlightList(clientId), RedisKey.inFlightMessage(clientId, packetId)};
+        String[] argv = ArrayUtils.addAll(new String[]{String.valueOf(packetId)}, mapToArray(map));
+        return commands.eval("redis.call('RPUSH', KEYS[1], ARGV[1])\n" +
+                        "redis.call('HMSET', KEYS[2], unpack(ARGV, 2))\n" +
+                        "return redis.status_reply('OK')",
+                ScriptOutputType.STATUS, keys, argv);
     }
 
     /**
@@ -336,14 +354,16 @@ public class RedisStorage {
      *
      * @param clientId Client Id
      * @param packetId Packet Id
-     * @return RedisFutures (remove from client's in-flight list, remove the message)
+     * @return RedisFuture
      */
-    public List<RedisFuture> removeInFlightMessage(String clientId, int packetId) {
-        List<RedisFuture> list = new ArrayList<>();
+    public RedisFuture<String> removeInFlightMessage(String clientId, int packetId) {
         RedisAsyncCommands<String, String> commands = this.conn.async();
-        list.add(commands.lrem(RedisKey.inFlightList(clientId), 0, String.valueOf(packetId)));    // remove all elements
-        list.add(commands.del(RedisKey.inFlightMessage(clientId, packetId)));
-        return list;
+        String[] keys = new String[]{RedisKey.inFlightList(clientId), RedisKey.inFlightMessage(clientId, packetId)};
+        String[] argv = new String[]{String.valueOf(packetId)};
+        return commands.eval("redis.call('LREM', KEYS[1], 0, ARGV[1])\n" +
+                        "redis.call('DEL', KEYS[2])\n" +
+                        "return redis.status_reply('OK')",
+                ScriptOutputType.STATUS, keys, argv);
     }
 
     /**
