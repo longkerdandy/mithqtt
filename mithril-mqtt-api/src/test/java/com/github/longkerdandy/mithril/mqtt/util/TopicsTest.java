@@ -98,6 +98,22 @@ public class TopicsTest {
     }
 
     @Test
+    public void isTopicFilterTest() {
+        assert Topics.isTopicFilter(Arrays.asList(new String[]{"abc", "+", "g", "h", END}));
+        assert Topics.isTopicFilter(Arrays.asList(new String[]{"abc", "def", "g", "#", END}));
+        assert Topics.isTopicFilter(Arrays.asList(new String[]{"abc", "def", "#", END}));
+        assert Topics.isTopicFilter(Arrays.asList(new String[]{"+", "+", "g", "#", END}));
+        assert !Topics.isTopicFilter(Arrays.asList(new String[]{"abc", "def", "g", "h", END}));
+        assert !Topics.isTopicFilter(Arrays.asList(new String[]{EMPTY, "abc", "def", "g", "h", END}));
+
+        assert Topics.isTopicFilter("/abc/def/g/#");
+        assert Topics.isTopicFilter("/abc//def/g/#");
+        assert Topics.isTopicFilter("/abc/+/g/h/");
+        assert !Topics.isTopicFilter("/abc/def/g/h/");
+        assert !Topics.isTopicFilter("/abc/def//g/h");
+    }
+
+    @Test
     public void antidoteTest() {
         assert Topics.antidote(Arrays.asList(new String[]{"abc", "+", "g", "h", END})).equals("abc/+/g/h");
         assert Topics.antidote(Arrays.asList(new String[]{"abc", "def", "g", "#", END})).equals("abc/def/g/#");
