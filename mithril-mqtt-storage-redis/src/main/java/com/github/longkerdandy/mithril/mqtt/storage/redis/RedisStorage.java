@@ -515,26 +515,12 @@ public class RedisStorage {
      * Remove all subscriptions for the client
      *
      * @param clientId Client Id
-     * @return RedisFutures (remove from topic's subscriptions, remove from topic filter tree, remove from client's subscriptions)
      */
-    public List<RedisFuture> removeAllSubscriptions(String clientId) {
-        List<RedisFuture> list = new ArrayList<>();
+    public void removeAllSubscriptions(String clientId) {
         RedisAsyncCommands<String, String> commands = this.conn.async();
-        commands.hgetall(RedisKey.subscription(clientId)).thenAccept(map -> {
-            map.forEach((k, v) -> {
-                if (Topics.isTopicFilter(k)) {
-                    list.add(commands.hdel(RedisKey.topicFilter(k), clientId));
-                    List<String> levels = Topics.sanitizeTopicFilter(k);
-                    for (int i = 0; i < levels.size(); i++) {
-                        list.add(commands.hincrby(RedisKey.topicFilterChild(levels.subList(0, i)), levels.get(i), -1));
-                    }
-                } else {
-                    list.add(commands.hdel(RedisKey.topicName(k), clientId));
-                }
-            });
-            list.add(commands.del(RedisKey.subscription(clientId)));
-        });
-        return list;
+        commands.hgetall(RedisKey.subscription(clientId)).thenAccept(map ->
+                map.forEach((k, v) ->
+                        removeSubscription(clientId, Topics.sanitize(k))));
     }
 
     /**

@@ -202,13 +202,6 @@ public class RedisStorageTest {
 
         assert !redis.getTopicSubscriptions(Topics.sanitizeTopicFilter("a/+")).get().containsKey("client1");
         assert !redis.getClientSubscriptions("client1").get().containsKey("a/+/^");
-
-        complete(redis.removeAllSubscriptions("client2"));
-
-        assert redis.getClientSubscriptions("client2").get().isEmpty();
-        assert !redis.getTopicSubscriptions(Topics.sanitizeTopicFilter("a/+")).get().containsKey("client2");
-        assert !redis.getTopicSubscriptions(Topics.sanitizeTopicName("a/c/e")).get().containsKey("client2");
-        assert !redis.getTopicSubscriptions(Topics.sanitizeTopicFilter("a/#")).get().containsKey("client2");
     }
 
     @Test
