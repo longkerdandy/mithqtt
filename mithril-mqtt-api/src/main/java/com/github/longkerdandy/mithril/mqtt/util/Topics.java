@@ -134,16 +134,7 @@ public class Topics {
      * @return True if is topic filter
      */
     public static boolean isTopicFilter(List<String> topicLevels) {
-        return topicLevels.contains("+") || topicLevels.get(topicLevels.size() - 2).equals("#");
-    }
-
-    /**
-     * Is topic a topic filter (contains wildcard)
-     *
-     * @param topic Topic (May Sanitized)
-     * @return True if is topic filter
-     */
-    public static boolean isTopicFilter(String topic) {
-        return topic.contains("+") || topic.endsWith("#") || topic.endsWith("#/" + END);
+        return topicLevels.contains("+") || topicLevels.get(topicLevels.size() - 1).equals("#")
+                || (topicLevels.get(topicLevels.size() - 2).equals("#") && topicLevels.get(topicLevels.size() - 1).equals(END));
     }
 }
