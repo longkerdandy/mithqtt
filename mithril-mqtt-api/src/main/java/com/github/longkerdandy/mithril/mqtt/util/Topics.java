@@ -134,7 +134,6 @@ public class Topics {
      * @return True if is topic filter
      */
     public static boolean isTopicFilter(List<String> topicLevels) {
-        return topicLevels.contains("+") || topicLevels.get(topicLevels.size() - 1).equals("#")
-                || (topicLevels.get(topicLevels.size() - 2).equals("#") && topicLevels.get(topicLevels.size() - 1).equals(END));
+        return topicLevels.contains("+") || topicLevels.get(topicLevels.size() - 2).equals("#");
     }
 }
