@@ -18,6 +18,7 @@ import org.slf4j.LoggerFactory;
 
 import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 
 import static com.github.longkerdandy.mithril.mqtt.storage.redis.RedisStorage.mapToMqtt;
 import static com.github.longkerdandy.mithril.mqtt.storage.redis.RedisStorage.mqttToMap;
@@ -536,7 +537,9 @@ public class AsyncRedisHandler extends SimpleChannelInboundHandler<MqttMessage> 
                 // MUST treat the PUBLISH packet as “unacknowledged” until it has received the corresponding
                 // PUBREC packet from the receiver.
                 if (Integer.valueOf(sQos) == MqttQoS.AT_LEAST_ONCE.value() || Integer.valueOf(sQos) == MqttQoS.EXACTLY_ONCE.value()) {
-                    this.redis.addInFlightMessage(sClientId, sPacketId.intValue(), mqttToMap(sMsg));
+                    Map<String, String> sMap = mqttToMap(sMsg);
+                    sMap.put("dup", "1");
+                    this.redis.addInFlightMessage(sClientId, sPacketId.intValue(), sMap);
                 }
 
                 // Forward to recipient
