@@ -499,6 +499,7 @@ public class AsyncRedisHandler extends SimpleChannelInboundHandler<MqttMessage> 
      * @param msg PUBLISH MQTT Message
      */
     protected void onwardRecipients(MqttPublishMessage msg) {
+        MqttQoS qos = msg.fixedHeader().qosLevel();
         String topicName = msg.variableHeader().topicName();
         List<String> topicLevels = Topics.sanitizeTopicName(topicName);
 
@@ -516,6 +517,8 @@ public class AsyncRedisHandler extends SimpleChannelInboundHandler<MqttMessage> 
         // additional matching subscription and respecting the subscription’s QoS in each case.
         this.redis.handleMatchSubscriptions(topicLevels, 0, map -> map.forEach((sClientId, sQos) -> {
 
+            int fQos = qos.value() > Integer.valueOf(sQos) ? Integer.valueOf(sQos) : qos.value();
+
             // Each time a Client sends a new packet of one of these
             // types it MUST assign it a currently unused Packet Identifier. If a Client re-sends a
             // particular Control Packet, then it MUST use the same Packet Identifier in subsequent re-sends of that
@@ -527,7 +530,7 @@ public class AsyncRedisHandler extends SimpleChannelInboundHandler<MqttMessage> 
             // A PUBLISH Packet MUST NOT contain a Packet Identifier if its QoS value is set to
             this.redis.getNextPacketId(sClientId).thenAccept(sPacketId -> {
                 MqttMessage sMsg = MqttMessageFactory.newMessage(
-                        new MqttFixedHeader(MqttMessageType.PUBLISH, false, MqttQoS.valueOf(Integer.valueOf(sQos)), false, 0),
+                        new MqttFixedHeader(MqttMessageType.PUBLISH, false, MqttQoS.valueOf(fQos), false, 0),
                         new MqttPublishVariableHeader(topicName, sPacketId.intValue()),
                         msg.payload().duplicate()); // TODO, use ByteBuf.duplicate() is correct?
 
@@ -537,7 +540,7 @@ public class AsyncRedisHandler extends SimpleChannelInboundHandler<MqttMessage> 
                 // In the QoS 2 delivery protocol, the Sender
                 // MUST treat the PUBLISH packet as “unacknowledged” until it has received the corresponding
                 // PUBREC packet from the receiver.
-                if (Integer.valueOf(sQos) == MqttQoS.AT_LEAST_ONCE.value() || Integer.valueOf(sQos) == MqttQoS.EXACTLY_ONCE.value()) {
+                if (fQos == MqttQoS.AT_LEAST_ONCE.value() || fQos == MqttQoS.EXACTLY_ONCE.value()) {
                     Map<String, String> sMap = mqttToMap(sMsg);
                     sMap.put("dup", "1");
                     this.redis.addInFlightMessage(sClientId, sPacketId.intValue(), sMap);
