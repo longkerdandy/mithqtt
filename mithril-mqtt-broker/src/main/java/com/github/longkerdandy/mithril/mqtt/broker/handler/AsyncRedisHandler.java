@@ -469,7 +469,7 @@ public class AsyncRedisHandler extends SimpleChannelInboundHandler<MqttMessage> 
                             MqttMessageIdVariableHeader.from(packetId),
                             null),
                     this.clientId,
-                    null,
+                    packetId,
                     true);
         }
         // In the QoS 2 delivery protocol, the Receiver
@@ -487,7 +487,7 @@ public class AsyncRedisHandler extends SimpleChannelInboundHandler<MqttMessage> 
                             MqttMessageIdVariableHeader.from(packetId),
                             null),
                     this.clientId,
-                    null,
+                    packetId,
                     true);
         }
     }
@@ -575,15 +575,46 @@ public class AsyncRedisHandler extends SimpleChannelInboundHandler<MqttMessage> 
         // In the QoS 2 delivery protocol, the Sender
         // MUST treat the PUBLISH packet as “unacknowledged” until it has received the corresponding
         // PUBREC packet from the receiver.
-        this.redis.removeInFlightMessage(this.clientId, packetId);
+        // MUST send a PUBREL packet when it receives a PUBREC packet from the receiver. This
+        // PUBREL packet MUST contain the same Packet Identifier as the original PUBLISH packet.
+        // MUST NOT re-send the PUBLISH once it has sent the corresponding PUBREL packet.
+        this.redis.removeInFlightMessage(this.clientId, packetId).thenAccept(r -> {
+            MqttMessage rel = MqttMessageFactory.newMessage(
+                    new MqttFixedHeader(MqttMessageType.PUBREL, false, MqttQoS.AT_LEAST_ONCE, false, 0),
+                    MqttMessageIdVariableHeader.from(packetId),
+                    null);
+            this.redis.addInFlightMessage(this.clientId, packetId, mqttToMap(rel));
+            logger.trace("Response: Send PUBREL back to client {}", this.clientId);
+            this.registry.sendMessage(ctx, rel, this.clientId, packetId, true);
+        });
     }
 
     protected void onPubRel(ChannelHandlerContext ctx, MqttMessage msg) {
+        MqttMessageIdVariableHeader variable = (MqttMessageIdVariableHeader) msg.variableHeader();
+        int packetId = variable.messageId();
 
+        // In the QoS 2 delivery protocol, the Receiver
+        // MUST respond to a PUBREL packet by sending a PUBCOMP packet containing the same
+        // Packet Identifier as the PUBREL.
+        // After it has sent a PUBCOMP, the receiver MUST treat any subsequent PUBLISH packet that
+        // contains that Packet Identifier as being a new publication.
+        this.redis.removeQoS2MessageId(this.clientId, packetId);
+        MqttMessage comp = MqttMessageFactory.newMessage(
+                new MqttFixedHeader(MqttMessageType.PUBCOMP, false, MqttQoS.AT_MOST_ONCE, false, 0),
+                MqttMessageIdVariableHeader.from(packetId),
+                null);
+        logger.trace("Response: Send PUBCOMP back to client {}", this.clientId);
+        this.registry.sendMessage(ctx, comp, this.clientId, packetId, true);
     }
 
     protected void onPubComp(ChannelHandlerContext ctx, MqttMessage msg) {
+        MqttMessageIdVariableHeader variable = (MqttMessageIdVariableHeader) msg.variableHeader();
+        int packetId = variable.messageId();
 
+        // In the QoS 2 delivery protocol, the Sender
+        // MUST treat the PUBREL packet as “unacknowledged” until it has received the corresponding
+        // PUBCOMP packet from the receiver.
+        this.redis.removeInFlightMessage(this.clientId, packetId);
     }
 
     protected void onSubscribe(ChannelHandlerContext ctx, MqttSubscribeMessage msg) {
