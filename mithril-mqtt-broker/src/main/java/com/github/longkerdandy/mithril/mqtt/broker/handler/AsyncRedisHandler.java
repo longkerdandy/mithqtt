@@ -559,6 +559,12 @@ public class AsyncRedisHandler extends SimpleChannelInboundHandler<MqttMessage> 
     }
 
     protected void onPubAck(ChannelHandlerContext ctx, MqttMessage msg) {
+        if (!this.connected) {
+            logger.trace("Protocol violation: Client {} must first sent a CONNECT message, now received PUBACK message, disconnect the client", this.clientId);
+            ctx.close();
+            return;
+        }
+
         MqttMessageIdVariableHeader variable = (MqttMessageIdVariableHeader) msg.variableHeader();
         int packetId = variable.messageId();
 
@@ -569,6 +575,12 @@ public class AsyncRedisHandler extends SimpleChannelInboundHandler<MqttMessage> 
     }
 
     protected void onPubRec(ChannelHandlerContext ctx, MqttMessage msg) {
+        if (!this.connected) {
+            logger.trace("Protocol violation: Client {} must first sent a CONNECT message, now received PUBREC message, disconnect the client", this.clientId);
+            ctx.close();
+            return;
+        }
+
         MqttMessageIdVariableHeader variable = (MqttMessageIdVariableHeader) msg.variableHeader();
         int packetId = variable.messageId();
 
@@ -590,6 +602,12 @@ public class AsyncRedisHandler extends SimpleChannelInboundHandler<MqttMessage> 
     }
 
     protected void onPubRel(ChannelHandlerContext ctx, MqttMessage msg) {
+        if (!this.connected) {
+            logger.trace("Protocol violation: Client {} must first sent a CONNECT message, now received PUBREL message, disconnect the client", this.clientId);
+            ctx.close();
+            return;
+        }
+
         MqttMessageIdVariableHeader variable = (MqttMessageIdVariableHeader) msg.variableHeader();
         int packetId = variable.messageId();
 
@@ -608,6 +626,12 @@ public class AsyncRedisHandler extends SimpleChannelInboundHandler<MqttMessage> 
     }
 
     protected void onPubComp(ChannelHandlerContext ctx, MqttMessage msg) {
+        if (!this.connected) {
+            logger.trace("Protocol violation: Client {} must first sent a CONNECT message, now received PUBCOMP message, disconnect the client", this.clientId);
+            ctx.close();
+            return;
+        }
+
         MqttMessageIdVariableHeader variable = (MqttMessageIdVariableHeader) msg.variableHeader();
         int packetId = variable.messageId();
 
