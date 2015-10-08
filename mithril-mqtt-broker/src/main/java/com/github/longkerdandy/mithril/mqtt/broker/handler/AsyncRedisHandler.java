@@ -16,6 +16,7 @@ import org.apache.commons.lang3.exception.ExceptionUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -112,7 +113,7 @@ public class AsyncRedisHandler extends SimpleChannelInboundHandler<MqttMessage> 
                 onSubscribe(ctx, (MqttSubscribeMessage) msg);
                 break;
             case UNSUBSCRIBE:
-                onSubAck(ctx, (MqttSubAckMessage) msg);
+                onUnsubscribe(ctx, (MqttUnsubscribeMessage) msg);
                 break;
             case PINGREQ:
                 onPingReq(ctx, msg);
@@ -642,10 +643,70 @@ public class AsyncRedisHandler extends SimpleChannelInboundHandler<MqttMessage> 
     }
 
     protected void onSubscribe(ChannelHandlerContext ctx, MqttSubscribeMessage msg) {
+        if (!this.connected) {
+            logger.trace("Protocol violation: Client {} must first sent a CONNECT message, now received SUBSCRIBE message, disconnect the client", this.clientId);
+            ctx.close();
+            return;
+        }
 
+        int packetId = msg.variableHeader().messageId();
+        List<MqttTopicSubscription> subscriptions = msg.payload().topicSubscriptions();
+        List<String> topics = new ArrayList<>();
+        List<Integer> requestQos = new ArrayList<>();
+        subscriptions.forEach(subscription -> {
+            topics.add(subscription.topicName());
+            requestQos.add(subscription.qualityOfService().value());
+        });
+
+        // Authorize client subscribe using provided Authenticator
+        this.authenticator.authSubscribe(this.clientId, this.userName, topics, requestQos).thenAccept(grantedQos -> {
+
+            for (int i = 0; i < topics.size(); i++) {
+                int maxQos = grantedQos.get(i);
+
+                // Authorize successful
+                if (maxQos >= 0 && maxQos <= 2) {
+
+                    List<String> topicLevels = Topics.sanitize(topics.get(i));
+
+                    // If a Server receives a SUBSCRIBE Packet containing a Topic Filter that is identical to an existing
+                    // Subscription’s Topic Filter then it MUST completely replace that existing Subscription with a new
+                    // Subscription. The Topic Filter in the new Subscription will be identical to that in the previous Subscription,
+                    // although its maximum QoS value could be different. Any existing retained messages matching the Topic
+                    // Filter MUST be re-sent, but the flow of publications MUST NOT be interrupted.
+                    // Where the Topic Filter is not identical to any existing Subscription’s filter, a new Subscription is created
+                    // and all matching retained messages are sent.
+                    this.redis.updateSubscription(this.clientId, topicLevels, String.valueOf(grantedQos.get(i)));
+                    // The Server is permitted to start sending PUBLISH packets matching the Subscription before the Server
+                    // sends the SUBACK Packet.
+                    this.redis.handleAllRetainMessage(topicLevels, map -> {
+                        int qos = Integer.parseInt(map.getOrDefault("qos", "0"));
+                        if (qos > maxQos) map.put("qos", String.valueOf(maxQos));
+                        this.registry.sendMessage(ctx, mapToMqtt(map), this.clientId, Integer.parseInt(map.getOrDefault("packetId", "0")), true);
+                    });
+                }
+            }
+
+            // If a Server receives a SUBSCRIBE packet that contains multiple Topic Filters it MUST handle that packet
+            // as if it had received a sequence of multiple SUBSCRIBE packets, except that it combines their responses
+            // into a single SUBACK response.
+            // When the Server receives a SUBSCRIBE Packet from a Client, the Server MUST respond with a
+            // SUBACK Packet. The SUBACK Packet MUST have the same Packet Identifier as the
+            // SUBSCRIBE Packet that it is acknowledging.
+            logger.trace("Response: Send SUBACK back to client {}", this.clientId);
+            this.registry.sendMessage(
+                    ctx,
+                    MqttMessageFactory.newMessage(
+                            new MqttFixedHeader(MqttMessageType.SUBACK, false, MqttQoS.AT_MOST_ONCE, false, 0),
+                            MqttMessageIdVariableHeader.from(packetId),
+                            new MqttSubAckPayload(grantedQos)),
+                    this.clientId,
+                    packetId,
+                    true);
+        });
     }
 
-    protected void onSubAck(ChannelHandlerContext ctx, MqttSubAckMessage msg) {
+    protected void onUnsubscribe(ChannelHandlerContext ctx, MqttUnsubscribeMessage msg) {
 
     }
 

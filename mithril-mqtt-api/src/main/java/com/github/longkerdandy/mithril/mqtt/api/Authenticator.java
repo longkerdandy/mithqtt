@@ -1,5 +1,6 @@
 package com.github.longkerdandy.mithril.mqtt.api;
 
+import java.util.List;
 import java.util.concurrent.CompletableFuture;
 
 /**
@@ -23,8 +24,20 @@ public interface Authenticator {
      * @param clientId  Client Id
      * @param userName  User Name
      * @param topicName Topic Name
-     * @param qos       QoS Level
+     * @param qos       QoS
+     * @param retain    Retain
      * @return Authorize Result
      */
     CompletableFuture<AuthorizeResult> authPublish(String clientId, String userName, String topicName, int qos, boolean retain);
+
+    /**
+     * Authorize client SUBSCRIBE
+     *
+     * @param clientId   Client Id
+     * @param userName   User Name
+     * @param topics     List of Topic
+     * @param requestQos List of request QoS
+     * @return List of granted QoS
+     */
+    CompletableFuture<List<Integer>> authSubscribe(String clientId, String userName, List<String> topics, List<Integer> requestQos);
 }
