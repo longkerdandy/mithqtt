@@ -653,10 +653,9 @@ public class AsyncRedisHandler extends SimpleChannelInboundHandler<MqttMessage> 
         }
 
         int packetId = msg.variableHeader().messageId();
-        List<MqttTopicSubscription> subscriptions = msg.payload().topicSubscriptions();
         List<String> topics = new ArrayList<>();
         List<Integer> requestQos = new ArrayList<>();
-        subscriptions.forEach(subscription -> {
+        msg.payload().topicSubscriptions().forEach(subscription -> {
             topics.add(subscription.topicName());
             requestQos.add(subscription.qualityOfService().value());
         });
