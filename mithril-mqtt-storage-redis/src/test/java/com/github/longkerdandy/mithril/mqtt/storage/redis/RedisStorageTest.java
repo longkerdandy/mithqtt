@@ -138,12 +138,12 @@ public class RedisStorageTest {
         mqtt = mapToMqtt(redis.getInFlightMessage("client1", 123456).get());
 
         assert mqtt.fixedHeader().messageType() == MqttMessageType.PUBLISH;
-        assert !mqtt.fixedHeader().isDup();
-        assert mqtt.fixedHeader().qosLevel() == MqttQoS.AT_LEAST_ONCE;
-        assert !mqtt.fixedHeader().isRetain();
+        assert !mqtt.fixedHeader().dup();
+        assert mqtt.fixedHeader().qos() == MqttQoS.AT_LEAST_ONCE;
+        assert !mqtt.fixedHeader().retain();
         assert mqtt.fixedHeader().remainingLength() == 0;
         assert ((MqttPublishVariableHeader) mqtt.variableHeader()).topicName().equals("menuTopic");
-        assert ((MqttPublishVariableHeader) mqtt.variableHeader()).messageId() == 123456;
+        assert ((MqttPublishVariableHeader) mqtt.variableHeader()).packetId() == 123456;
         jn = JSONs.ObjectMapper.readTree(((ByteBuf) mqtt.payload()).array());
         assert jn.get("menu").get("id").textValue().endsWith("file");
         assert jn.get("menu").get("value").textValue().endsWith("File");
@@ -261,12 +261,12 @@ public class RedisStorageTest {
         assert redis.getAllRetainMessageIds(Topics.sanitize("a/b/c/d")).get().contains("123456");
         mqtt = mapToMqtt(redis.getRetainMessage(Topics.sanitize("a/b/c/d"), 123456).get());
         assert mqtt.fixedHeader().messageType() == MqttMessageType.PUBLISH;
-        assert !mqtt.fixedHeader().isDup();
-        assert mqtt.fixedHeader().qosLevel() == MqttQoS.AT_LEAST_ONCE;
-        assert !mqtt.fixedHeader().isRetain();
+        assert !mqtt.fixedHeader().dup();
+        assert mqtt.fixedHeader().qos() == MqttQoS.AT_LEAST_ONCE;
+        assert !mqtt.fixedHeader().retain();
         assert mqtt.fixedHeader().remainingLength() == 0;
         assert ((MqttPublishVariableHeader) mqtt.variableHeader()).topicName().equals("menuTopic");
-        assert ((MqttPublishVariableHeader) mqtt.variableHeader()).messageId() == 123456;
+        assert ((MqttPublishVariableHeader) mqtt.variableHeader()).packetId() == 123456;
         jn = JSONs.ObjectMapper.readTree(((ByteBuf) mqtt.payload()).array());
         assert jn.get("menu").get("id").textValue().endsWith("file");
         assert jn.get("menu").get("value").textValue().endsWith("File");

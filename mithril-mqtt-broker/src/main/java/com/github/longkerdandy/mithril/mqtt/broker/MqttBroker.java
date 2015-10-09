@@ -8,8 +8,6 @@ import com.github.longkerdandy.mithril.mqtt.broker.util.Validator;
 import com.github.longkerdandy.mithril.mqtt.storage.redis.RedisStorage;
 import io.netty.bootstrap.ServerBootstrap;
 import io.netty.channel.*;
-import io.netty.channel.epoll.EpollEventLoopGroup;
-import io.netty.channel.epoll.EpollServerSocketChannel;
 import io.netty.channel.nio.NioEventLoopGroup;
 import io.netty.channel.socket.SocketChannel;
 import io.netty.channel.socket.nio.NioServerSocketChannel;
@@ -39,12 +37,12 @@ public class MqttBroker {
         // tcp server
         InternalLoggerFactory.setDefaultFactory(new Slf4JLoggerFactory());
         SessionRegistry registry = new SessionRegistry();
-        EventLoopGroup bossGroup = config.getBoolean("netty.useNativeTransport") ? new EpollEventLoopGroup() : new NioEventLoopGroup();
-        EventLoopGroup workerGroup = config.getBoolean("netty.useNativeTransport") ? new EpollEventLoopGroup() : new NioEventLoopGroup();
+        EventLoopGroup bossGroup = new NioEventLoopGroup();
+        EventLoopGroup workerGroup = new NioEventLoopGroup();
         try {
             ServerBootstrap b = new ServerBootstrap();
             b.group(bossGroup, workerGroup)
-                    .channel(config.getBoolean("netty.useNativeTransport") ? EpollServerSocketChannel.class : NioServerSocketChannel.class)
+                    .channel(NioServerSocketChannel.class)
                     .handler(new LoggingHandler(LogLevel.INFO))
                     .childHandler(new ChannelInitializer<SocketChannel>() {
                         @Override

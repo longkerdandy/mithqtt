@@ -70,7 +70,7 @@ public class RedisStorage {
                             false,
                             0
                     ),
-                    MqttMessageIdVariableHeader.from(Integer.parseInt(map.getOrDefault("packetId", "0"))),
+                    MqttPacketIdVariableHeader.from(Integer.parseInt(map.getOrDefault("packetId", "0"))),
                     null
             );
         } else {
@@ -90,11 +90,11 @@ public class RedisStorage {
 
         if (msg.fixedHeader().messageType() == MqttMessageType.PUBLISH) {
             map.put("type", String.valueOf(MqttMessageType.PUBLISH.value()));
-            map.put("retain", BooleanUtils.toString(msg.fixedHeader().isRetain(), "1", "0"));
-            map.put("qos", String.valueOf(msg.fixedHeader().qosLevel().value()));
-            map.put("dup", BooleanUtils.toString(msg.fixedHeader().isDup(), "1", "0"));
+            map.put("retain", BooleanUtils.toString(msg.fixedHeader().retain(), "1", "0"));
+            map.put("qos", String.valueOf(msg.fixedHeader().qos().value()));
+            map.put("dup", BooleanUtils.toString(msg.fixedHeader().dup(), "1", "0"));
             map.put("topicName", ((MqttPublishVariableHeader) msg.variableHeader()).topicName());
-            map.put("packetId", String.valueOf(((MqttPublishVariableHeader) msg.variableHeader()).messageId()));
+            map.put("packetId", String.valueOf(((MqttPublishVariableHeader) msg.variableHeader()).packetId()));
             if (msg.payload() != null) try {
                 map.put("payload", new String(((ByteBuf) msg.payload()).array(), "ISO-8859-1"));
             } catch (UnsupportedEncodingException ignore) {
@@ -103,7 +103,7 @@ public class RedisStorage {
         } else if (msg.fixedHeader().messageType() == MqttMessageType.PUBREL) {
             map.put("type", String.valueOf(MqttMessageType.PUBREL.value()));
             map.put("qos", "1");
-            map.put("packetId", String.valueOf(((MqttPublishVariableHeader) msg.variableHeader()).messageId()));
+            map.put("packetId", String.valueOf(((MqttPublishVariableHeader) msg.variableHeader()).packetId()));
             return map;
         } else {
             throw new IllegalArgumentException("Invalid in-flight MQTT message type: " + msg.fixedHeader().messageType());

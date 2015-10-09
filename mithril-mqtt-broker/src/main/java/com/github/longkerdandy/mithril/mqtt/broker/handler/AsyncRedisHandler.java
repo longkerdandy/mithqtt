@@ -131,8 +131,8 @@ public class AsyncRedisHandler extends SimpleChannelInboundHandler<MqttMessage> 
      * @param msg CONNECT MQTT Message
      */
     protected void onConnect(ChannelHandlerContext ctx, MqttConnectMessage msg) {
-        this.clientId = msg.payload().clientIdentifier();
-        this.cleanSession = msg.variableHeader().isCleanSession();
+        this.clientId = msg.payload().clientId();
+        this.cleanSession = msg.variableHeader().cleanSession();
 
         // A Server MAY allow a Client to supply a ClientId that has a length of zero bytes, however if it does so the
         // Server MUST treat this as a special case and assign a unique ClientId to that Client. It MUST then
@@ -160,7 +160,7 @@ public class AsyncRedisHandler extends SimpleChannelInboundHandler<MqttMessage> 
 
         // Validate clientId based on configuration
         if (!validator.isClientIdValid(this.clientId)) {
-            logger.trace("Protocol violation: Client id {} not valid based on configuration, send CONNACK and disconnect the client");
+            logger.trace("Configuration violation: Client id {} not valid based on configuration, send CONNACK and disconnect the client");
             this.registry.sendMessage(
                     ctx,
                     MqttMessageFactory.newMessage(
@@ -182,8 +182,8 @@ public class AsyncRedisHandler extends SimpleChannelInboundHandler<MqttMessage> 
             return;
         }
 
-        boolean userNameFlag = msg.variableHeader().hasUserName();
-        boolean passwordFlag = msg.variableHeader().hasPassword();
+        boolean userNameFlag = msg.variableHeader().userNameFlag();
+        boolean passwordFlag = msg.variableHeader().passwordFlag();
         this.userName = msg.payload().userName();
         String password = msg.payload().password();
         boolean malformed = false;
@@ -313,11 +313,11 @@ public class AsyncRedisHandler extends SimpleChannelInboundHandler<MqttMessage> 
                     // The Client fails to communicate within the Keep Alive time.
                     // The Client closes the Network Connection without first sending a DISCONNECT Packet.
                     // The Server closes the Network Connection because of a protocol error.
-                    if (msg.variableHeader().isWillFlag()
+                    if (msg.variableHeader().willFlag()
                             && StringUtils.isNotBlank(msg.payload().willTopic())
                             && StringUtils.isNotBlank(msg.payload().willMessage())) {
-                        MqttQoS willQos = MqttQoS.valueOf(msg.variableHeader().willQos());
-                        boolean willRetain = msg.variableHeader().isWillRetain();
+                        MqttQoS willQos = msg.variableHeader().willQos();
+                        boolean willRetain = msg.variableHeader().willRetain();
                         this.willMessage = (MqttPublishMessage) MqttMessageFactory.newMessage(
                                 new MqttFixedHeader(MqttMessageType.PUBLISH, false, willQos, willRetain, 0),
                                 new MqttPublishVariableHeader(msg.payload().willTopic(), 0),
@@ -328,7 +328,7 @@ public class AsyncRedisHandler extends SimpleChannelInboundHandler<MqttMessage> 
                     // If the Keep Alive value is non-zero and the Server does not receive a Control Packet from the Client
                     // within one and a half times the Keep Alive time period, it MUST disconnect the Network Connection to the
                     // Client as if the network had failed
-                    this.keepAlive = msg.variableHeader().keepAliveTimeSeconds();
+                    this.keepAlive = msg.variableHeader().keepAlive();
                     if (this.keepAlive <= 0 || this.keepAlive > this.config.getInt("mqtt.keepalive.max"))
                         this.keepAlive = this.config.getInt("mqtt.keepalive.default");
 
@@ -370,11 +370,11 @@ public class AsyncRedisHandler extends SimpleChannelInboundHandler<MqttMessage> 
             return;
         }
 
-        boolean dup = msg.fixedHeader().isDup();
-        MqttQoS qos = msg.fixedHeader().qosLevel();
-        boolean retain = msg.fixedHeader().isRetain();
+        boolean dup = msg.fixedHeader().dup();
+        MqttQoS qos = msg.fixedHeader().qos();
+        boolean retain = msg.fixedHeader().retain();
         String topicName = msg.variableHeader().topicName();
-        int packetId = msg.variableHeader().messageId();
+        int packetId = msg.variableHeader().packetId();
 
         // The Topic Name in the PUBLISH Packet MUST NOT contain wildcard characters
         if (!Topics.isValidTopicName(topicName, this.config)) {
@@ -467,7 +467,7 @@ public class AsyncRedisHandler extends SimpleChannelInboundHandler<MqttMessage> 
                     ctx,
                     MqttMessageFactory.newMessage(
                             new MqttFixedHeader(MqttMessageType.PUBACK, false, MqttQoS.AT_MOST_ONCE, false, 0),
-                            MqttMessageIdVariableHeader.from(packetId),
+                            MqttPacketIdVariableHeader.from(packetId),
                             null),
                     this.clientId,
                     packetId,
@@ -485,7 +485,7 @@ public class AsyncRedisHandler extends SimpleChannelInboundHandler<MqttMessage> 
                     ctx,
                     MqttMessageFactory.newMessage(
                             new MqttFixedHeader(MqttMessageType.PUBREC, false, MqttQoS.AT_MOST_ONCE, false, 0),
-                            MqttMessageIdVariableHeader.from(packetId),
+                            MqttPacketIdVariableHeader.from(packetId),
                             null),
                     this.clientId,
                     packetId,
@@ -499,7 +499,7 @@ public class AsyncRedisHandler extends SimpleChannelInboundHandler<MqttMessage> 
      * @param msg PUBLISH MQTT Message
      */
     protected void onwardRecipients(MqttPublishMessage msg) {
-        MqttQoS qos = msg.fixedHeader().qosLevel();
+        MqttQoS qos = msg.fixedHeader().qos();
         String topicName = msg.variableHeader().topicName();
         List<String> topicLevels = Topics.sanitizeTopicName(topicName);
 
@@ -569,7 +569,7 @@ public class AsyncRedisHandler extends SimpleChannelInboundHandler<MqttMessage> 
             return;
         }
 
-        MqttMessageIdVariableHeader variable = (MqttMessageIdVariableHeader) msg.variableHeader();
+        MqttPacketIdVariableHeader variable = (MqttPacketIdVariableHeader) msg.variableHeader();
         int packetId = variable.messageId();
 
         // In the QoS 1 delivery protocol, the Sender
@@ -585,7 +585,7 @@ public class AsyncRedisHandler extends SimpleChannelInboundHandler<MqttMessage> 
             return;
         }
 
-        MqttMessageIdVariableHeader variable = (MqttMessageIdVariableHeader) msg.variableHeader();
+        MqttPacketIdVariableHeader variable = (MqttPacketIdVariableHeader) msg.variableHeader();
         int packetId = variable.messageId();
 
         // In the QoS 2 delivery protocol, the Sender
@@ -597,7 +597,7 @@ public class AsyncRedisHandler extends SimpleChannelInboundHandler<MqttMessage> 
         this.redis.removeInFlightMessage(this.clientId, packetId).thenAccept(r -> {
             MqttMessage rel = MqttMessageFactory.newMessage(
                     new MqttFixedHeader(MqttMessageType.PUBREL, false, MqttQoS.AT_LEAST_ONCE, false, 0),
-                    MqttMessageIdVariableHeader.from(packetId),
+                    MqttPacketIdVariableHeader.from(packetId),
                     null);
             this.redis.addInFlightMessage(this.clientId, packetId, mqttToMap(rel));
             logger.trace("Response: Send PUBREL back to client {}", this.clientId);
@@ -612,7 +612,7 @@ public class AsyncRedisHandler extends SimpleChannelInboundHandler<MqttMessage> 
             return;
         }
 
-        MqttMessageIdVariableHeader variable = (MqttMessageIdVariableHeader) msg.variableHeader();
+        MqttPacketIdVariableHeader variable = (MqttPacketIdVariableHeader) msg.variableHeader();
         int packetId = variable.messageId();
 
         // In the QoS 2 delivery protocol, the Receiver
@@ -623,7 +623,7 @@ public class AsyncRedisHandler extends SimpleChannelInboundHandler<MqttMessage> 
         this.redis.removeQoS2MessageId(this.clientId, packetId);
         MqttMessage comp = MqttMessageFactory.newMessage(
                 new MqttFixedHeader(MqttMessageType.PUBCOMP, false, MqttQoS.AT_MOST_ONCE, false, 0),
-                MqttMessageIdVariableHeader.from(packetId),
+                MqttPacketIdVariableHeader.from(packetId),
                 null);
         logger.trace("Response: Send PUBCOMP back to client {}", this.clientId);
         this.registry.sendMessage(ctx, comp, this.clientId, packetId, true);
@@ -636,7 +636,7 @@ public class AsyncRedisHandler extends SimpleChannelInboundHandler<MqttMessage> 
             return;
         }
 
-        MqttMessageIdVariableHeader variable = (MqttMessageIdVariableHeader) msg.variableHeader();
+        MqttPacketIdVariableHeader variable = (MqttPacketIdVariableHeader) msg.variableHeader();
         int packetId = variable.messageId();
 
         // In the QoS 2 delivery protocol, the Sender
@@ -656,8 +656,8 @@ public class AsyncRedisHandler extends SimpleChannelInboundHandler<MqttMessage> 
         List<String> topics = new ArrayList<>();
         List<Integer> requestQos = new ArrayList<>();
         msg.payload().topicSubscriptions().forEach(subscription -> {
-            topics.add(subscription.topicName());
-            requestQos.add(subscription.qualityOfService().value());
+            topics.add(subscription.topic());
+            requestQos.add(subscription.requestedQos().value());
         });
 
         // Authorize client subscribe using provided Authenticator
@@ -700,7 +700,7 @@ public class AsyncRedisHandler extends SimpleChannelInboundHandler<MqttMessage> 
                     ctx,
                     MqttMessageFactory.newMessage(
                             new MqttFixedHeader(MqttMessageType.SUBACK, false, MqttQoS.AT_MOST_ONCE, false, 0),
-                            MqttMessageIdVariableHeader.from(packetId),
+                            MqttPacketIdVariableHeader.from(packetId),
                             new MqttSubAckPayload(grantedQos)),
                     this.clientId,
                     packetId,
@@ -740,7 +740,7 @@ public class AsyncRedisHandler extends SimpleChannelInboundHandler<MqttMessage> 
                 ctx,
                 MqttMessageFactory.newMessage(
                         new MqttFixedHeader(MqttMessageType.UNSUBACK, false, MqttQoS.AT_MOST_ONCE, false, 0),
-                        MqttMessageIdVariableHeader.from(packetId),
+                        MqttPacketIdVariableHeader.from(packetId),
                         null),
                 this.clientId,
                 packetId,

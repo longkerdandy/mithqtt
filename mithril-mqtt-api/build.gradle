@@ -1,4 +1,7 @@
 dependencies {
+    // netty
+    compile 'io.netty:netty-codec:4.1.0.Beta7'
+
     // uuid
     compile 'com.fasterxml.uuid:java-uuid-generator:3.1.4'
 }
