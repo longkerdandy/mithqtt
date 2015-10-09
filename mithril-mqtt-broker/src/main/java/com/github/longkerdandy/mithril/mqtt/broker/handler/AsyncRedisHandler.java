@@ -752,12 +752,16 @@ public class AsyncRedisHandler extends SimpleChannelInboundHandler<MqttMessage> 
     }
 
     protected void onDisconnect(ChannelHandlerContext ctx, MqttMessage msg) {
+        if (!this.connected) {
+            logger.trace("Protocol violation: Client {} must first sent a CONNECT message, now received DISCONNECT message, disconnect the client", this.clientId);
+            ctx.close();
+            return;
+        }
 
-    }
-
-    @Override
-    public void channelReadComplete(ChannelHandlerContext ctx) {
-        ctx.flush();
+        // On receipt of DISCONNECT the Server:
+        // MUST discard any Will Message associated with the current connection without publishing it.
+        // SHOULD close the Network Connection if the Client has not already done so.
+        ctx.close();
     }
 
     @Override
