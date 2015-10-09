@@ -748,7 +748,22 @@ public class AsyncRedisHandler extends SimpleChannelInboundHandler<MqttMessage> 
     }
 
     protected void onPingReq(ChannelHandlerContext ctx, MqttMessage msg) {
+        if (!this.connected) {
+            logger.trace("Protocol violation: Client {} must first sent a CONNECT message, now received PINGREQ message, disconnect the client", this.clientId);
+            ctx.close();
+            return;
+        }
 
+        logger.trace("Response: Send PINGRESP back to client {}", this.clientId);
+        this.registry.sendMessage(
+                ctx,
+                MqttMessageFactory.newMessage(
+                        new MqttFixedHeader(MqttMessageType.PINGRESP, false, MqttQoS.AT_MOST_ONCE, false, 0),
+                        null,
+                        null),
+                this.clientId,
+                null,
+                true);
     }
 
     protected void onDisconnect(ChannelHandlerContext ctx, MqttMessage msg) {
