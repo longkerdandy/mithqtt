@@ -213,7 +213,7 @@ public class MqttEncoder extends MessageToMessageEncoder<MqttMessage> {
         writeVariableLengthInt(buf, variablePartSize);
 
         // Variable Header
-        int messageId = variableHeader.messageId();
+        int messageId = variableHeader.packetId();
         buf.writeShort(messageId);
 
         // Payload
@@ -251,7 +251,7 @@ public class MqttEncoder extends MessageToMessageEncoder<MqttMessage> {
         writeVariableLengthInt(buf, variablePartSize);
 
         // Variable Header
-        int messageId = variableHeader.messageId();
+        int messageId = variableHeader.packetId();
         buf.writeShort(messageId);
 
         // Payload
@@ -274,7 +274,7 @@ public class MqttEncoder extends MessageToMessageEncoder<MqttMessage> {
         ByteBuf buf = byteBufAllocator.buffer(fixedHeaderBufferSize + variablePartSize);
         buf.writeByte(getFixedHeaderByte1(message.fixedHeader()));
         writeVariableLengthInt(buf, variablePartSize);
-        buf.writeShort(message.variableHeader().messageId());
+        buf.writeShort(message.variableHeader().packetId());
         message.payload().grantedQoSLevels().forEach(buf::writeByte);
 
         return buf;
@@ -314,7 +314,7 @@ public class MqttEncoder extends MessageToMessageEncoder<MqttMessage> {
             MqttMessage message) {
         MqttFixedHeader mqttFixedHeader = message.fixedHeader();
         MqttPacketIdVariableHeader variableHeader = (MqttPacketIdVariableHeader) message.variableHeader();
-        int msgId = variableHeader.messageId();
+        int msgId = variableHeader.packetId();
 
         int variableHeaderBufferSize = 2; // variable part only has a message id
         int fixedHeaderBufferSize = 1 + getVariableLengthInt(variableHeaderBufferSize);

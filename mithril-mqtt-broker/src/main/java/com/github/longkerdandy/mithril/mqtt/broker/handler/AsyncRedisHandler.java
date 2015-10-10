@@ -11,6 +11,7 @@ import io.netty.channel.ChannelHandlerContext;
 import io.netty.channel.SimpleChannelInboundHandler;
 import io.netty.handler.codec.mqtt.*;
 import org.apache.commons.configuration.PropertiesConfiguration;
+import org.apache.commons.lang3.ArrayUtils;
 import org.apache.commons.lang3.StringUtils;
 import org.apache.commons.lang3.exception.ExceptionUtils;
 import org.slf4j.Logger;
@@ -62,7 +63,7 @@ public class AsyncRedisHandler extends SimpleChannelInboundHandler<MqttMessage> 
         // Disconnect if The MQTT message is invalid
         if (msg.decoderResult().isFailure()) {
             Throwable cause = msg.decoderResult().cause();
-            logger.trace("Invalid message: {}", ExceptionUtils.getMessage(msg.decoderResult().cause()));
+            logger.debug("Protocol violation: Invalid message {}", ExceptionUtils.getMessage(msg.decoderResult().cause()));
             if (cause instanceof MqttUnacceptableProtocolVersionException) {
                 // Send back CONNACK if the protocol version is invalid
                 this.registry.sendMessage(
@@ -142,14 +143,14 @@ public class AsyncRedisHandler extends SimpleChannelInboundHandler<MqttMessage> 
         // Connection
         if (StringUtils.isBlank(this.clientId)) {
             if (!this.cleanSession) {
-                logger.trace("Protocol violation: Empty client id with clean session 0, send CONNACK and disconnect the client");
+                logger.debug("Protocol violation: Empty client id with clean session 0, send CONNACK and disconnect the client");
                 this.registry.sendMessage(
                         ctx,
                         MqttMessageFactory.newMessage(
                                 new MqttFixedHeader(MqttMessageType.CONNACK, false, MqttQoS.AT_MOST_ONCE, false, 0),
                                 new MqttConnAckVariableHeader(MqttConnectReturnCode.CONNECTION_REFUSED_IDENTIFIER_REJECTED, false),
                                 null),
-                        this.clientId,
+                        "INVALID",
                         null,
                         true);
                 ctx.close();
@@ -160,14 +161,14 @@ public class AsyncRedisHandler extends SimpleChannelInboundHandler<MqttMessage> 
 
         // Validate clientId based on configuration
         if (!validator.isClientIdValid(this.clientId)) {
-            logger.trace("Configuration violation: Client id {} not valid based on configuration, send CONNACK and disconnect the client");
+            logger.debug("Protocol violation: Client id {} not valid based on configuration, send CONNACK and disconnect the client", this.clientId);
             this.registry.sendMessage(
                     ctx,
                     MqttMessageFactory.newMessage(
                             new MqttFixedHeader(MqttMessageType.CONNACK, false, MqttQoS.AT_MOST_ONCE, false, 0),
                             new MqttConnAckVariableHeader(MqttConnectReturnCode.CONNECTION_REFUSED_IDENTIFIER_REJECTED, false),
                             null),
-                    this.clientId,
+                    "INVALID",
                     null,
                     true);
             ctx.close();
@@ -177,7 +178,7 @@ public class AsyncRedisHandler extends SimpleChannelInboundHandler<MqttMessage> 
         // A Client can only send the CONNECT Packet once over a Network Connection. The Server MUST
         // process a second CONNECT Packet sent from a Client as a protocol violation and disconnect the Client
         if (this.connected) {
-            logger.trace("Protocol violation: Second CONNECT packet sent from client {}, disconnect the client", this.clientId);
+            logger.debug("Protocol violation: Second CONNECT packet sent from client {}, disconnect the client", this.clientId);
             ctx.close();
             return;
         }
@@ -201,7 +202,7 @@ public class AsyncRedisHandler extends SimpleChannelInboundHandler<MqttMessage> 
             if (passwordFlag || StringUtils.isNotBlank(password)) malformed = true;
         }
         if (malformed) {
-            logger.trace("Protocol violation: Bad user name or password from client {}, send CONNACK and disconnect the client", this.clientId);
+            logger.debug("Protocol violation: Bad user name or password from client {}, send CONNACK and disconnect the client", this.clientId);
             this.registry.sendMessage(
                     ctx,
                     MqttMessageFactory.newMessage(
@@ -215,12 +216,14 @@ public class AsyncRedisHandler extends SimpleChannelInboundHandler<MqttMessage> 
             return;
         }
 
+        logger.debug("Message received: Received CONNECT message from client {} user {}", this.clientId, this.userName);
+
         // Authorize client connect using provided Authenticator
         this.authenticator.authConnect(this.clientId, this.userName, password).thenAccept(result -> {
 
             // Authorize successful
             if (result == AuthorizeResult.OK) {
-                logger.trace("Authorization Success: For client {}", this.clientId);
+                logger.trace("Authorization succeed: Connection authorized for client {} user {}", this.clientId, this.userName);
 
                 // If the Server accepts a connection with CleanSession set to 1, the Server MUST set Session Present to 0
                 // in the CONNACK packet in addition to setting a zero return code in the CONNACK packet
@@ -233,7 +236,7 @@ public class AsyncRedisHandler extends SimpleChannelInboundHandler<MqttMessage> 
                     boolean sessionPresent = "0".equals(exist) && !this.cleanSession;
 
                     // The first packet sent from the Server to the Client MUST be a CONNACK Packet
-                    logger.trace("Connection Accepted: Send CONNACK back to client {}", this.clientId);
+                    logger.trace("Message response: Send CONNACK back to client {}", this.clientId);
                     this.registry.sendMessage(
                             ctx,
                             MqttMessageFactory.newMessage(
@@ -250,14 +253,14 @@ public class AsyncRedisHandler extends SimpleChannelInboundHandler<MqttMessage> 
                         this.redis.getConnectedNode(this.clientId).thenAccept(node -> {
                             if (node != null) {
                                 if (node.equals(this.config.getString("node.id"))) {
-                                    logger.trace("Disconnect Exist: Try to disconnect exist client {} from local node {}", this.clientId, this.config.getString("node.id"));
+                                    logger.trace("Disconnect: Try to disconnect exist client {} from local node {}", this.clientId, this.config.getString("node.id"));
                                     ChannelHandlerContext lastSession = this.registry.getSession(this.clientId);
                                     if (lastSession != null) {
                                         lastSession.close();
                                         this.registry.removeSession(this.clientId, lastSession);
                                     }
                                 } else {
-                                    logger.trace("Disconnect Exist: Try to disconnect exist client {} from remote node {}", this.clientId, node);
+                                    logger.trace("Disconnect: Try to disconnect exist client {} from remote node {}", this.clientId, node);
                                     this.communicator.oneToOne(node,
                                             MqttMessageFactory.newMessage(
                                                     new MqttFixedHeader(MqttMessageType.DISCONNECT, false, MqttQoS.AT_MOST_ONCE, false, 0),
@@ -288,9 +291,11 @@ public class AsyncRedisHandler extends SimpleChannelInboundHandler<MqttMessage> 
                     // Optionally, QoS 0 messages pending transmission to the Client.
                     if (!this.cleanSession) {
                         if ("0".equals(exist)) {
+                            logger.trace("Message response: Send in-flight messages back to client {}", this.clientId);
                             this.redis.handleAllInFlightMessage(this.clientId, map ->
                                     this.registry.sendMessage(ctx, mapToMqtt(map), this.clientId, Integer.parseInt(map.getOrDefault("packetId", "0")), true));
                         } else if ("1".equals(exist)) {
+                            logger.trace("Clear session: Clear session state for client {} because former connection is clean session", this.clientId);
                             this.redis.removeAllSessionState(this.clientId);
                         }
                     }
@@ -300,6 +305,7 @@ public class AsyncRedisHandler extends SimpleChannelInboundHandler<MqttMessage> 
                     // When CleanSession is set to 1 the Client and Server need not process the deletion of state atomically.
                     else {
                         if (exist != null) {
+                            logger.trace("Clear session: Clear session state for client {} because current connection is clean session", this.clientId);
                             this.redis.removeAllSessionState(this.clientId);
                         }
                     }
@@ -342,7 +348,7 @@ public class AsyncRedisHandler extends SimpleChannelInboundHandler<MqttMessage> 
 
             // Authorize failed
             else {
-                logger.trace("Authorization failed: CONNECT authorize {} for client {}, send CONNACK and disconnect the client", result, this.clientId);
+                logger.trace("Authorization failed: Connection unauthorized {} for client {}, send CONNACK and disconnect the client", result, this.clientId);
                 this.registry.sendMessage(
                         ctx,
                         MqttMessageFactory.newMessage(
@@ -365,7 +371,7 @@ public class AsyncRedisHandler extends SimpleChannelInboundHandler<MqttMessage> 
      */
     protected void onPublish(ChannelHandlerContext ctx, MqttPublishMessage msg) {
         if (!this.connected) {
-            logger.trace("Protocol violation: Client {} must first sent a CONNECT message, now received PUBLISH message, disconnect the client", this.clientId);
+            logger.debug("Protocol violation: Client {} must first sent a CONNECT message, now received PUBLISH message, disconnect the client", this.clientId);
             ctx.close();
             return;
         }
@@ -378,7 +384,7 @@ public class AsyncRedisHandler extends SimpleChannelInboundHandler<MqttMessage> 
 
         // The Topic Name in the PUBLISH Packet MUST NOT contain wildcard characters
         if (!Topics.isValidTopicName(topicName, this.config)) {
-            logger.trace("Protocol violation: Client {} sent PUBLISH message contains invalid topic name {}", this.clientId, topicName);
+            logger.debug("Protocol violation: Client {} sent PUBLISH message contains invalid topic name {}, disconnect the client", this.clientId, topicName);
             ctx.close();
             return;
         }
@@ -386,17 +392,19 @@ public class AsyncRedisHandler extends SimpleChannelInboundHandler<MqttMessage> 
 
         // The Packet Identifier field is only present in PUBLISH Packets where the QoS level is 1 or 2.
         if (packetId <= 0 && (qos == MqttQoS.AT_LEAST_ONCE || qos == MqttQoS.EXACTLY_ONCE)) {
-            logger.trace("Protocol violation: Client {} sent PUBLISH message does not contain packet id", this.clientId);
+            logger.debug("Protocol violation: Client {} sent PUBLISH message does not contain packet id, disconnect the client", this.clientId);
             ctx.close();
             return;
         }
+
+        logger.debug("Message received: Received PUBLISH message from client {} user {} topic {}", this.clientId, this.userName, topicName);
 
         // Authorize client publish using provided Authenticator
         this.authenticator.authPublish(this.clientId, this.userName, topicName, qos.value(), retain).thenAccept(result -> {
 
                     // Authorize successful
                     if (result == AuthorizeResult.OK) {
-                        logger.trace("Authorization Success: Client {} authorized to publish to topic {}", this.clientId, topicName);
+                        logger.trace("Authorization succeed: Publish to topic {} authorized for client {}", topicName, this.clientId);
 
                         // If the RETAIN flag is set to 1, in a PUBLISH Packet sent by a Client to a Server, the Server MUST store
                         // the Application Message and its QoS, so that it can be delivered to future subscribers whose
@@ -408,6 +416,7 @@ public class AsyncRedisHandler extends SimpleChannelInboundHandler<MqttMessage> 
                             // message for that topic, but MAY choose to discard it at any time - if this happens there will be no retained
                             // message for that topic.
                             if (qos == MqttQoS.AT_MOST_ONCE) {
+                                logger.trace("Clear retain: Clear retain messages for topic {} by client {}", topicName, this.clientId);
                                 this.redis.removeAllRetainMessage(topicLevels);
                             }
 
@@ -418,6 +427,7 @@ public class AsyncRedisHandler extends SimpleChannelInboundHandler<MqttMessage> 
                             // not set in the message received by existing Clients. A zero byte retained message MUST NOT be stored
                             // as a retained message on the Server
                             if (msg.payload() != null && msg.payload().isReadable()) {
+                                logger.trace("Add retain: Add retain messages for topic {} by client {}", topicName, this.clientId);
                                 this.redis.addRetainMessage(topicLevels, packetId, mqttToMap(msg));
                             }
                         }
@@ -462,7 +472,7 @@ public class AsyncRedisHandler extends SimpleChannelInboundHandler<MqttMessage> 
         // PUBACK. When its original sender receives the PUBACK packet, ownership of the Application
         // Message is transferred to the receiver.
         if (qos == MqttQoS.AT_LEAST_ONCE) {
-            logger.trace("Response: Send PUBACK back to client {}", this.clientId);
+            logger.trace("Message response: Send PUBACK back to client {}", this.clientId);
             this.registry.sendMessage(
                     ctx,
                     MqttMessageFactory.newMessage(
@@ -480,7 +490,7 @@ public class AsyncRedisHandler extends SimpleChannelInboundHandler<MqttMessage> 
         // PUBREC or PUBCOMP. When its original sender receives the PUBREC packet, ownership of the
         // Application Message is transferred to the receiver.
         else if (qos == MqttQoS.EXACTLY_ONCE) {
-            logger.trace("Response: Send PUBREC back to client {}", this.clientId);
+            logger.trace("Message response: Send PUBREC back to client {}", this.clientId);
             this.registry.sendMessage(
                     ctx,
                     MqttMessageFactory.newMessage(
@@ -543,10 +553,12 @@ public class AsyncRedisHandler extends SimpleChannelInboundHandler<MqttMessage> 
                 if (fQos == MqttQoS.AT_LEAST_ONCE.value() || fQos == MqttQoS.EXACTLY_ONCE.value()) {
                     Map<String, String> sMap = mqttToMap(sMsg);
                     sMap.put("dup", "1");
+                    logger.trace("Add in-flight: Add in-flight PUBLISH message {} with QoS {} for client {}", sPacketId, fQos, this.clientId);
                     this.redis.addInFlightMessage(sClientId, sPacketId.intValue(), sMap);
                 }
 
                 // Forward to recipient
+                logger.debug("Message forwarded: Forward to recipient {} which's subscription match topic {}", this.clientId, topicName);
                 this.redis.getConnectedNode(sClientId).thenAccept(node -> {
                     if (node != null) {
                         if (node.equals(this.config.getString("node.id"))) {
@@ -564,29 +576,34 @@ public class AsyncRedisHandler extends SimpleChannelInboundHandler<MqttMessage> 
 
     protected void onPubAck(ChannelHandlerContext ctx, MqttMessage msg) {
         if (!this.connected) {
-            logger.trace("Protocol violation: Client {} must first sent a CONNECT message, now received PUBACK message, disconnect the client", this.clientId);
+            logger.debug("Protocol violation: Client {} must first sent a CONNECT message, now received PUBACK message, disconnect the client", this.clientId);
             ctx.close();
             return;
         }
 
+        logger.debug("Message received: Received PUBACK message from client {} user {}", this.clientId, this.userName);
+
         MqttPacketIdVariableHeader variable = (MqttPacketIdVariableHeader) msg.variableHeader();
-        int packetId = variable.messageId();
+        int packetId = variable.packetId();
 
         // In the QoS 1 delivery protocol, the Sender
         // MUST treat the PUBLISH Packet as “unacknowledged” until it has received the corresponding
         // PUBACK packet from the receiver.
+        logger.trace("Remove in-flight: Remove in-flight PUBLISH message {} for client {}", packetId, this.clientId);
         this.redis.removeInFlightMessage(this.clientId, packetId);
     }
 
     protected void onPubRec(ChannelHandlerContext ctx, MqttMessage msg) {
         if (!this.connected) {
-            logger.trace("Protocol violation: Client {} must first sent a CONNECT message, now received PUBREC message, disconnect the client", this.clientId);
+            logger.debug("Protocol violation: Client {} must first sent a CONNECT message, now received PUBREC message, disconnect the client", this.clientId);
             ctx.close();
             return;
         }
 
+        logger.debug("Message received: Received PUBREC message from client {} user {}", this.clientId, this.userName);
+
         MqttPacketIdVariableHeader variable = (MqttPacketIdVariableHeader) msg.variableHeader();
-        int packetId = variable.messageId();
+        int packetId = variable.packetId();
 
         // In the QoS 2 delivery protocol, the Sender
         // MUST treat the PUBLISH packet as “unacknowledged” until it has received the corresponding
@@ -594,26 +611,30 @@ public class AsyncRedisHandler extends SimpleChannelInboundHandler<MqttMessage> 
         // MUST send a PUBREL packet when it receives a PUBREC packet from the receiver. This
         // PUBREL packet MUST contain the same Packet Identifier as the original PUBLISH packet.
         // MUST NOT re-send the PUBLISH once it has sent the corresponding PUBREL packet.
+        logger.trace("Remove in-flight: Remove in-flight PUBLISH message {} for client {}", packetId, this.clientId);
         this.redis.removeInFlightMessage(this.clientId, packetId).thenAccept(r -> {
             MqttMessage rel = MqttMessageFactory.newMessage(
                     new MqttFixedHeader(MqttMessageType.PUBREL, false, MqttQoS.AT_LEAST_ONCE, false, 0),
                     MqttPacketIdVariableHeader.from(packetId),
                     null);
+            logger.trace("Add in-flight: Add in-flight PUBREL message {} for client {}", packetId, this.clientId);
             this.redis.addInFlightMessage(this.clientId, packetId, mqttToMap(rel));
-            logger.trace("Response: Send PUBREL back to client {}", this.clientId);
+            logger.trace("Message response: Send PUBREL back to client {}", this.clientId);
             this.registry.sendMessage(ctx, rel, this.clientId, packetId, true);
         });
     }
 
     protected void onPubRel(ChannelHandlerContext ctx, MqttMessage msg) {
         if (!this.connected) {
-            logger.trace("Protocol violation: Client {} must first sent a CONNECT message, now received PUBREL message, disconnect the client", this.clientId);
+            logger.debug("Protocol violation: Client {} must first sent a CONNECT message, now received PUBREL message, disconnect the client", this.clientId);
             ctx.close();
             return;
         }
 
+        logger.debug("Message received: Received PUBREL message from client {} user {}", this.clientId, this.userName);
+
         MqttPacketIdVariableHeader variable = (MqttPacketIdVariableHeader) msg.variableHeader();
-        int packetId = variable.messageId();
+        int packetId = variable.packetId();
 
         // In the QoS 2 delivery protocol, the Receiver
         // MUST respond to a PUBREL packet by sending a PUBCOMP packet containing the same
@@ -625,34 +646,37 @@ public class AsyncRedisHandler extends SimpleChannelInboundHandler<MqttMessage> 
                 new MqttFixedHeader(MqttMessageType.PUBCOMP, false, MqttQoS.AT_MOST_ONCE, false, 0),
                 MqttPacketIdVariableHeader.from(packetId),
                 null);
-        logger.trace("Response: Send PUBCOMP back to client {}", this.clientId);
+        logger.trace("Message response: Send PUBCOMP back to client {}", this.clientId);
         this.registry.sendMessage(ctx, comp, this.clientId, packetId, true);
     }
 
     protected void onPubComp(ChannelHandlerContext ctx, MqttMessage msg) {
         if (!this.connected) {
-            logger.trace("Protocol violation: Client {} must first sent a CONNECT message, now received PUBCOMP message, disconnect the client", this.clientId);
+            logger.debug("Protocol violation: Client {} must first sent a CONNECT message, now received PUBCOMP message, disconnect the client", this.clientId);
             ctx.close();
             return;
         }
 
+        logger.debug("Message received: Received PUBCOMP message from client {} user {}", this.clientId, this.userName);
+
         MqttPacketIdVariableHeader variable = (MqttPacketIdVariableHeader) msg.variableHeader();
-        int packetId = variable.messageId();
+        int packetId = variable.packetId();
 
         // In the QoS 2 delivery protocol, the Sender
         // MUST treat the PUBREL packet as “unacknowledged” until it has received the corresponding
         // PUBCOMP packet from the receiver.
+        logger.trace("Remove in-flight: Remove in-flight PUBREL message {} for client {}", packetId, this.clientId);
         this.redis.removeInFlightMessage(this.clientId, packetId);
     }
 
     protected void onSubscribe(ChannelHandlerContext ctx, MqttSubscribeMessage msg) {
         if (!this.connected) {
-            logger.trace("Protocol violation: Client {} must first sent a CONNECT message, now received SUBSCRIBE message, disconnect the client", this.clientId);
+            logger.debug("Protocol violation: Client {} must first sent a CONNECT message, now received SUBSCRIBE message, disconnect the client", this.clientId);
             ctx.close();
             return;
         }
 
-        int packetId = msg.variableHeader().messageId();
+        int packetId = msg.variableHeader().packetId();
         List<String> topics = new ArrayList<>();
         List<Integer> requestQos = new ArrayList<>();
         msg.payload().topicSubscriptions().forEach(subscription -> {
@@ -660,8 +684,11 @@ public class AsyncRedisHandler extends SimpleChannelInboundHandler<MqttMessage> 
             requestQos.add(subscription.requestedQos().value());
         });
 
+        logger.debug("Message received: Received SUBSCRIBE message from client {} user {}", this.clientId, this.userName);
+
         // Authorize client subscribe using provided Authenticator
         this.authenticator.authSubscribe(this.clientId, this.userName, topics, requestQos).thenAccept(grantedQos -> {
+            logger.trace("Authorization succeed: Subscribe to topic {} authorized for client {}", ArrayUtils.toString(msg.payload().topicSubscriptions()), this.clientId);
 
             for (int i = 0; i < topics.size(); i++) {
                 int maxQos = grantedQos.get(i);
@@ -678,12 +705,14 @@ public class AsyncRedisHandler extends SimpleChannelInboundHandler<MqttMessage> 
                     // Filter MUST be re-sent, but the flow of publications MUST NOT be interrupted.
                     // Where the Topic Filter is not identical to any existing Subscription’s filter, a new Subscription is created
                     // and all matching retained messages are sent.
+                    logger.trace("Update subscription: Update client {} subscription to topic {} QoS {}", this.clientId, String.join("/", topicLevels), grantedQos.get(i));
                     this.redis.updateSubscription(this.clientId, topicLevels, String.valueOf(grantedQos.get(i)));
                     // The Server is permitted to start sending PUBLISH packets matching the Subscription before the Server
                     // sends the SUBACK Packet.
                     this.redis.handleAllRetainMessage(topicLevels, map -> {
                         int qos = Integer.parseInt(map.getOrDefault("qos", "0"));
                         if (qos > maxQos) map.put("qos", String.valueOf(maxQos));
+                        logger.debug("Message response: Send RETAIN PUBLISH message {} back to client {} for topic {}", map.getOrDefault("packetId", "0"), this.clientId, String.join("/", topicLevels));
                         this.registry.sendMessage(ctx, mapToMqtt(map), this.clientId, Integer.parseInt(map.getOrDefault("packetId", "0")), true);
                     });
                 }
@@ -695,7 +724,7 @@ public class AsyncRedisHandler extends SimpleChannelInboundHandler<MqttMessage> 
             // When the Server receives a SUBSCRIBE Packet from a Client, the Server MUST respond with a
             // SUBACK Packet. The SUBACK Packet MUST have the same Packet Identifier as the
             // SUBSCRIBE Packet that it is acknowledging.
-            logger.trace("Response: Send SUBACK back to client {}", this.clientId);
+            logger.debug("Message response: Send SUBACK back to client {}", this.clientId);
             this.registry.sendMessage(
                     ctx,
                     MqttMessageFactory.newMessage(
@@ -710,12 +739,14 @@ public class AsyncRedisHandler extends SimpleChannelInboundHandler<MqttMessage> 
 
     protected void onUnsubscribe(ChannelHandlerContext ctx, MqttUnsubscribeMessage msg) {
         if (!this.connected) {
-            logger.trace("Protocol violation: Client {} must first sent a CONNECT message, now received UNSUBSCRIBE message, disconnect the client", this.clientId);
+            logger.debug("Protocol violation: Client {} must first sent a CONNECT message, now received UNSUBSCRIBE message, disconnect the client", this.clientId);
             ctx.close();
             return;
         }
 
-        int packetId = msg.variableHeader().messageId();
+        logger.debug("Message received: Received UNSUBSCRIBE message from client {} user {} topics {}", this.clientId, this.userName, ArrayUtils.toString(msg.payload().topics()));
+
+        int packetId = msg.variableHeader().packetId();
 
         // The Topic Filters (whether they contain wildcards or not) supplied in an UNSUBSCRIBE packet MUST be
         // compared character-by-character with the current set of Topic Filters held by the Server for the Client. If
@@ -726,7 +757,10 @@ public class AsyncRedisHandler extends SimpleChannelInboundHandler<MqttMessage> 
         //1 It MUST complete the delivery of any QoS 1 or QoS 2 messages which it has started to send to
         // the Client.
         // It MAY continue to deliver any existing messages buffered for delivery to the Client.
-        msg.payload().topics().forEach(topic -> this.redis.removeSubscription(this.clientId, Topics.sanitize(topic)));
+        msg.payload().topics().forEach(topic -> {
+            logger.trace("Remove subscription: Remove client {} subscription to topic {}", this.clientId, topic);
+            this.redis.removeSubscription(this.clientId, Topics.sanitize(topic));
+        });
 
         // The Server MUST respond to an UNSUBSUBCRIBE request by sending an UNSUBACK packet. The
         // UNSUBACK Packet MUST have the same Packet Identifier as the UNSUBSCRIBE Packet.
@@ -735,7 +769,7 @@ public class AsyncRedisHandler extends SimpleChannelInboundHandler<MqttMessage> 
         // If a Server receives an UNSUBSCRIBE packet that contains multiple Topic Filters it MUST handle that
         // packet as if it had received a sequence of multiple UNSUBSCRIBE packets, except that it sends just one
         // UNSUBACK response.
-        logger.trace("Response: Send UNSUBACK back to client {}", this.clientId);
+        logger.debug("Message response: Send UNSUBACK back to client {}", this.clientId);
         this.registry.sendMessage(
                 ctx,
                 MqttMessageFactory.newMessage(
@@ -749,12 +783,14 @@ public class AsyncRedisHandler extends SimpleChannelInboundHandler<MqttMessage> 
 
     protected void onPingReq(ChannelHandlerContext ctx) {
         if (!this.connected) {
-            logger.trace("Protocol violation: Client {} must first sent a CONNECT message, now received PINGREQ message, disconnect the client", this.clientId);
+            logger.debug("Protocol violation: Client {} must first sent a CONNECT message, now received PINGREQ message, disconnect the client", this.clientId);
             ctx.close();
             return;
         }
 
-        logger.trace("Response: Send PINGRESP back to client {}", this.clientId);
+        logger.debug("Message received: Received PINGREQ message from client {} user {}", this.clientId, this.userName);
+
+        logger.debug("Response: Send PINGRESP back to client {}", this.clientId);
         this.registry.sendMessage(
                 ctx,
                 MqttMessageFactory.newMessage(
@@ -768,10 +804,12 @@ public class AsyncRedisHandler extends SimpleChannelInboundHandler<MqttMessage> 
 
     protected void onDisconnect(ChannelHandlerContext ctx) {
         if (!this.connected) {
-            logger.trace("Protocol violation: Client {} must first sent a CONNECT message, now received DISCONNECT message, disconnect the client", this.clientId);
+            logger.debug("Protocol violation: Client {} must first sent a CONNECT message, now received DISCONNECT message, disconnect the client", this.clientId);
             ctx.close();
             return;
         }
+
+        logger.debug("Message received: Received CONNECT message from client {} user {}", this.clientId, this.userName);
 
         // If the Will Flag is set to 1 this indicates that, if the Connect request is accepted, a Will Message MUST be
         // stored on the Server and associated with the Network Connection. The Will Message MUST be published
@@ -789,11 +827,14 @@ public class AsyncRedisHandler extends SimpleChannelInboundHandler<MqttMessage> 
     public void channelInactive(ChannelHandlerContext ctx) throws Exception {
         if (this.connected) {
 
+            logger.debug("Connection lost: Connection lost from client {} user {}", this.clientId, this.userName);
+
             // If CleanSession is set to 1, the Client and Server MUST discard any previous Session and start a new
             // one. This Session lasts as long as the Network Connection. State data associated with this Session
             // MUST NOT be reused in any subsequent Session.
             // When CleanSession is set to 1 the Client and Server need not process the deletion of state atomically.
             if (this.cleanSession) {
+                logger.trace("Clear session: Clear session state for client {} because current connection is clean session", this.clientId);
                 this.redis.removeAllSessionState(this.clientId);
             }
 
@@ -814,6 +855,9 @@ public class AsyncRedisHandler extends SimpleChannelInboundHandler<MqttMessage> 
 
     @Override
     public void exceptionCaught(ChannelHandlerContext ctx, Throwable cause) {
+        if (this.connected) {
+            logger.debug("Exception caught: Exception caught from client {} user {}: {}", this.clientId, this.userName, ExceptionUtils.getMessage(cause));
+        }
         ctx.close();
     }
 }

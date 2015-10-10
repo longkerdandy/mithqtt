@@ -37,7 +37,7 @@ public final class MqttPacketIdVariableHeader {
         return new MqttPacketIdVariableHeader(packetId);
     }
 
-    public int messageId() {
+    public int packetId() {
         return packetId;
     }
 
