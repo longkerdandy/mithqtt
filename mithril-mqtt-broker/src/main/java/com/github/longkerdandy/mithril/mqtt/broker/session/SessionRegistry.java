@@ -67,7 +67,7 @@ public class SessionRegistry {
         ChannelHandlerContext ctx = getSession(clientId);
         if (ctx == null) {
             String pid = packetId == null || packetId <= 0 ? "" : String.valueOf(packetId);
-            logger.trace("Message {} {} failed to send to {}: Client not connected to this node", msg.fixedHeader().messageType(), pid, clientId);
+            logger.trace("Message sent: Message {} {} failed to send to {}: Client not connected to this node", msg.fixedHeader().messageType(), pid, clientId);
             return;
         }
         sendMessage(ctx, msg, clientId, packetId, flush);
@@ -94,9 +94,9 @@ public class SessionRegistry {
                 }
 
                 if (future.isSuccess()) {
-                    logger.debug("Message {} {} has been sent to {} successfully", msg.fixedHeader().messageType(), pid, clientId);
+                    logger.debug("Message sent: Message {} {} has been sent to {} successfully", msg.fixedHeader().messageType(), pid, clientId);
                 } else {
-                    logger.debug("Message {} {} failed to send to {}: {}", msg.fixedHeader().messageType(), pid, clientId, ExceptionUtils.getMessage(future.cause()));
+                    logger.debug("Message sent: Message {} {} failed to send to {}: {}", msg.fixedHeader().messageType(), pid, clientId, ExceptionUtils.getMessage(future.cause()));
                 }
             }
         });
