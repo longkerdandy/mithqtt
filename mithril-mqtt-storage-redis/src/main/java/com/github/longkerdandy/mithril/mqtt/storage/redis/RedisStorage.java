@@ -442,11 +442,14 @@ public class RedisStorage {
                 keys.add(RedisKey.topicFilterChild(topicLevels.subList(0, i)));
                 argv.add(topicLevels.get(i));
             }
-            return commands.eval("redis.call('HSET', KEYS[1], ARGV[1], ARGV[2])\n" +
+            return commands.eval("local exist = redis.call('HSET', KEYS[1], ARGV[1], ARGV[2])\n" +
                             "redis.call('HSET', KEYS[2], ARGV[3], ARGV[4])\n" +
-                            "local length = table.getn(KEYS)\n" +
-                            "for i = 3, length do\n" +
-                            "   redis.call('HINCRBY', KEYS[i], ARGV[i+2], 1)\n" +
+                            "if exist == 1\n" +
+                            "then\n" +
+                            "   local length = table.getn(KEYS)\n" +
+                            "   for i = 3, length do\n" +
+                            "       redis.call('HINCRBY', KEYS[i], ARGV[i+2], 1)\n" +
+                            "   end\n" +
                             "end\n" +
                             "return redis.status_reply('OK')",
                     ScriptOutputType.STATUS, keys.toArray(new String[keys.size()]), argv.toArray(new String[argv.size()]));
@@ -490,11 +493,14 @@ public class RedisStorage {
                 keys.add(RedisKey.topicFilterChild(topicLevels.subList(0, i)));
                 argv.add(topicLevels.get(i));
             }
-            return commands.eval("redis.call('HDEL', KEYS[1], ARGV[1])\n" +
+            return commands.eval("local exist = redis.call('HDEL', KEYS[1], ARGV[1])\n" +
                             "redis.call('HDEL', KEYS[2], ARGV[2])\n" +
                             "local length = table.getn(KEYS)\n" +
-                            "for i = 3, length do\n" +
-                            "   redis.call('HINCRBY', KEYS[i], ARGV[i], -1)\n" +
+                            "if exist == 1\n" +
+                            "then\n" +
+                            "   for i = 3, length do\n" +
+                            "       redis.call('HINCRBY', KEYS[i], ARGV[i], -1)\n" +
+                            "   end\n" +
                             "end\n" +
                             "return redis.status_reply('OK')",
                     ScriptOutputType.STATUS, keys.toArray(new String[keys.size()]), argv.toArray(new String[argv.size()]));
