@@ -17,6 +17,7 @@
 package io.netty.handler.codec.mqtt;
 
 import io.netty.util.internal.StringUtil;
+import org.apache.commons.lang3.ArrayUtils;
 
 import java.util.Collections;
 import java.util.List;
@@ -40,7 +41,7 @@ public class MqttSubscribePayload {
     public String toString() {
         return StringUtil.simpleClassName(this)
                 + '['
-                + "topicSubscriptions=" + topicSubscriptions
+                + "topicSubscriptions=" + ArrayUtils.toString(topicSubscriptions)
                 + ']';
     }
 }

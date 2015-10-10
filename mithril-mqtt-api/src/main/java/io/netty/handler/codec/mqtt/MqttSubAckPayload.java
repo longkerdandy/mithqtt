@@ -17,6 +17,7 @@
 package io.netty.handler.codec.mqtt;
 
 import io.netty.util.internal.StringUtil;
+import org.apache.commons.lang3.ArrayUtils;
 
 import java.util.ArrayList;
 import java.util.Collections;
@@ -63,7 +64,7 @@ public class MqttSubAckPayload {
     public String toString() {
         return StringUtil.simpleClassName(this)
                 + '['
-                + "grantedQoSLevels=" + grantedQoSLevels
+                + "grantedQoSLevels=" + ArrayUtils.toString(grantedQoSLevels)
                 + ']';
     }
 }
