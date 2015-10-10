@@ -116,10 +116,10 @@ public class AsyncRedisHandler extends SimpleChannelInboundHandler<MqttMessage> 
                 onUnsubscribe(ctx, (MqttUnsubscribeMessage) msg);
                 break;
             case PINGREQ:
-                onPingReq(ctx, msg);
+                onPingReq(ctx);
                 break;
             case DISCONNECT:
-                onDisconnect(ctx, msg);
+                onDisconnect(ctx);
                 break;
         }
     }
@@ -747,7 +747,7 @@ public class AsyncRedisHandler extends SimpleChannelInboundHandler<MqttMessage> 
                 true);
     }
 
-    protected void onPingReq(ChannelHandlerContext ctx, MqttMessage msg) {
+    protected void onPingReq(ChannelHandlerContext ctx) {
         if (!this.connected) {
             logger.trace("Protocol violation: Client {} must first sent a CONNECT message, now received PINGREQ message, disconnect the client", this.clientId);
             ctx.close();
@@ -766,17 +766,50 @@ public class AsyncRedisHandler extends SimpleChannelInboundHandler<MqttMessage> 
                 true);
     }
 
-    protected void onDisconnect(ChannelHandlerContext ctx, MqttMessage msg) {
+    protected void onDisconnect(ChannelHandlerContext ctx) {
         if (!this.connected) {
             logger.trace("Protocol violation: Client {} must first sent a CONNECT message, now received DISCONNECT message, disconnect the client", this.clientId);
             ctx.close();
             return;
         }
 
+        // If the Will Flag is set to 1 this indicates that, if the Connect request is accepted, a Will Message MUST be
+        // stored on the Server and associated with the Network Connection. The Will Message MUST be published
+        // when the Network Connection is subsequently closed unless the Will Message has been deleted by the
+        // Server on receipt of a DISCONNECT Packet.
+        this.willMessage = null;
+
         // On receipt of DISCONNECT the Server:
         // MUST discard any Will Message associated with the current connection without publishing it.
         // SHOULD close the Network Connection if the Client has not already done so.
         ctx.close();
+    }
+
+    @Override
+    public void channelInactive(ChannelHandlerContext ctx) throws Exception {
+        if (this.connected) {
+
+            // If CleanSession is set to 1, the Client and Server MUST discard any previous Session and start a new
+            // one. This Session lasts as long as the Network Connection. State data associated with this Session
+            // MUST NOT be reused in any subsequent Session.
+            // When CleanSession is set to 1 the Client and Server need not process the deletion of state atomically.
+            if (this.cleanSession) {
+                this.redis.removeAllSessionState(this.clientId);
+            }
+
+            // If the Will Flag is set to 1 this indicates that, if the Connect request is accepted, a Will Message MUST be
+            // stored on the Server and associated with the Network Connection. The Will Message MUST be published
+            // when the Network Connection is subsequently closed unless the Will Message has been deleted by the
+            // Server on receipt of a DISCONNECT Packet.
+            // Situations in which the Will Message is published include, but are not limited to:
+            // An I/O error or network failure detected by the Server.
+            // The Client fails to communicate within the Keep Alive time.
+            // The Client closes the Network Connection without first sending a DISCONNECT Packet.
+            // The Server closes the Network Connection because of a protocol error.
+            if (this.willMessage != null) {
+                // TODO: Publish will message
+            }
+        }
     }
 
     @Override
