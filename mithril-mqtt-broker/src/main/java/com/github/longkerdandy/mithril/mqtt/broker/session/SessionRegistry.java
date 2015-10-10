@@ -3,6 +3,8 @@ package com.github.longkerdandy.mithril.mqtt.broker.session;
 import io.netty.channel.ChannelFuture;
 import io.netty.channel.ChannelHandlerContext;
 import io.netty.handler.codec.mqtt.MqttMessage;
+import io.netty.handler.codec.mqtt.MqttMessageType;
+import io.netty.handler.codec.mqtt.MqttPublishMessage;
 import io.netty.util.concurrent.GenericFutureListener;
 import org.apache.commons.lang3.exception.ExceptionUtils;
 import org.slf4j.Logger;
@@ -86,6 +88,11 @@ public class SessionRegistry {
         future.addListener(new GenericFutureListener<ChannelFuture>() {
             @Override
             public void operationComplete(ChannelFuture future) throws Exception {
+                // decrease the reference count
+                if (msg.fixedHeader().messageType() == MqttMessageType.PUBLISH) {
+                    ((MqttPublishMessage) msg).payload().release();
+                }
+
                 if (future.isSuccess()) {
                     logger.debug("Message {} {} has been sent to {} successfully", msg.fixedHeader().messageType(), pid, clientId);
                 } else {

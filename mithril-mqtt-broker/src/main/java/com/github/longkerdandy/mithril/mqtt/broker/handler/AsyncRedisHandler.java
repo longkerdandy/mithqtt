@@ -542,7 +542,7 @@ public class AsyncRedisHandler extends SimpleChannelInboundHandler<MqttMessage> 
                 MqttMessage sMsg = MqttMessageFactory.newMessage(
                         new MqttFixedHeader(MqttMessageType.PUBLISH, false, MqttQoS.valueOf(fQos), false, 0),
                         new MqttPublishVariableHeader(topicName, sPacketId.intValue()),
-                        msg.payload().duplicate()); // TODO, use ByteBuf.duplicate() is correct?
+                        msg.payload().duplicate().retain());    // duplicate the ByteBuf and increase the reference count
 
                 // In the QoS 1 delivery protocol, the Sender
                 // MUST treat the PUBLISH Packet as “unacknowledged” until it has received the corresponding
