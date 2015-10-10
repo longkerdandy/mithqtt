@@ -65,8 +65,8 @@ public class RedisStorageTest {
         assert vcs2.getValues().contains("client4");
         assert vcs2.getValues().contains("client5");
 
-        assert redis.removeConnectedNode("client3", "node1").get().equals("OK");
-        assert redis.removeConnectedNode("client4", "node1").get().equals("OK");   // not exist
+        assert redis.removeConnectedNode("client3", "node1").get() == 1;
+        assert redis.removeConnectedNode("client4", "node1").get() == 0;   // not exist
 
         assert redis.getConnectedNode("client3").get() == null;
         assert redis.getConnectedNode("client4").get().equals("node2");

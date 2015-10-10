@@ -183,7 +183,7 @@ public class RedisStorage {
      * @param node     MQTT Server Node
      * @return RedisFuture
      */
-    public RedisFuture<String> removeConnectedNode(String clientId, String node) {
+    public RedisFuture<Long> removeConnectedNode(String clientId, String node) {
         RedisAsyncCommands<String, String> commands = this.conn.async();
         String[] keys = new String[]{RedisKey.connectedClients(node), RedisKey.connectedNode(clientId)};
         String[] argv = new String[]{clientId, node};
@@ -191,9 +191,10 @@ public class RedisStorage {
                         "if ARGV[2] == redis.call('GET', KEYS[2])\n" +
                         "then\n" +
                         "   redis.call('DEL', KEYS[2])\n" +
+                        "   return 1\n" +
                         "end\n" +
-                        "return redis.status_reply('OK')",
-                ScriptOutputType.STATUS, keys, argv);
+                        "return 0",
+                ScriptOutputType.INTEGER, keys, argv);
     }
 
     /**
