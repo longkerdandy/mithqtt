@@ -3,4 +3,5 @@ rootProject.name = 'mithril-mqtt'
 include 'mithril-mqtt-broker'
 include 'mithril-mqtt-api'
 include 'mithril-mqtt-storage-redis'
+include 'mithril-mqtt-communicator-kafka'
 

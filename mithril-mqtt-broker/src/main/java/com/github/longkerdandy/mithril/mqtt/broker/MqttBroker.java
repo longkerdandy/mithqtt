@@ -1,7 +1,7 @@
 package com.github.longkerdandy.mithril.mqtt.broker;
 
 import com.github.longkerdandy.mithril.mqtt.api.Authenticator;
-import com.github.longkerdandy.mithril.mqtt.api.Communicator;
+import com.github.longkerdandy.mithril.mqtt.api.comm.Communicator;
 import com.github.longkerdandy.mithril.mqtt.broker.handler.AsyncRedisHandler;
 import com.github.longkerdandy.mithril.mqtt.broker.session.SessionRegistry;
 import com.github.longkerdandy.mithril.mqtt.broker.util.Validator;

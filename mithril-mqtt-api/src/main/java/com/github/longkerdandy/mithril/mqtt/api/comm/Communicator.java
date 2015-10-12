@@ -1,4 +1,4 @@
-package com.github.longkerdandy.mithril.mqtt.api;
+package com.github.longkerdandy.mithril.mqtt.api.comm;
 
 import io.netty.handler.codec.mqtt.MqttMessage;
 
