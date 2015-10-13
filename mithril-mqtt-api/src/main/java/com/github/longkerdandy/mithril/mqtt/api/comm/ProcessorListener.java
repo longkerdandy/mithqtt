@@ -1,27 +1,44 @@
 package com.github.longkerdandy.mithril.mqtt.api.comm;
 
+import com.github.longkerdandy.mithril.mqtt.api.internal.*;
+
 /**
  * Processor's Listener for Processor Communicator
  */
 public interface ProcessorListener {
 
-    void setCommunicator(Communicator communicator);
+    /**
+     * Handle CONNECT message
+     *
+     * @param msg InternalMessage<Connect>
+     */
+    void onConnect(InternalMessage<Connect> msg);
 
-    void onConnect(CommunicatorMessage<CommunicatorConnectPayload> msg);
+    /**
+     * Handle PUBLISH message
+     *
+     * @param msg InternalMessage<Publish>
+     */
+    void onPublish(InternalMessage<Publish> msg);
 
-    void onPublish(CommunicatorMessage<CommunicatorPublishPayload> msg);
+    /**
+     * Handle SUBSCRIBE message
+     *
+     * @param msg InternalMessage<Subscribe>
+     */
+    void onSubscribe(InternalMessage<Subscribe> msg);
 
-    void onPubAck(CommunicatorMessage<CommunicatorPacketIdPayload> msg);
+    /**
+     * Handle UNSUBSCRIBE message
+     *
+     * @param msg InternalMessage<Unsubscribe>
+     */
+    void onUnsubscribe(InternalMessage<Unsubscribe> msg);
 
-    void onPubRec(CommunicatorMessage<CommunicatorPacketIdPayload> msg);
-
-    void onPubRel(CommunicatorMessage<CommunicatorPacketIdPayload> msg);
-
-    void onPubComp(CommunicatorMessage<CommunicatorPacketIdPayload> msg);
-
-    void onSubscribe(CommunicatorMessage<CommunicatorSubscribePayload> msg);
-
-    void onUnsubscribe(CommunicatorMessage<CommunicatorUnsubscribePayload> msg);
-
-    void onDisconnect(CommunicatorMessage msg);
+    /**
+     * Handle DISCONNECT message
+     *
+     * @param msg InternalMessage
+     */
+    void onDisconnect(InternalMessage msg);
 }

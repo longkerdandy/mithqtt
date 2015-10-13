@@ -1,4 +1,4 @@
-package com.github.longkerdandy.mithril.mqtt.api.comm;
+package com.github.longkerdandy.mithril.mqtt.api.internal;
 
 import io.netty.handler.codec.mqtt.MqttQoS;
 
@@ -7,7 +7,7 @@ import java.util.List;
 /**
  * Represent MQTT SUBACK Message's VariableHeader and Payload
  */
-public class CommunicatorSubAckPayload {
+public class SubAck {
 
     private int packetId;
     private List<MqttQoS> grantedQoSLevels;

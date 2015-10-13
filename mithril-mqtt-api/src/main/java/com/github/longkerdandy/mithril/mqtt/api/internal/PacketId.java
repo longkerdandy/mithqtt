@@ -1,9 +1,9 @@
-package com.github.longkerdandy.mithril.mqtt.api.comm;
+package com.github.longkerdandy.mithril.mqtt.api.internal;
 
 /**
  * Represent MQTT Message's VariableHeader which only contains Packet Id
  */
-public class CommunicatorPacketIdPayload {
+public class PacketId {
 
     private int packetId;
 

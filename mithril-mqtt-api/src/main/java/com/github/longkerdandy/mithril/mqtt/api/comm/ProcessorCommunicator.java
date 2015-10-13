@@ -1,5 +1,6 @@
 package com.github.longkerdandy.mithril.mqtt.api.comm;
 
+import com.github.longkerdandy.mithril.mqtt.api.internal.InternalMessage;
 import org.apache.commons.configuration.PropertiesConfiguration;
 
 /**
@@ -7,8 +8,6 @@ import org.apache.commons.configuration.PropertiesConfiguration;
  * Communicate between processors and brokers
  */
 public interface ProcessorCommunicator {
-
-    String TOPIC = "mithril.mqtt.processor";
 
     /**
      * Init the communicator
@@ -22,4 +21,20 @@ public interface ProcessorCommunicator {
      * Destroy the communicator
      */
     void destroy();
+
+    /**
+     * Send message to broker
+     *
+     * @param brokerId Broker Id
+     * @param message  Internal Message
+     */
+    void sendToBroker(String brokerId, InternalMessage message);
+
+    /**
+     * Send message to given topic
+     *
+     * @param topic   Topic
+     * @param message Internal Message
+     */
+    void sendToTopic(String topic, InternalMessage message);
 }

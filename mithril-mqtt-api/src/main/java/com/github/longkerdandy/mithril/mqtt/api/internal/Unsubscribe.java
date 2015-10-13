@@ -1,11 +1,11 @@
-package com.github.longkerdandy.mithril.mqtt.api.comm;
+package com.github.longkerdandy.mithril.mqtt.api.internal;
 
 import java.util.List;
 
 /**
  * Represent MQTT UNSUBSCRIBE Message's VariableHeader and Payload
  */
-public class CommunicatorUnsubscribePayload {
+public class Unsubscribe {
 
     private int packetId;
     private List<String> topics;

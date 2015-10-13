@@ -1,4 +1,4 @@
-package com.github.longkerdandy.mithril.mqtt.api.comm;
+package com.github.longkerdandy.mithril.mqtt.api.internal;
 
 import io.netty.handler.codec.mqtt.MqttTopicSubscription;
 
@@ -7,7 +7,7 @@ import java.util.List;
 /**
  * Represent MQTT SUBSCRIBE Message's VariableHeader and Payload
  */
-public class CommunicatorSubscribePayload {
+public class Subscribe {
 
     private int packetId;
     private List<MqttTopicSubscription> topicSubscriptions;

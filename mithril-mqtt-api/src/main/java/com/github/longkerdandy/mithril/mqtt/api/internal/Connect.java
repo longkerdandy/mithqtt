@@ -1,11 +1,11 @@
-package com.github.longkerdandy.mithril.mqtt.api.comm;
+package com.github.longkerdandy.mithril.mqtt.api.internal;
 
 import io.netty.handler.codec.mqtt.MqttQoS;
 
 /**
  * Represent MQTT CONNECT Message's VariableHeader and Payload
  */
-public class CommunicatorConnectPayload {
+public class Connect {
 
     private boolean willRetain;
     private MqttQoS willQos;

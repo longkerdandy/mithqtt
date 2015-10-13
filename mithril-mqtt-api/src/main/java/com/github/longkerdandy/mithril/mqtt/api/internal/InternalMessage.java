@@ -1,4 +1,4 @@
-package com.github.longkerdandy.mithril.mqtt.api.comm;
+package com.github.longkerdandy.mithril.mqtt.api.internal;
 
 import io.netty.handler.codec.mqtt.MqttMessageType;
 import io.netty.handler.codec.mqtt.MqttQoS;
@@ -7,7 +7,7 @@ import io.netty.handler.codec.mqtt.MqttVersion;
 /**
  * Represent MQTT Message passed in Communicator
  */
-public class CommunicatorMessage<T> {
+public class InternalMessage<T> {
 
     // fixed header
     private MqttMessageType messageType;
@@ -96,7 +96,7 @@ public class CommunicatorMessage<T> {
         this.payload = payload;
     }
 
-    public void cloneFields(CommunicatorMessage msg) {
+    public void cloneFields(InternalMessage msg) {
         this.messageType = msg.messageType;
         this.dup = msg.dup;
         this.qos = msg.qos;

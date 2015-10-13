@@ -1,7 +1,7 @@
 package com.github.longkerdandy.mithril.mqtt.api.comm;
 
 /**
- * ProcessorListenerF actory
+ * ProcessorListener Factory
  */
 public interface ProcessorListenerFactory {
 
@@ -10,5 +10,5 @@ public interface ProcessorListenerFactory {
      *
      * @return ProcessorListener
      */
-    ProcessorListener newListener();
+    ProcessorListener newListener(ProcessorCommunicator communicator);
 }

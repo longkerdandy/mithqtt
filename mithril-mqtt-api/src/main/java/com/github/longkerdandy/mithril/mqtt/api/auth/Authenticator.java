@@ -1,4 +1,4 @@
-package com.github.longkerdandy.mithril.mqtt.api;
+package com.github.longkerdandy.mithril.mqtt.api.auth;
 
 import java.util.List;
 import java.util.concurrent.CompletableFuture;

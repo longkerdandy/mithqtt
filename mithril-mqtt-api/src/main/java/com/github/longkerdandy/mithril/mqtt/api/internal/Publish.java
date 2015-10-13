@@ -1,9 +1,9 @@
-package com.github.longkerdandy.mithril.mqtt.api.comm;
+package com.github.longkerdandy.mithril.mqtt.api.internal;
 
 /**
  * Represent MQTT PUBLISH Message's VariableHeader and Payload
  */
-public class CommunicatorPublishPayload {
+public class Publish {
 
     private String topicName;
     private int packetId;

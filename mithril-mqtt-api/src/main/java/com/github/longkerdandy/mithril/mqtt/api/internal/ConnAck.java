@@ -1,11 +1,11 @@
-package com.github.longkerdandy.mithril.mqtt.api.comm;
+package com.github.longkerdandy.mithril.mqtt.api.internal;
 
 import io.netty.handler.codec.mqtt.MqttConnectReturnCode;
 
 /**
  * Represent MQTT CONNACK Message's VariableHeader
  */
-public class CommunicatorConnAckPayload {
+public class ConnAck {
 
     private MqttConnectReturnCode connectReturnCode;
     private boolean sessionPresent;

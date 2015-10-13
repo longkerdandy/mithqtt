@@ -1,4 +1,4 @@
-package com.github.longkerdandy.mithril.mqtt.api;
+package com.github.longkerdandy.mithril.mqtt.api.auth;
 
 /**
  * Authorization Result from Authenticator
