@@ -2,7 +2,8 @@ package com.github.longkerdandy.mithril.mqtt.broker.handler;
 
 import com.github.longkerdandy.mithril.mqtt.api.auth.Authenticator;
 import com.github.longkerdandy.mithril.mqtt.api.auth.AuthorizeResult;
-import com.github.longkerdandy.mithril.mqtt.api.comm.Communicator;
+import com.github.longkerdandy.mithril.mqtt.api.comm.BrokerCommunicator;
+import com.github.longkerdandy.mithril.mqtt.api.internal.InternalMessage;
 import com.github.longkerdandy.mithril.mqtt.broker.session.SessionRegistry;
 import com.github.longkerdandy.mithril.mqtt.broker.util.Validator;
 import com.github.longkerdandy.mithril.mqtt.storage.redis.RedisStorage;
@@ -18,7 +19,6 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.util.ArrayList;
-import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
@@ -34,13 +34,14 @@ public class AsyncRedisHandler extends SimpleChannelInboundHandler<MqttMessage> 
     private static final Logger logger = LoggerFactory.getLogger(AsyncRedisHandler.class);
 
     protected final Authenticator authenticator;
-    protected final Communicator communicator;
+    protected final BrokerCommunicator communicator;
     protected final RedisStorage redis;
     protected final SessionRegistry registry;
     protected final PropertiesConfiguration config;
     protected final Validator validator;
 
     // session state
+    protected MqttVersion version;
     protected String clientId;
     protected String userName;
     protected boolean connected;
@@ -48,7 +49,7 @@ public class AsyncRedisHandler extends SimpleChannelInboundHandler<MqttMessage> 
     protected int keepAlive;
     protected MqttPublishMessage willMessage;
 
-    public AsyncRedisHandler(Authenticator authenticator, Communicator communicator, RedisStorage redis, SessionRegistry registry, PropertiesConfiguration config, Validator validator) {
+    public AsyncRedisHandler(Authenticator authenticator, BrokerCommunicator communicator, RedisStorage redis, SessionRegistry registry, PropertiesConfiguration config, Validator validator) {
         this.authenticator = authenticator;
         this.communicator = communicator;
         this.redis = redis;
@@ -132,6 +133,7 @@ public class AsyncRedisHandler extends SimpleChannelInboundHandler<MqttMessage> 
      * @param msg CONNECT MQTT Message
      */
     protected void onConnect(ChannelHandlerContext ctx, MqttConnectMessage msg) {
+        this.version = MqttVersion.fromProtocolNameAndLevel(msg.variableHeader().protocolName(), (byte) msg.variableHeader().protocolLevel());
         this.clientId = msg.payload().clientId();
         this.cleanSession = msg.variableHeader().cleanSession();
 
@@ -261,15 +263,12 @@ public class AsyncRedisHandler extends SimpleChannelInboundHandler<MqttMessage> 
                                     }
                                 } else {
                                     logger.trace("Disconnect: Try to disconnect exist client {} from remote node {}", this.clientId, node);
-                                    this.communicator.oneToOne(node,
+                                    this.communicator.sendToBroker(node, InternalMessage.fromMqttMessage(this.version, this.cleanSession, this.clientId, this.userName,
                                             MqttMessageFactory.newMessage(
                                                     new MqttFixedHeader(MqttMessageType.DISCONNECT, false, MqttQoS.AT_MOST_ONCE, false, 0),
                                                     null,
                                                     null
-                                            ),
-                                            new HashMap<String, Object>() {{
-                                                put("clientId", clientId);
-                                            }});
+                                            )));
                                 }
                             }
                         });
@@ -564,9 +563,7 @@ public class AsyncRedisHandler extends SimpleChannelInboundHandler<MqttMessage> 
                         if (node.equals(this.config.getString("node.id"))) {
                             this.registry.sendMessage(sMsg, sClientId, sPacketId.intValue(), true);
                         } else {
-                            this.communicator.oneToOne(node, sMsg, new HashMap<String, Object>() {{
-                                put("clientId", sClientId);
-                            }});
+                            this.communicator.sendToBroker(node, InternalMessage.fromMqttMessage(this.version, this.cleanSession, this.clientId, this.userName, sMsg));
                         }
                     }
                 });

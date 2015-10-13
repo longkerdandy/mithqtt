@@ -36,7 +36,7 @@ public class MqttConnAckVariableHeader {
         return connectReturnCode;
     }
 
-    public boolean isSessionPresent() {
+    public boolean sessionPresent() {
         return sessionPresent;
     }
 

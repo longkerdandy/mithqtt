@@ -1,8 +1,8 @@
-package com.github.longkerdandy.mithril.mqtt.communicator.kafka.processor;
+package com.github.longkerdandy.mithril.mqtt.communicator.kafka.broker;
 
+import com.github.longkerdandy.mithril.mqtt.api.comm.BrokerCommunicator;
+import com.github.longkerdandy.mithril.mqtt.api.comm.BrokerListenerFactory;
 import com.github.longkerdandy.mithril.mqtt.api.comm.CommunicatorTopics;
-import com.github.longkerdandy.mithril.mqtt.api.comm.ProcessorCommunicator;
-import com.github.longkerdandy.mithril.mqtt.api.comm.ProcessorListenerFactory;
 import com.github.longkerdandy.mithril.mqtt.api.internal.InternalMessage;
 import com.github.longkerdandy.mithril.mqtt.communicator.kafka.KafkaCommunicator;
 import com.github.longkerdandy.mithril.mqtt.communicator.kafka.codec.InternalMessageDecoder;
@@ -15,23 +15,23 @@ import java.util.List;
 import java.util.Map;
 
 /**
- * Processor Communicator implementation for Kafka
+ * Broker Communicator implementation for Kafka
  */
-public class KafkaProcessorCommunicator extends KafkaCommunicator implements ProcessorCommunicator {
+public class KafkaBrokerCommunicator extends KafkaCommunicator implements BrokerCommunicator {
 
     @Override
-    public void init(PropertiesConfiguration config, ProcessorListenerFactory factory) {
+    public void init(PropertiesConfiguration config, String brokerId, BrokerListenerFactory factory) {
         init(config);
 
         // consumer connect to kafka
         Map<String, Integer> topicCountMap = new HashMap<>();
-        topicCountMap.put(CommunicatorTopics.PROCESSOR, config.getInt("consumer.threads"));
+        topicCountMap.put(CommunicatorTopics.BROKER(brokerId), config.getInt("consumer.threads"));
         Map<String, List<KafkaStream<String, InternalMessage>>> consumerMap = this.consumer.createMessageStreams(topicCountMap, new StringDecoder(null), new InternalMessageDecoder());
-        List<KafkaStream<String, InternalMessage>> streams = consumerMap.get(CommunicatorTopics.PROCESSOR);
+        List<KafkaStream<String, InternalMessage>> streams = consumerMap.get(CommunicatorTopics.BROKER(brokerId));
 
         // launch all consumer workers
         for (final KafkaStream<String, InternalMessage> stream : streams) {
-            this.executor.submit(new KafkaProcessorWorker(stream, factory.newListener(this)));
+            this.executor.submit(new KafkaBrokerWorker(stream, factory.newListener(this)));
         }
     }
 }

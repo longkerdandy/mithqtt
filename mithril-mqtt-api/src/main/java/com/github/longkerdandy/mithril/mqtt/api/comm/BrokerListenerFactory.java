@@ -1,7 +1,14 @@
 package com.github.longkerdandy.mithril.mqtt.api.comm;
 
 /**
- * Created by LongkerDandy on 2015/10/13.
+ * Broker Listener Factory
  */
-public class BrokerListenerFactory {
+public interface BrokerListenerFactory {
+
+    /**
+     * Create a new BrokerListener
+     *
+     * @return BrokerListener
+     */
+    BrokerListener newListener(BrokerCommunicator communicator);
 }

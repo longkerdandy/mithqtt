@@ -1,7 +1,7 @@
 package com.github.longkerdandy.mithril.mqtt.broker;
 
 import com.github.longkerdandy.mithril.mqtt.api.auth.Authenticator;
-import com.github.longkerdandy.mithril.mqtt.api.comm.Communicator;
+import com.github.longkerdandy.mithril.mqtt.api.comm.BrokerCommunicator;
 import com.github.longkerdandy.mithril.mqtt.broker.handler.AsyncRedisHandler;
 import com.github.longkerdandy.mithril.mqtt.broker.session.SessionRegistry;
 import com.github.longkerdandy.mithril.mqtt.broker.util.Validator;
@@ -30,7 +30,7 @@ public class MqttBroker {
         PropertiesConfiguration config = new PropertiesConfiguration(s);
 
         Authenticator authenticator = null;
-        Communicator communicator = null;
+        BrokerCommunicator communicator = null;
         RedisStorage redis = null;
         Validator validator = new Validator(config);
 

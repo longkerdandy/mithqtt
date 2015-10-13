@@ -46,7 +46,7 @@ public class KafkaProcessorWorker implements Runnable {
                         this.listener.onDisconnect(msg);
                         break;
                     default:
-                        logger.warn("Process received unexpected message type {}", msg.getMessageType());
+                        logger.warn("Processor received unexpected message type {}", msg.getMessageType());
                 }
             }
         }
