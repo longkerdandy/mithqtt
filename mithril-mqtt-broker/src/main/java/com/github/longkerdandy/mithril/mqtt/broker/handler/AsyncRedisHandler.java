@@ -254,8 +254,8 @@ public class AsyncRedisHandler extends SimpleChannelInboundHandler<MqttMessage> 
                     if (exist != null) {
                         this.redis.getConnectedNode(this.clientId).thenAccept(node -> {
                             if (node != null) {
-                                if (node.equals(this.config.getString("node.id"))) {
-                                    logger.trace("Disconnect: Try to disconnect exist client {} from local node {}", this.clientId, this.config.getString("node.id"));
+                                if (node.equals(this.config.getString("broker.id"))) {
+                                    logger.trace("Disconnect: Try to disconnect exist client {} from local node {}", this.clientId, this.config.getString("broker.id"));
                                     ChannelHandlerContext lastSession = this.registry.getSession(this.clientId);
                                     if (lastSession != null) {
                                         lastSession.close();
@@ -340,7 +340,7 @@ public class AsyncRedisHandler extends SimpleChannelInboundHandler<MqttMessage> 
                     // Save connection state, add to local registry and remote storage
                     this.connected = true;
                     this.registry.saveSession(this.clientId, ctx);
-                    this.redis.updateConnectedNode(this.clientId, this.config.getString("node.id"));
+                    this.redis.updateConnectedNode(this.clientId, this.config.getString("broker.id"));
                     this.redis.updateSessionExist(this.clientId, this.cleanSession);
                 });
             }
@@ -560,7 +560,7 @@ public class AsyncRedisHandler extends SimpleChannelInboundHandler<MqttMessage> 
                 logger.debug("Message forwarded: Forward to recipient {} which's subscription match topic {}", this.clientId, topicName);
                 this.redis.getConnectedNode(sClientId).thenAccept(node -> {
                     if (node != null) {
-                        if (node.equals(this.config.getString("node.id"))) {
+                        if (node.equals(this.config.getString("broker.id"))) {
                             this.registry.sendMessage(sMsg, sClientId, sPacketId.intValue(), true);
                         } else {
                             this.communicator.sendToBroker(node, InternalMessage.fromMqttMessage(this.version, this.cleanSession, this.clientId, this.userName, sMsg));

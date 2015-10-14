@@ -47,9 +47,6 @@ public abstract class KafkaCommunicator {
         Properties props = new Properties();
         props.put("zookeeper.connect", config.getString("zookeeper.connect"));
         props.put("group.id", config.getString("group.id"));
-        props.put("zookeeper.session.timeout.ms", config.getString("zookeeper.session.timeout.ms"));
-        props.put("zookeeper.sync.time.ms", config.getString("zookeeper.sync.time.ms"));
-        props.put("auto.commit.interval.ms", config.getString("auto.commit.interval.ms"));
         ConsumerConfig consumerConfig = new ConsumerConfig(props);
 
         // consumer

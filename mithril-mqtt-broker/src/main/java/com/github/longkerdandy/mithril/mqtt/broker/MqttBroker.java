@@ -2,6 +2,7 @@ package com.github.longkerdandy.mithril.mqtt.broker;
 
 import com.github.longkerdandy.mithril.mqtt.api.auth.Authenticator;
 import com.github.longkerdandy.mithril.mqtt.api.comm.BrokerCommunicator;
+import com.github.longkerdandy.mithril.mqtt.broker.comm.BrokerListenerFactoryImpl;
 import com.github.longkerdandy.mithril.mqtt.broker.handler.AsyncRedisHandler;
 import com.github.longkerdandy.mithril.mqtt.broker.session.SessionRegistry;
 import com.github.longkerdandy.mithril.mqtt.broker.util.Validator;
@@ -26,13 +27,16 @@ public class MqttBroker {
 
     public static void main(String[] args) throws Exception {
         // load config
-        String s = args.length >= 1 ? args[0] : "config/broker.properties";
-        PropertiesConfiguration config = new PropertiesConfiguration(s);
+        PropertiesConfiguration brokerConfig = args.length >= 2 ?
+                new PropertiesConfiguration(args[0]) : new PropertiesConfiguration("config/broker.properties");
+        PropertiesConfiguration communicatorConfig = args.length >= 2 ?
+                new PropertiesConfiguration(args[0]) : new PropertiesConfiguration("config/broker.properties");
 
         Authenticator authenticator = null;
-        BrokerCommunicator communicator = null;
+        BrokerCommunicator communicator = (BrokerCommunicator) Class.forName(brokerConfig.getString("communicator.class")).newInstance();
+        communicator.init(communicatorConfig, brokerConfig.getString("broker.id"), new BrokerListenerFactoryImpl());
         RedisStorage redis = null;
-        Validator validator = new Validator(config);
+        Validator validator = new Validator(brokerConfig);
 
         // tcp server
         InternalLoggerFactory.setDefaultFactory(new Slf4JLoggerFactory());
@@ -52,19 +56,20 @@ public class MqttBroker {
                             p.addLast(new MqttEncoder());
                             p.addLast(new MqttDecoder());
                             // handler
-                            p.addLast(new AsyncRedisHandler(authenticator, communicator, redis, registry, config, validator));
+                            p.addLast(new AsyncRedisHandler(authenticator, communicator, redis, registry, brokerConfig, validator));
                         }
                     })
-                    .option(ChannelOption.SO_BACKLOG, config.getInt("netty.soBacklog"))
-                    .childOption(ChannelOption.SO_KEEPALIVE, config.getBoolean("netty.soKeepAlive"));
+                    .option(ChannelOption.SO_BACKLOG, brokerConfig.getInt("netty.soBacklog"))
+                    .childOption(ChannelOption.SO_KEEPALIVE, brokerConfig.getBoolean("netty.soKeepAlive"));
 
             // Bind and start to accept incoming connections.
-            ChannelFuture f = b.bind(config.getString("mqtt.host"), config.getInt("mqtt.port")).sync();
+            ChannelFuture f = b.bind(brokerConfig.getString("mqtt.host"), brokerConfig.getInt("mqtt.port")).sync();
 
             // Wait until the server socket is closed.
             // Do this to gracefully shut down the server.
             f.channel().closeFuture().sync();
         } finally {
+            communicator.destroy();
             workerGroup.shutdownGracefully();
             bossGroup.shutdownGracefully();
         }
