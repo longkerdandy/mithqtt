@@ -1,0 +1,9 @@
+apply plugin: 'application'
+
+mainClassName = "com.github.longkerdandy.mithril.mqtt.processor.MqttProcessor"
+
+dependencies {
+    // project
+    compile project(':mithril-mqtt-api')
+    compile project(':mithril-mqtt-storage-redis')
+}

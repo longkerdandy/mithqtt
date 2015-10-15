@@ -20,6 +20,9 @@ public class InternalMessage<T> {
     private String clientId;
     private String userName;
 
+    // broker id, when this message is sent by broker
+    private String brokerId;
+
     // variable header and payload
     private T payload;
 
@@ -87,6 +90,14 @@ public class InternalMessage<T> {
         this.userName = userName;
     }
 
+    public String getBrokerId() {
+        return brokerId;
+    }
+
+    public void setBrokerId(String brokerId) {
+        this.brokerId = brokerId;
+    }
+
     public T getPayload() {
         return payload;
     }
@@ -108,13 +119,16 @@ public class InternalMessage<T> {
 
     @SuppressWarnings("unchecked")
     public static InternalMessage fromMqttMessage(MqttVersion version, boolean cleanSession,
-                                                  String clientId, String userName, MqttMessage mqtt) {
+                                                  String clientId, String userName, String brokerId,
+                                                  MqttMessage mqtt) {
         InternalMessage msg = new InternalMessage();
 
         msg.version = version;
         msg.cleanSession = cleanSession;
         msg.clientId = clientId;
         msg.userName = userName;
+
+        msg.brokerId = brokerId;
 
         // fixed header
         msg.messageType = mqtt.fixedHeader().messageType();

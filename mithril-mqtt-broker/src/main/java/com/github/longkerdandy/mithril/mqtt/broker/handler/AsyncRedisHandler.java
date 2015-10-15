@@ -162,7 +162,7 @@ public class AsyncRedisHandler extends SimpleChannelInboundHandler<MqttMessage> 
         }
 
         // Validate clientId based on configuration
-        if (!validator.isClientIdValid(this.clientId)) {
+        if (!this.validator.isClientIdValid(this.clientId)) {
             logger.debug("Protocol violation: Client id {} not valid based on configuration, send CONNACK and disconnect the client", this.clientId);
             this.registry.sendMessage(
                     ctx,
@@ -251,62 +251,11 @@ public class AsyncRedisHandler extends SimpleChannelInboundHandler<MqttMessage> 
 
                     // If the ClientId represents a Client already connected to the Server then the Server MUST
                     // disconnect the existing Client
-                    if (exist != null) {
-                        this.redis.getConnectedNode(this.clientId).thenAccept(node -> {
-                            if (node != null) {
-                                if (node.equals(this.config.getString("broker.id"))) {
-                                    logger.trace("Disconnect: Try to disconnect exist client {} from local node {}", this.clientId, this.config.getString("broker.id"));
-                                    ChannelHandlerContext lastSession = this.registry.getSession(this.clientId);
-                                    if (lastSession != null) {
-                                        lastSession.close();
-                                        this.registry.removeSession(this.clientId, lastSession);
-                                    }
-                                } else {
-                                    logger.trace("Disconnect: Try to disconnect exist client {} from remote node {}", this.clientId, node);
-                                    this.communicator.sendToBroker(node, InternalMessage.fromMqttMessage(this.version, this.cleanSession, this.clientId, this.userName,
-                                            MqttMessageFactory.newMessage(
-                                                    new MqttFixedHeader(MqttMessageType.DISCONNECT, false, MqttQoS.AT_MOST_ONCE, false, 0),
-                                                    null,
-                                                    null
-                                            )));
-                                }
-                            }
-                        });
-                    }
-
-                    // If CleanSession is set to 0, the Server MUST resume communications with the Client based on state from
-                    // the current Session (as identified by the Client identifier). If there is no Session associated with the Client
-                    // identifier the Server MUST create a new Session. The Client and Server MUST store the Session after
-                    // the Client and Server are disconnected. After the disconnection of a Session that had
-                    // CleanSession set to 0, the Server MUST store further QoS 1 and QoS 2 messages that match any
-                    // subscriptions that the client had at the time of disconnection as part of the Session state.
-                    // It MAY also store QoS 0 messages that meet the same criteria.
-                    // The Session state in the Server consists of:
-                    // The existence of a Session, even if the rest of the Session state is empty.
-                    // The Client's subscriptions.
-                    // QoS 1 and QoS 2 messages which have been sent to the Client, but have not been completely acknowledged.
-                    // QoS 1 and QoS 2 messages pending transmission to the Client.
-                    // QoS 2 messages which have been received from the Client, but have not been completely acknowledged.
-                    // Optionally, QoS 0 messages pending transmission to the Client.
-                    if (!this.cleanSession) {
-                        if ("0".equals(exist)) {
-                            logger.trace("Message response: Send in-flight messages back to client {}", this.clientId);
-                            this.redis.handleAllInFlightMessage(this.clientId, map ->
-                                    this.registry.sendMessage(ctx, mapToMqtt(map), this.clientId, Integer.parseInt(map.getOrDefault("packetId", "0")), true));
-                        } else if ("1".equals(exist)) {
-                            logger.trace("Clear session: Clear session state for client {} because former connection is clean session", this.clientId);
-                            this.redis.removeAllSessionState(this.clientId);
-                        }
-                    }
-                    // If CleanSession is set to 1, the Client and Server MUST discard any previous Session and start a new
-                    // one. This Session lasts as long as the Network Connection. State data associated with this Session
-                    // MUST NOT be reused in any subsequent Session.
-                    // When CleanSession is set to 1 the Client and Server need not process the deletion of state atomically.
-                    else {
-                        if (exist != null) {
-                            logger.trace("Clear session: Clear session state for client {} because current connection is clean session", this.clientId);
-                            this.redis.removeAllSessionState(this.clientId);
-                        }
+                    ChannelHandlerContext lastSession = this.registry.getSession(this.clientId);
+                    if (lastSession != null) {
+                        logger.trace("Disconnect: Try to disconnect existed client {}", this.clientId);
+                        lastSession.close();
+                        this.registry.removeSession(this.clientId, lastSession);
                     }
 
                     // If the Will Flag is set to 1 this indicates that, if the Connect request is accepted, a Will Message MUST be
@@ -337,11 +286,9 @@ public class AsyncRedisHandler extends SimpleChannelInboundHandler<MqttMessage> 
                     if (this.keepAlive <= 0 || this.keepAlive > this.config.getInt("mqtt.keepalive.max"))
                         this.keepAlive = this.config.getInt("mqtt.keepalive.default");
 
-                    // Save connection state, add to local registry and remote storage
+                    // Save connection state, add to local registry
                     this.connected = true;
                     this.registry.saveSession(this.clientId, ctx);
-                    this.redis.updateConnectedNode(this.clientId, this.config.getString("broker.id"));
-                    this.redis.updateSessionExist(this.clientId, this.cleanSession);
                 });
             }
 
@@ -563,7 +510,7 @@ public class AsyncRedisHandler extends SimpleChannelInboundHandler<MqttMessage> 
                         if (node.equals(this.config.getString("broker.id"))) {
                             this.registry.sendMessage(sMsg, sClientId, sPacketId.intValue(), true);
                         } else {
-                            this.communicator.sendToBroker(node, InternalMessage.fromMqttMessage(this.version, this.cleanSession, this.clientId, this.userName, sMsg));
+                            this.communicator.sendToBroker(node, InternalMessage.fromMqttMessage(this.version, this.cleanSession, this.clientId, this.userName, this.config.getString("broker.id"), sMsg));
                         }
                     }
                 });

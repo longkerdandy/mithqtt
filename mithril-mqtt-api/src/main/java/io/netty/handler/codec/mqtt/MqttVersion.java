@@ -57,5 +57,4 @@ public enum MqttVersion {
     public byte protocolLevel() {
         return level;
     }
-
 }

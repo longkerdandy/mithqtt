@@ -30,7 +30,7 @@ public class MqttBroker {
         PropertiesConfiguration brokerConfig = args.length >= 2 ?
                 new PropertiesConfiguration(args[0]) : new PropertiesConfiguration("config/broker.properties");
         PropertiesConfiguration communicatorConfig = args.length >= 2 ?
-                new PropertiesConfiguration(args[0]) : new PropertiesConfiguration("config/broker.properties");
+                new PropertiesConfiguration(args[0]) : new PropertiesConfiguration("config/communicator.properties");
 
         Authenticator authenticator = null;
         BrokerCommunicator communicator = (BrokerCommunicator) Class.forName(brokerConfig.getString("communicator.class")).newInstance();
