@@ -1,7 +1,8 @@
 package com.github.longkerdandy.mithril.mqtt.communicator.kafka.broker;
 
 import com.github.longkerdandy.mithril.mqtt.api.comm.BrokerListener;
-import com.github.longkerdandy.mithril.mqtt.api.internal.*;
+import com.github.longkerdandy.mithril.mqtt.api.internal.InternalMessage;
+import com.github.longkerdandy.mithril.mqtt.api.internal.Publish;
 import kafka.consumer.KafkaStream;
 import kafka.message.MessageAndMetadata;
 import org.slf4j.Logger;
