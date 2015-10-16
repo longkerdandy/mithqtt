@@ -4,12 +4,17 @@ import com.github.longkerdandy.mithril.mqtt.api.comm.ProcessorCommunicator;
 import com.github.longkerdandy.mithril.mqtt.api.comm.ProcessorListener;
 import com.github.longkerdandy.mithril.mqtt.api.internal.*;
 import com.github.longkerdandy.mithril.mqtt.storage.redis.RedisSyncStorage;
+import com.github.longkerdandy.mithril.mqtt.util.Topics;
 import io.netty.handler.codec.mqtt.MqttMessageType;
 import io.netty.handler.codec.mqtt.MqttQoS;
 import io.netty.handler.codec.mqtt.MqttVersion;
 import org.apache.commons.lang3.StringUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
 
 /**
  * Processor Listener Implementation
@@ -82,7 +87,119 @@ public class ProcessorListenerImpl implements ProcessorListener {
 
     @Override
     public void onPublish(InternalMessage<Publish> msg) {
+        List<String> topicLevels = Topics.sanitizeTopicName(msg.getPayload().getTopicName());
 
+        // If the RETAIN flag is set to 1, in a PUBLISH Packet sent by a Client to a Server, the Server MUST store
+        // the Application Message and its QoS, so that it can be delivered to future subscribers whose
+        // subscriptions match its topic name. When a new subscription is established, the last
+        // retained message, if any, on each matching topic name MUST be sent to the subscriber.
+        if (msg.isRetain()) {
+            // If the Server receives a QoS 0 message with the RETAIN flag set to 1 it MUST discard any message
+            // previously retained for that topic. It SHOULD store the new QoS 0 message as the new retained
+            // message for that topic, but MAY choose to discard it at any time - if this happens there will be no retained
+            // message for that topic.
+            if (msg.getQos() == MqttQoS.AT_MOST_ONCE) {
+                logger.trace("Clear retain: Clear retain messages for topic {} by client {}", msg.getPayload().getTopicName(), msg.getClientId());
+                this.redis.removeAllRetainMessage(topicLevels);
+            }
+
+            // A PUBLISH Packet with a RETAIN flag set to 1 and a payload containing zero bytes will be processed as
+            // normal by the Server and sent to Clients with a subscription matching the topic name. Additionally any
+            // existing retained message with the same topic name MUST be removed and any future subscribers for
+            // the topic will not receive a retained message. “As normal” means that the RETAIN flag is
+            // not set in the message received by existing Clients. A zero byte retained message MUST NOT be stored
+            // as a retained message on the Server
+            if (msg.getPayload().getPayload() != null && msg.getPayload().getPayload().length > 0) {
+                logger.trace("Add retain: Add retain messages for topic {} by client {}", msg.getPayload().getTopicName(), msg.getClientId());
+                this.redis.addRetainMessage(topicLevels, msg.getPayload().getPacketId(), msg);
+            }
+        }
+
+        // In the QoS 0 delivery protocol, the Receiver
+        // Accepts ownership of the message when it receives the PUBLISH packet.
+        if (msg.getQos() == MqttQoS.AT_MOST_ONCE) {
+            onwardRecipients(msg);
+        }
+        // In the QoS 1 delivery protocol, the Receiver
+        // After it has sent a PUBACK Packet the Receiver MUST treat any incoming PUBLISH packet that
+        // contains the same Packet Identifier as being a new publication, irrespective of the setting of its
+        // DUP flag.
+        else if (msg.getQos() == MqttQoS.AT_LEAST_ONCE) {
+            onwardRecipients(msg);
+        }
+        // In the QoS 2 delivery protocol, the Receiver
+        // Until it has received the corresponding PUBREL packet, the Receiver MUST acknowledge any
+        // subsequent PUBLISH packet with the same Packet Identifier by sending a PUBREC. It MUST
+        // NOT cause duplicate messages to be delivered to any onward recipients in this case.
+        else if (msg.getQos() == MqttQoS.EXACTLY_ONCE) {
+            // The recipient of a Control Packet that contains the DUP flag set to 1 cannot assume that it has
+            // seen an earlier copy of this packet.
+            if (!this.redis.addQoS2MessageId(msg.getClientId(), msg.getPayload().getPacketId()) || !msg.isDup()) {
+                onwardRecipients(msg);
+            }
+        }
+    }
+
+    /**
+     * Forward PUBLISH message to its recipients
+     *
+     * @param msg Internal PUBLISH Message
+     */
+    protected void onwardRecipients(InternalMessage<Publish> msg) {
+        List<String> topicLevels = Topics.sanitizeTopicName(msg.getPayload().getTopicName());
+
+        // When sending a PUBLISH Packet to a Client the Server MUST set the RETAIN flag to 1 if a message is
+        // sent as a result of a new subscription being made by a Client. It MUST set the RETAIN
+        // flag to 0 when a PUBLISH Packet is sent to a Client because it matches an established subscription
+        // regardless of how the flag was set in the message it received.
+
+        // The Server uses a PUBLISH Packet to send an Application Message to each Client which has a
+        // matching subscription.
+        // When Clients make subscriptions with Topic Filters that include wildcards, it is possible for a Client’s
+        // subscriptions to overlap so that a published message might match multiple filters. In this case the Server
+        // MUST deliver the message to the Client respecting the maximum QoS of all the matching subscriptions.
+        // In addition, the Server MAY deliver further copies of the message, one for each
+        // additional matching subscription and respecting the subscription’s QoS in each case.
+        Map<String, MqttQoS> subscriptions = new HashMap<>();
+        this.redis.getMatchSubscriptions(topicLevels, subscriptions);
+        subscriptions.forEach((clientId, qos) -> {
+            MqttQoS fQos = msg.getQos().value() > qos.value() ? qos : msg.getQos();
+
+            // Each time a Client sends a new packet of one of these
+            // types it MUST assign it a currently unused Packet Identifier. If a Client re-sends a
+            // particular Control Packet, then it MUST use the same Packet Identifier in subsequent re-sends of that
+            // packet. The Packet Identifier becomes available for reuse after the Client has processed the
+            // corresponding acknowledgement packet. In the case of a QoS 1 PUBLISH this is the corresponding
+            // PUBACK; in the case of QoS 2 it is PUBCOMP. For SUBSCRIBE or UNSUBSCRIBE it is the
+            // corresponding SUBACK or UNSUBACK. The same conditions apply to a Server when it
+            // sends a PUBLISH with QoS > 0
+            // A PUBLISH Packet MUST NOT contain a Packet Identifier if its QoS value is set to
+            int packetId = this.redis.getNextPacketId(clientId);
+            InternalMessage<Publish> m = new InternalMessage<>();
+            m.setMessageType(MqttMessageType.PUBLISH);
+            m.setQos(fQos);
+            m.setVersion(MqttVersion.MQTT_3_1_1);
+            m.setClientId(clientId);
+            Publish p = new Publish();
+            p.setPacketId(packetId);
+            p.setTopicName(msg.getPayload().getTopicName());
+            m.setPayload(p);
+
+            // In the QoS 1 delivery protocol, the Sender
+            // MUST treat the PUBLISH Packet as “unacknowledged” until it has received the corresponding
+            // PUBACK packet from the receiver.
+            // In the QoS 2 delivery protocol, the Sender
+            // MUST treat the PUBLISH packet as “unacknowledged” until it has received the corresponding
+            // PUBREC packet from the receiver.
+            if (fQos == MqttQoS.AT_LEAST_ONCE || fQos == MqttQoS.EXACTLY_ONCE) {
+                logger.trace("Add in-flight: Add in-flight PUBLISH message {} with QoS {} for client {}", packetId, fQos, clientId);
+                this.redis.addInFlightMessage(clientId, packetId, m, true);
+            }
+
+            // Forward to recipient
+            String brokerId = this.redis.getConnectedNode(clientId);
+            if (StringUtils.isNotBlank(brokerId)) this.communicator.sendToBroker(brokerId, m);
+        });
     }
 
     @Override

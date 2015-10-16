@@ -20,7 +20,6 @@ import org.slf4j.LoggerFactory;
 
 import java.util.ArrayList;
 import java.util.List;
-import java.util.Map;
 
 import static com.github.longkerdandy.mithril.mqtt.storage.redis.RedisStorage.mapToMqtt;
 import static com.github.longkerdandy.mithril.mqtt.storage.redis.RedisStorage.mqttToMap;
@@ -289,6 +288,9 @@ public class AsyncRedisHandler extends SimpleChannelInboundHandler<MqttMessage> 
                     // Save connection state, add to local registry
                     this.connected = true;
                     this.registry.saveSession(this.clientId, ctx);
+
+                    // Pass message to processor
+                    this.communicator.sendToProcessor(InternalMessage.fromMqttMessage(this.version, this.cleanSession, this.clientId, this.userName, this.config.getString("broker.id"), msg));
                 });
             }
 
@@ -334,7 +336,6 @@ public class AsyncRedisHandler extends SimpleChannelInboundHandler<MqttMessage> 
             ctx.close();
             return;
         }
-        List<String> topicLevels = Topics.sanitizeTopicName(topicName);
 
         // The Packet Identifier field is only present in PUBLISH Packets where the QoS level is 1 or 2.
         if (packetId <= 0 && (qos == MqttQoS.AT_LEAST_ONCE || qos == MqttQoS.EXACTLY_ONCE)) {
@@ -352,57 +353,11 @@ public class AsyncRedisHandler extends SimpleChannelInboundHandler<MqttMessage> 
                     if (result == AuthorizeResult.OK) {
                         logger.trace("Authorization succeed: Publish to topic {} authorized for client {}", topicName, this.clientId);
 
-                        // If the RETAIN flag is set to 1, in a PUBLISH Packet sent by a Client to a Server, the Server MUST store
-                        // the Application Message and its QoS, so that it can be delivered to future subscribers whose
-                        // subscriptions match its topic name. When a new subscription is established, the last
-                        // retained message, if any, on each matching topic name MUST be sent to the subscriber.
-                        if (retain) {
-                            // If the Server receives a QoS 0 message with the RETAIN flag set to 1 it MUST discard any message
-                            // previously retained for that topic. It SHOULD store the new QoS 0 message as the new retained
-                            // message for that topic, but MAY choose to discard it at any time - if this happens there will be no retained
-                            // message for that topic.
-                            if (qos == MqttQoS.AT_MOST_ONCE) {
-                                logger.trace("Clear retain: Clear retain messages for topic {} by client {}", topicName, this.clientId);
-                                this.redis.removeAllRetainMessage(topicLevels);
-                            }
+                        // Pass message to processor
+                        this.communicator.sendToProcessor(InternalMessage.fromMqttMessage(this.version, this.cleanSession, this.clientId, this.userName, this.config.getString("broker.id"), msg));
 
-                            // A PUBLISH Packet with a RETAIN flag set to 1 and a payload containing zero bytes will be processed as
-                            // normal by the Server and sent to Clients with a subscription matching the topic name. Additionally any
-                            // existing retained message with the same topic name MUST be removed and any future subscribers for
-                            // the topic will not receive a retained message. “As normal” means that the RETAIN flag is
-                            // not set in the message received by existing Clients. A zero byte retained message MUST NOT be stored
-                            // as a retained message on the Server
-                            if (msg.payload() != null && msg.payload().isReadable()) {
-                                logger.trace("Add retain: Add retain messages for topic {} by client {}", topicName, this.clientId);
-                                this.redis.addRetainMessage(topicLevels, packetId, mqttToMap(msg));
-                            }
-                        }
-
-                        // In the QoS 0 delivery protocol, the Receiver
-                        // Accepts ownership of the message when it receives the PUBLISH packet.
-                        if (qos == MqttQoS.AT_MOST_ONCE) {
-                            onwardRecipients(msg);
-                        }
-                        // In the QoS 1 delivery protocol, the Receiver
-                        // After it has sent a PUBACK Packet the Receiver MUST treat any incoming PUBLISH packet that
-                        // contains the same Packet Identifier as being a new publication, irrespective of the setting of its
-                        // DUP flag.
-                        else if (qos == MqttQoS.AT_LEAST_ONCE) {
-                            onwardRecipients(msg);
-                        }
-                        // In the QoS 2 delivery protocol, the Receiver
-                        // Until it has received the corresponding PUBREL packet, the Receiver MUST acknowledge any
-                        // subsequent PUBLISH packet with the same Packet Identifier by sending a PUBREC. It MUST
-                        // NOT cause duplicate messages to be delivered to any onward recipients in this case.
-                        else if (qos == MqttQoS.EXACTLY_ONCE) {
-                            // The recipient of a Control Packet that contains the DUP flag set to 1 cannot assume that it has
-                            // seen an earlier copy of this packet.
-                            this.redis.addQoS2MessageId(this.clientId, packetId).thenAccept(count -> {
-                                if (!dup || count == 1) {
-                                    onwardRecipients(msg);
-                                }
-                            });
-                        }
+                        // Release ByteBuf
+                        msg.payload().release();
                     }
                 }
         );
@@ -447,75 +402,6 @@ public class AsyncRedisHandler extends SimpleChannelInboundHandler<MqttMessage> 
                     packetId,
                     true);
         }
-    }
-
-    /**
-     * Forward PUBLISH message to its recipients
-     *
-     * @param msg PUBLISH MQTT Message
-     */
-    protected void onwardRecipients(MqttPublishMessage msg) {
-        MqttQoS qos = msg.fixedHeader().qos();
-        String topicName = msg.variableHeader().topicName();
-        List<String> topicLevels = Topics.sanitizeTopicName(topicName);
-
-        // When sending a PUBLISH Packet to a Client the Server MUST set the RETAIN flag to 1 if a message is
-        // sent as a result of a new subscription being made by a Client. It MUST set the RETAIN
-        // flag to 0 when a PUBLISH Packet is sent to a Client because it matches an established subscription
-        // regardless of how the flag was set in the message it received.
-
-        // The Server uses a PUBLISH Packet to send an Application Message to each Client which has a
-        // matching subscription.
-        // When Clients make subscriptions with Topic Filters that include wildcards, it is possible for a Client’s
-        // subscriptions to overlap so that a published message might match multiple filters. In this case the Server
-        // MUST deliver the message to the Client respecting the maximum QoS of all the matching subscriptions.
-        // In addition, the Server MAY deliver further copies of the message, one for each
-        // additional matching subscription and respecting the subscription’s QoS in each case.
-        this.redis.handleMatchSubscriptions(topicLevels, 0, map -> map.forEach((sClientId, sQos) -> {
-
-            int fQos = qos.value() > Integer.valueOf(sQos) ? Integer.valueOf(sQos) : qos.value();
-
-            // Each time a Client sends a new packet of one of these
-            // types it MUST assign it a currently unused Packet Identifier. If a Client re-sends a
-            // particular Control Packet, then it MUST use the same Packet Identifier in subsequent re-sends of that
-            // packet. The Packet Identifier becomes available for reuse after the Client has processed the
-            // corresponding acknowledgement packet. In the case of a QoS 1 PUBLISH this is the corresponding
-            // PUBACK; in the case of QoS 2 it is PUBCOMP. For SUBSCRIBE or UNSUBSCRIBE it is the
-            // corresponding SUBACK or UNSUBACK. The same conditions apply to a Server when it
-            // sends a PUBLISH with QoS > 0
-            // A PUBLISH Packet MUST NOT contain a Packet Identifier if its QoS value is set to
-            this.redis.getNextPacketId(sClientId).thenAccept(sPacketId -> {
-                MqttMessage sMsg = MqttMessageFactory.newMessage(
-                        new MqttFixedHeader(MqttMessageType.PUBLISH, false, MqttQoS.valueOf(fQos), false, 0),
-                        new MqttPublishVariableHeader(topicName, sPacketId.intValue()),
-                        msg.payload().duplicate().retain());    // duplicate the ByteBuf and increase the reference count
-
-                // In the QoS 1 delivery protocol, the Sender
-                // MUST treat the PUBLISH Packet as “unacknowledged” until it has received the corresponding
-                // PUBACK packet from the receiver.
-                // In the QoS 2 delivery protocol, the Sender
-                // MUST treat the PUBLISH packet as “unacknowledged” until it has received the corresponding
-                // PUBREC packet from the receiver.
-                if (fQos == MqttQoS.AT_LEAST_ONCE.value() || fQos == MqttQoS.EXACTLY_ONCE.value()) {
-                    Map<String, String> sMap = mqttToMap(sMsg);
-                    sMap.put("dup", "1");
-                    logger.trace("Add in-flight: Add in-flight PUBLISH message {} with QoS {} for client {}", sPacketId, fQos, this.clientId);
-                    this.redis.addInFlightMessage(sClientId, sPacketId.intValue(), sMap);
-                }
-
-                // Forward to recipient
-                logger.debug("Message forwarded: Forward to recipient {} which's subscription match topic {}", this.clientId, topicName);
-                this.redis.getConnectedNode(sClientId).thenAccept(node -> {
-                    if (node != null) {
-                        if (node.equals(this.config.getString("broker.id"))) {
-                            this.registry.sendMessage(sMsg, sClientId, sPacketId.intValue(), true);
-                        } else {
-                            this.communicator.sendToBroker(node, InternalMessage.fromMqttMessage(this.version, this.cleanSession, this.clientId, this.userName, this.config.getString("broker.id"), sMsg));
-                        }
-                    }
-                });
-            });
-        }));
     }
 
     protected void onPubAck(ChannelHandlerContext ctx, MqttMessage msg) {
