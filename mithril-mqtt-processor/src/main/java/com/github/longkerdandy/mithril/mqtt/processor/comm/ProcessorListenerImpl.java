@@ -7,6 +7,7 @@ import com.github.longkerdandy.mithril.mqtt.storage.redis.RedisSyncStorage;
 import com.github.longkerdandy.mithril.mqtt.util.Topics;
 import io.netty.handler.codec.mqtt.MqttMessageType;
 import io.netty.handler.codec.mqtt.MqttQoS;
+import io.netty.handler.codec.mqtt.MqttTopicSubscription;
 import io.netty.handler.codec.mqtt.MqttVersion;
 import org.apache.commons.lang3.StringUtils;
 import org.slf4j.Logger;
@@ -15,6 +16,7 @@ import org.slf4j.LoggerFactory;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.function.Consumer;
 
 /**
  * Processor Listener Implementation
@@ -204,7 +206,9 @@ public class ProcessorListenerImpl implements ProcessorListener {
 
     @Override
     public void onSubscribe(InternalMessage<Subscribe> msg) {
+        msg.getPayload().getTopicSubscriptions().forEach(subscription -> {
 
+        });
     }
 
     @Override

@@ -26,6 +26,111 @@ public class InternalMessage<T> {
     // variable header and payload
     private T payload;
 
+    public static InternalMessage fromMqttMessage(MqttVersion version, boolean cleanSession, String clientId, String userName,
+                                                  String brokerId,
+                                                  MqttFixedHeader fixedHeader) {
+        InternalMessage msg = new InternalMessage();
+
+        msg.version = version;
+        msg.cleanSession = cleanSession;
+        msg.clientId = clientId;
+        msg.userName = userName;
+
+        msg.brokerId = brokerId;
+
+        // fixed header
+        msg.messageType = fixedHeader.messageType();
+        msg.dup = fixedHeader.dup();
+        msg.qos = fixedHeader.qos();
+        msg.retain = fixedHeader.retain();
+
+        return msg;
+    }
+
+    public static InternalMessage fromMqttMessage(MqttVersion version, boolean cleanSession, String clientId, String userName,
+                                                  String brokerId,
+                                                  MqttConnectMessage mqtt) {
+        InternalMessage<Connect> msg = fromMqttMessage(version, cleanSession, clientId, userName, brokerId, mqtt.fixedHeader());
+        Connect connect = new Connect();
+        connect.setWillQos(mqtt.variableHeader().willQos());
+        connect.setWillRetain(mqtt.variableHeader().willRetain());
+        connect.setWillTopic(mqtt.payload().willTopic());
+        // TODO: will message
+        msg.setPayload(connect);
+        return msg;
+    }
+
+    @SuppressWarnings("unchecked")
+    public static InternalMessage fromMqttMessage(MqttVersion version, boolean cleanSession,
+                                                  String clientId, String userName, String brokerId,
+                                                  MqttMessage mqtt) {
+        InternalMessage msg = new InternalMessage();
+
+        msg.version = version;
+        msg.cleanSession = cleanSession;
+        msg.clientId = clientId;
+        msg.userName = userName;
+
+        msg.brokerId = brokerId;
+
+        // fixed header
+        msg.messageType = mqtt.fixedHeader().messageType();
+        msg.dup = mqtt.fixedHeader().dup();
+        msg.qos = mqtt.fixedHeader().qos();
+        msg.retain = mqtt.fixedHeader().retain();
+
+        switch (msg.messageType) {
+            case CONNECT:
+                Connect connect = new Connect();
+                connect.setWillQos(((MqttConnectVariableHeader) mqtt.variableHeader()).willQos());
+                connect.setWillRetain(((MqttConnectVariableHeader) mqtt.variableHeader()).willRetain());
+                connect.setWillTopic(((MqttConnectPayload) mqtt.payload()).willTopic());
+                // TODO: will message
+                msg.setPayload(connect);
+                break;
+            case CONNACK:
+                ConnAck connAck = new ConnAck();
+                connAck.setSessionPresent(((MqttConnAckVariableHeader) mqtt.variableHeader()).sessionPresent());
+                connAck.setReturnCode(((MqttConnAckVariableHeader) mqtt.variableHeader()).connectReturnCode());
+                msg.setPayload(connAck);
+                break;
+            case SUBSCRIBE:
+                Subscribe subscribe = new Subscribe();
+                subscribe.setPacketId(((MqttPacketIdVariableHeader) mqtt.variableHeader()).packetId());
+                subscribe.setTopicSubscriptions(((MqttSubscribePayload) mqtt.payload()).topicSubscriptions());
+                msg.setPayload(subscribe);
+                break;
+            case SUBACK:
+                SubAck subAck = new SubAck();
+                subAck.setPacketId(((MqttPacketIdVariableHeader) mqtt.variableHeader()).packetId());
+                // TODO: granted QoS
+                msg.setPayload(subAck);
+                break;
+            case PUBLISH:
+                Publish publish = new Publish();
+                publish.setPacketId(((MqttPublishVariableHeader) mqtt.variableHeader()).packetId());
+                publish.setTopicName(((MqttPublishVariableHeader) mqtt.variableHeader()).topicName());
+                ByteBuf buf = (ByteBuf) mqtt.variableHeader();
+                byte[] bytes = new byte[buf.readableBytes()];
+                buf.readBytes(bytes);
+                publish.setPayload(bytes);
+                msg.setPayload(publish);
+                break;
+            case UNSUBACK:
+            case PUBACK:
+            case PUBREC:
+            case PUBREL:
+            case PUBCOMP:
+                PacketId packetId = new PacketId();
+                packetId.setPacketId(((MqttPacketIdVariableHeader) mqtt.variableHeader()).packetId());
+                msg.setPayload(packetId);
+                break;
+            // TODO: Disconnect
+        }
+
+        return msg;
+    }
+
     public MqttMessageType getMessageType() {
         return messageType;
     }
@@ -115,76 +220,5 @@ public class InternalMessage<T> {
         this.cleanSession = msg.cleanSession;
         this.clientId = msg.clientId;
         this.userName = msg.userName;
-    }
-
-    @SuppressWarnings("unchecked")
-    public static InternalMessage fromMqttMessage(MqttVersion version, boolean cleanSession,
-                                                  String clientId, String userName, String brokerId,
-                                                  MqttMessage mqtt) {
-        InternalMessage msg = new InternalMessage();
-
-        msg.version = version;
-        msg.cleanSession = cleanSession;
-        msg.clientId = clientId;
-        msg.userName = userName;
-
-        msg.brokerId = brokerId;
-
-        // fixed header
-        msg.messageType = mqtt.fixedHeader().messageType();
-        msg.dup = mqtt.fixedHeader().dup();
-        msg.qos = mqtt.fixedHeader().qos();
-        msg.retain = mqtt.fixedHeader().retain();
-
-        switch (msg.messageType) {
-            case CONNECT:
-                Connect connect = new Connect();
-                connect.setWillQos(((MqttConnectVariableHeader) mqtt.variableHeader()).willQos());
-                connect.setWillRetain(((MqttConnectVariableHeader) mqtt.variableHeader()).willRetain());
-                connect.setWillTopic(((MqttConnectPayload) mqtt.payload()).willTopic());
-                // TODO: will message
-                msg.setPayload(connect);
-                break;
-            case CONNACK:
-                ConnAck connAck = new ConnAck();
-                connAck.setSessionPresent(((MqttConnAckVariableHeader) mqtt.variableHeader()).sessionPresent());
-                connAck.setConnectReturnCode(((MqttConnAckVariableHeader) mqtt.variableHeader()).connectReturnCode());
-                msg.setPayload(connAck);
-                break;
-            case SUBSCRIBE:
-                Subscribe subscribe = new Subscribe();
-                subscribe.setPacketId(((MqttPacketIdVariableHeader) mqtt.variableHeader()).packetId());
-                subscribe.setTopicSubscriptions(((MqttSubscribePayload) mqtt.payload()).topicSubscriptions());
-                msg.setPayload(subscribe);
-                break;
-            case SUBACK:
-                SubAck subAck = new SubAck();
-                subAck.setPacketId(((MqttPacketIdVariableHeader) mqtt.variableHeader()).packetId());
-                // TODO: granted QoS
-                msg.setPayload(subAck);
-                break;
-            case PUBLISH:
-                Publish publish = new Publish();
-                publish.setPacketId(((MqttPublishVariableHeader) mqtt.variableHeader()).packetId());
-                publish.setTopicName(((MqttPublishVariableHeader) mqtt.variableHeader()).topicName());
-                ByteBuf buf = (ByteBuf) mqtt.variableHeader();
-                byte[] bytes = new byte[buf.readableBytes()];
-                buf.readBytes(bytes);
-                publish.setPayload(bytes);
-                msg.setPayload(publish);
-                break;
-            case UNSUBACK:
-            case PUBACK:
-            case PUBREC:
-            case PUBREL:
-            case PUBCOMP:
-                PacketId packetId = new PacketId();
-                packetId.setPacketId(((MqttPacketIdVariableHeader) mqtt.variableHeader()).packetId());
-                msg.setPayload(packetId);
-                break;
-            // TODO: Disconnect
-        }
-
-        return msg;
     }
 }

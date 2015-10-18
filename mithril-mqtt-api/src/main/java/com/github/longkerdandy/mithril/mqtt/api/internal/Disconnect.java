@@ -5,6 +5,7 @@ package com.github.longkerdandy.mithril.mqtt.api.internal;
  */
 public class Disconnect {
 
+    // clear exit means client sent DISCONNECT before closing the connection
     private boolean clearExit;
 
     public boolean isClearExit() {

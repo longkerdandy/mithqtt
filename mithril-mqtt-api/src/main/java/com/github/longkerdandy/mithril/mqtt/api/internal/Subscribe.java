@@ -1,7 +1,5 @@
 package com.github.longkerdandy.mithril.mqtt.api.internal;
 
-import io.netty.handler.codec.mqtt.MqttTopicSubscription;
-
 import java.util.List;
 
 /**
@@ -10,7 +8,7 @@ import java.util.List;
 public class Subscribe {
 
     private int packetId;
-    private List<MqttTopicSubscription> topicSubscriptions;
+    private List<TopicSubscription> topicSubscriptions;
 
     public int getPacketId() {
         return packetId;
@@ -20,11 +18,11 @@ public class Subscribe {
         this.packetId = packetId;
     }
 
-    public List<MqttTopicSubscription> getTopicSubscriptions() {
+    public List<TopicSubscription> getTopicSubscriptions() {
         return topicSubscriptions;
     }
 
-    public void setTopicSubscriptions(List<MqttTopicSubscription> topicSubscriptions) {
+    public void TopicSubscription(List<TopicSubscription> topicSubscriptions) {
         this.topicSubscriptions = topicSubscriptions;
     }
 }

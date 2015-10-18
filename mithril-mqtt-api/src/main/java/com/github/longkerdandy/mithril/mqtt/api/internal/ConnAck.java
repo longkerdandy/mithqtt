@@ -7,15 +7,15 @@ import io.netty.handler.codec.mqtt.MqttConnectReturnCode;
  */
 public class ConnAck {
 
-    private MqttConnectReturnCode connectReturnCode;
+    private MqttConnectReturnCode returnCode;
     private boolean sessionPresent;
 
-    public MqttConnectReturnCode getConnectReturnCode() {
-        return connectReturnCode;
+    public MqttConnectReturnCode getReturnCode() {
+        return returnCode;
     }
 
-    public void setConnectReturnCode(MqttConnectReturnCode connectReturnCode) {
-        this.connectReturnCode = connectReturnCode;
+    public void setReturnCode(MqttConnectReturnCode returnCode) {
+        this.returnCode = returnCode;
     }
 
     public boolean isSessionPresent() {
