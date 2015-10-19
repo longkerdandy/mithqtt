@@ -12,6 +12,7 @@ import static com.github.longkerdandy.mithril.mqtt.communicator.kafka.util.JSONs
 /**
  * Internal Message Serializer
  */
+@SuppressWarnings("unused")
 public class InternalMessageSerializer implements Serializer<InternalMessage> {
 
     @Override

@@ -13,6 +13,7 @@ import static com.github.longkerdandy.mithril.mqtt.communicator.kafka.util.JSONs
 /**
  * Internal Message Kafka Encoder
  */
+@SuppressWarnings("unused")
 public class InternalMessageEncoder implements Encoder<InternalMessage> {
 
     private static final Logger logger = LoggerFactory.getLogger(InternalMessageEncoder.class);

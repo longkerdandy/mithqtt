@@ -1,6 +1,6 @@
 package com.github.longkerdandy.mithril.mqtt.communicator.kafka;
 
-import com.github.longkerdandy.mithril.mqtt.api.comm.CommunicatorTopics;
+import com.github.longkerdandy.mithril.mqtt.api.comm.Communicators;
 import com.github.longkerdandy.mithril.mqtt.api.internal.InternalMessage;
 import com.github.longkerdandy.mithril.mqtt.communicator.kafka.codec.InternalMessageSerializer;
 import kafka.consumer.Consumer;
@@ -24,6 +24,7 @@ import java.util.concurrent.TimeUnit;
 /**
  * Communicator implementation based on Kafka
  */
+@SuppressWarnings("unused")
 public abstract class KafkaCommunicator {
 
     private static final Logger logger = LoggerFactory.getLogger(KafkaCommunicator.class);
@@ -72,11 +73,11 @@ public abstract class KafkaCommunicator {
     }
 
     public void sendToBroker(String brokerId, InternalMessage message) {
-        sendToTopic(CommunicatorTopics.BROKER(brokerId), message);
+        sendToTopic(Communicators.BROKER(brokerId), message);
     }
 
     public void sendToProcessor(InternalMessage message) {
-        sendToTopic(CommunicatorTopics.PROCESSOR, message);
+        sendToTopic(Communicators.PROCESSOR, message);
     }
 
     public void sendToTopic(String topic, InternalMessage message) {

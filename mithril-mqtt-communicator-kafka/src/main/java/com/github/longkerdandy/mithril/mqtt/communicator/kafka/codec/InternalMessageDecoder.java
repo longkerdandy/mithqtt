@@ -15,62 +15,50 @@ import static com.github.longkerdandy.mithril.mqtt.communicator.kafka.util.JSONs
 /**
  * Internal Message Kafka Decoder
  */
+@SuppressWarnings("unused")
 public class InternalMessageDecoder implements Decoder<InternalMessage> {
 
     private static final Logger logger = LoggerFactory.getLogger(InternalMessageDecoder.class);
 
     @Override
+    @SuppressWarnings("unchecked")
     public InternalMessage fromBytes(byte[] bytes) {
         try {
             JavaType type = Mapper.getTypeFactory().constructParametrizedType(InternalMessage.class, InternalMessage.class, JsonNode.class);
-            InternalMessage<JsonNode> m = Mapper.readValue(bytes, type);
+            InternalMessage m = Mapper.readValue(bytes, type);
             switch (m.getMessageType()) {
                 case CONNECT:
-                    Connect connect = Mapper.treeToValue(m.getPayload(), Connect.class);
-                    InternalMessage<Connect> mc = new InternalMessage<>();
-                    mc.cloneFields(m);
-                    mc.setPayload(connect);
-                    return mc;
+                    Connect connect = Mapper.treeToValue((JsonNode) m.getPayload(), Connect.class);
+                    m.setPayload(connect);
+                    return m;
                 case CONNACK:
-                    ConnAck connack = Mapper.treeToValue(m.getPayload(), ConnAck.class);
-                    InternalMessage<ConnAck> mca = new InternalMessage<>();
-                    mca.cloneFields(m);
-                    mca.setPayload(connack);
-                    return mca;
+                    ConnAck connack = Mapper.treeToValue((JsonNode) m.getPayload(), ConnAck.class);
+                    m.setPayload(connack);
+                    return m;
                 case SUBSCRIBE:
-                    Subscribe subscribe = Mapper.treeToValue(m.getPayload(), Subscribe.class);
-                    InternalMessage<Subscribe> ms = new InternalMessage<>();
-                    ms.cloneFields(m);
-                    ms.setPayload(subscribe);
-                    return ms;
+                    Subscribe subscribe = Mapper.treeToValue((JsonNode) m.getPayload(), Subscribe.class);
+                    m.setPayload(subscribe);
+                    return m;
                 case SUBACK:
-                    SubAck suback = Mapper.treeToValue(m.getPayload(), SubAck.class);
-                    InternalMessage<SubAck> msa = new InternalMessage<>();
-                    msa.cloneFields(m);
-                    msa.setPayload(suback);
-                    return msa;
+                    SubAck suback = Mapper.treeToValue((JsonNode) m.getPayload(), SubAck.class);
+                    m.setPayload(suback);
+                    return m;
                 case UNSUBSCRIBE:
-                    Unsubscribe unsubscribe = Mapper.treeToValue(m.getPayload(), Unsubscribe.class);
-                    InternalMessage<Unsubscribe> mu = new InternalMessage<>();
-                    mu.cloneFields(m);
-                    mu.setPayload(unsubscribe);
-                    return mu;
+                    Unsubscribe unsubscribe = Mapper.treeToValue((JsonNode) m.getPayload(), Unsubscribe.class);
+                    m.setPayload(unsubscribe);
+                    return m;
                 case PUBLISH:
-                    Publish publish = Mapper.treeToValue(m.getPayload(), Publish.class);
-                    InternalMessage<Publish> mp = new InternalMessage<>();
-                    mp.cloneFields(m);
-                    mp.setPayload(publish);
-                    return mp;
+                    Publish publish = Mapper.treeToValue((JsonNode) m.getPayload(), Publish.class);
+                    m.setPayload(publish);
+                    return m;
                 case UNSUBACK:
                 case PUBACK:
                 case PUBREC:
                 case PUBREL:
                 case PUBCOMP:
-                    PacketId packetId = Mapper.treeToValue(m.getPayload(), PacketId.class);
-                    InternalMessage<PacketId> mpi = new InternalMessage<>();
-                    mpi.cloneFields(m);
-                    mpi.setPayload(packetId);
-                    return mpi;
+                    PacketId packetId = Mapper.treeToValue((JsonNode) m.getPayload(), PacketId.class);
+                    m.setPayload(packetId);
+                    return m;
                 case PINGREQ:
                 case PINGRESP:
                 case DISCONNECT:
