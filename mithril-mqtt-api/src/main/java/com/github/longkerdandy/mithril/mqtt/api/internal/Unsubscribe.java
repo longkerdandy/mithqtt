@@ -5,10 +5,19 @@ import java.util.List;
 /**
  * Represent MQTT UNSUBSCRIBE Message's VariableHeader and Payload
  */
+@SuppressWarnings("unused")
 public class Unsubscribe {
 
     private int packetId;
     private List<String> topics;
+
+    protected Unsubscribe() {
+    }
+
+    public Unsubscribe(int packetId, List<String> topics) {
+        this.packetId = packetId;
+        this.topics = topics;
+    }
 
     public int getPacketId() {
         return packetId;

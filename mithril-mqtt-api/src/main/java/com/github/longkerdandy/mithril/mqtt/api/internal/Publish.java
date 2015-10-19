@@ -3,11 +3,21 @@ package com.github.longkerdandy.mithril.mqtt.api.internal;
 /**
  * Represent MQTT PUBLISH Message's VariableHeader and Payload
  */
+@SuppressWarnings("unused")
 public class Publish {
 
     private String topicName;
     private int packetId;
     private byte[] payload;
+
+    protected Publish() {
+    }
+
+    public Publish(String topicName, int packetId, byte[] payload) {
+        this.topicName = topicName;
+        this.packetId = packetId;
+        this.payload = payload;
+    }
 
     public String getTopicName() {
         return topicName;

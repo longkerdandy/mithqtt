@@ -27,21 +27,21 @@ import java.util.List;
  */
 public class MqttSubscribePayload {
 
-    private final List<MqttTopicSubscription> topicSubscriptions;
+    private final List<MqttTopicSubscription> subscriptions;
 
-    public MqttSubscribePayload(List<MqttTopicSubscription> topicSubscriptions) {
-        this.topicSubscriptions = Collections.unmodifiableList(topicSubscriptions);
+    public MqttSubscribePayload(List<MqttTopicSubscription> subscriptions) {
+        this.subscriptions = Collections.unmodifiableList(subscriptions);
     }
 
-    public List<MqttTopicSubscription> topicSubscriptions() {
-        return topicSubscriptions;
+    public List<MqttTopicSubscription> subscriptions() {
+        return subscriptions;
     }
 
     @Override
     public String toString() {
         return StringUtil.simpleClassName(this)
                 + '['
-                + "topicSubscriptions=" + ArrayUtils.toString(topicSubscriptions)
+                + "subscriptions=" + ArrayUtils.toString(subscriptions)
                 + ']';
     }
 }

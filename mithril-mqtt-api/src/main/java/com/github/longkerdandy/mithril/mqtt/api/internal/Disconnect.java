@@ -3,16 +3,24 @@ package com.github.longkerdandy.mithril.mqtt.api.internal;
 /**
  * Represent MQTT DISCONNECT Message
  */
+@SuppressWarnings("unused")
 public class Disconnect {
 
-    // clear exit means client sent DISCONNECT before closing the connection
-    private boolean clearExit;
+    // clean exit means client sent DISCONNECT before closing the connection
+    private boolean clean;
 
-    public boolean isClearExit() {
-        return clearExit;
+    protected Disconnect() {
     }
 
-    public void setClearExit(boolean clearExit) {
-        this.clearExit = clearExit;
+    public Disconnect(boolean clean) {
+        this.clean = clean;
+    }
+
+    public boolean isClean() {
+        return clean;
+    }
+
+    public void setClean(boolean clean) {
+        this.clean = clean;
     }
 }

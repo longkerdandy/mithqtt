@@ -3,6 +3,7 @@ package com.github.longkerdandy.mithril.mqtt.api.comm;
 /**
  * Processor Listener Factory
  */
+@SuppressWarnings("unused")
 public interface ProcessorListenerFactory {
 
     /**

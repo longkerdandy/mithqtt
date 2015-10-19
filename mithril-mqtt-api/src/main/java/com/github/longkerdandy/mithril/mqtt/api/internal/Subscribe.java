@@ -5,10 +5,19 @@ import java.util.List;
 /**
  * Represent MQTT SUBSCRIBE Message's VariableHeader and Payload
  */
+@SuppressWarnings("unused")
 public class Subscribe {
 
     private int packetId;
-    private List<TopicSubscription> topicSubscriptions;
+    private List<TopicSubscription> subscriptions;
+
+    protected Subscribe() {
+    }
+
+    public Subscribe(int packetId, List<TopicSubscription> subscriptions) {
+        this.packetId = packetId;
+        this.subscriptions = subscriptions;
+    }
 
     public int getPacketId() {
         return packetId;
@@ -18,11 +27,11 @@ public class Subscribe {
         this.packetId = packetId;
     }
 
-    public List<TopicSubscription> getTopicSubscriptions() {
-        return topicSubscriptions;
+    public List<TopicSubscription> getSubscriptions() {
+        return subscriptions;
     }
 
-    public void TopicSubscription(List<TopicSubscription> topicSubscriptions) {
-        this.topicSubscriptions = topicSubscriptions;
+    public void setSubscriptions(List<TopicSubscription> subscriptions) {
+        this.subscriptions = subscriptions;
     }
 }

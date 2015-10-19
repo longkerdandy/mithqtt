@@ -183,7 +183,7 @@ public class MqttEncoder extends MessageToMessageEncoder<MqttMessage> {
         buf.writeByte(getFixedHeaderByte1(message.fixedHeader()));
         buf.writeByte(2);
         buf.writeByte(message.variableHeader().sessionPresent() ? 0x01 : 0x00);
-        buf.writeByte(message.variableHeader().connectReturnCode().byteValue());
+        buf.writeByte(message.variableHeader().returnCode().byteValue());
 
         return buf;
     }
@@ -198,7 +198,7 @@ public class MqttEncoder extends MessageToMessageEncoder<MqttMessage> {
         MqttPacketIdVariableHeader variableHeader = message.variableHeader();
         MqttSubscribePayload payload = message.payload();
 
-        for (MqttTopicSubscription topic : payload.topicSubscriptions()) {
+        for (MqttTopicSubscription topic : payload.subscriptions()) {
             String topicName = topic.topic();
             byte[] topicNameBytes = encodeStringUtf8(topicName);
             payloadBufferSize += 2 + topicNameBytes.length;
@@ -217,7 +217,7 @@ public class MqttEncoder extends MessageToMessageEncoder<MqttMessage> {
         buf.writeShort(messageId);
 
         // Payload
-        for (MqttTopicSubscription topic : payload.topicSubscriptions()) {
+        for (MqttTopicSubscription topic : payload.subscriptions()) {
             String topicName = topic.topic();
             byte[] topicNameBytes = encodeStringUtf8(topicName);
             buf.writeShort(topicNameBytes.length);
@@ -275,8 +275,7 @@ public class MqttEncoder extends MessageToMessageEncoder<MqttMessage> {
         buf.writeByte(getFixedHeaderByte1(message.fixedHeader()));
         writeVariableLengthInt(buf, variablePartSize);
         buf.writeShort(message.variableHeader().packetId());
-        message.payload().grantedQoSLevels().forEach(buf::writeByte);
-
+        message.payload().grantedQoSLevels().forEach(qos -> buf.writeByte(qos.value()));
         return buf;
     }
 

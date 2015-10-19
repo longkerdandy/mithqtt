@@ -1,6 +1,5 @@
 package com.github.longkerdandy.mithril.mqtt.util;
 
-import org.apache.commons.configuration.PropertiesConfiguration;
 import org.apache.commons.lang3.StringUtils;
 
 import java.util.ArrayList;
@@ -9,6 +8,7 @@ import java.util.List;
 /**
  * MQTT Topic Utils
  */
+@SuppressWarnings("unused")
 public class Topics {
 
     // Present an empty level in the wildcard topic filter
@@ -17,35 +17,6 @@ public class Topics {
     public static final String END = "^";
 
     private Topics() {
-    }
-
-    /**
-     * Is topic name valid based on MQTT protocol specification and config
-     *
-     * @param topicName Topic Name
-     * @param config    Config
-     * @return True if valid
-     */
-    public static boolean isValidTopicName(String topicName, PropertiesConfiguration config) {
-        if (StringUtils.isEmpty(topicName)) return false;
-        if (topicName.contains("+")) return false;
-        if (topicName.contains("#")) return false;
-        // TODO: validate based on config
-        return true;
-    }
-
-    /**
-     * Validate the topic, add EMPTY and END, return as a List of levels
-     *
-     * @param topic Topic Name or Topic Filter
-     * @return List of levels
-     */
-    public static List<String> sanitize(String topic) {
-        if (topic.contains("+") || topic.endsWith("#") || topic.endsWith("#/" + END)) {
-            return sanitizeTopicFilter(topic);
-        } else {
-            return sanitizeTopicName(topic);
-        }
     }
 
     /**
@@ -66,6 +37,20 @@ public class Topics {
      */
     public static String antidote(List<String> topicLevels) {
         return antidote(String.join("/", topicLevels));
+    }
+
+    /**
+     * Validate the topic, add EMPTY and END, return as a List of levels
+     *
+     * @param topic Topic Name or Topic Filter
+     * @return List of levels
+     */
+    public static List<String> sanitize(String topic) {
+        if (topic.contains("+") || topic.endsWith("#") || topic.endsWith("#/" + END)) {
+            return sanitizeTopicFilter(topic);
+        } else {
+            return sanitizeTopicName(topic);
+        }
     }
 
     /**
@@ -125,15 +110,5 @@ public class Topics {
         if (!topicFilter.endsWith(END)) levels.add(END);
 
         return levels;
-    }
-
-    /**
-     * Is sanitized topic levels a topic filter (contains wildcard)
-     *
-     * @param topicLevels Sanitized Topic Levels
-     * @return True if is topic filter
-     */
-    public static boolean isTopicFilter(List<String> topicLevels) {
-        return topicLevels.contains("+") || topicLevels.get(topicLevels.size() - 2).equals("#");
     }
 }

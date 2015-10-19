@@ -7,7 +7,6 @@ import com.github.longkerdandy.mithril.mqtt.storage.redis.RedisSyncStorage;
 import com.github.longkerdandy.mithril.mqtt.util.Topics;
 import io.netty.handler.codec.mqtt.MqttMessageType;
 import io.netty.handler.codec.mqtt.MqttQoS;
-import io.netty.handler.codec.mqtt.MqttTopicSubscription;
 import io.netty.handler.codec.mqtt.MqttVersion;
 import org.apache.commons.lang3.StringUtils;
 import org.slf4j.Logger;
@@ -16,7 +15,6 @@ import org.slf4j.LoggerFactory;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.function.Consumer;
 
 /**
  * Processor Listener Implementation
@@ -42,7 +40,7 @@ public class ProcessorListenerImpl implements ProcessorListener {
             m.setVersion(MqttVersion.MQTT_3_1_1);
             m.setClientId(msg.getClientId());
             Disconnect d = new Disconnect();
-            d.setClearExit(false);
+            d.setClean(false);
             m.setPayload(d);
             this.communicator.sendToBroker(previous, m);
         }

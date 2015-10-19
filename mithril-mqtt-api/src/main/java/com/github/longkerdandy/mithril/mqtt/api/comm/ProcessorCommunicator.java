@@ -7,6 +7,7 @@ import org.apache.commons.configuration.PropertiesConfiguration;
  * Processor Communicator
  * Communicate between processors and brokers
  */
+@SuppressWarnings("unused")
 public interface ProcessorCommunicator {
 
     /**
@@ -23,7 +24,7 @@ public interface ProcessorCommunicator {
     void destroy();
 
     /**
-     * Send message to broker
+     * Send internal message to broker
      *
      * @param brokerId Broker Id
      * @param message  Internal Message
@@ -31,7 +32,7 @@ public interface ProcessorCommunicator {
     void sendToBroker(String brokerId, InternalMessage message);
 
     /**
-     * Send message to given topic
+     * Send internal message to given topic
      *
      * @param topic   Topic
      * @param message Internal Message

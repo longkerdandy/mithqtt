@@ -3,6 +3,7 @@ package com.github.longkerdandy.mithril.mqtt.api.comm;
 /**
  * Broker Listener Factory
  */
+@SuppressWarnings("unused")
 public interface BrokerListenerFactory {
 
     /**

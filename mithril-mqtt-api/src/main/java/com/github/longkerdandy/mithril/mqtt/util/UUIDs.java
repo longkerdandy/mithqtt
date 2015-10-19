@@ -11,6 +11,7 @@ import java.util.UUID;
 /**
  * UUID Utils
  */
+@SuppressWarnings("unused")
 public class UUIDs {
 
     private UUIDs() {

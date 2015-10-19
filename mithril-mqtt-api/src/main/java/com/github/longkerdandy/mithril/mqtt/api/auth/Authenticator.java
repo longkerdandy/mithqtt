@@ -6,6 +6,7 @@ import java.util.concurrent.CompletableFuture;
 /**
  * Authenticator
  */
+@SuppressWarnings("unused")
 public interface Authenticator {
 
     /**
@@ -16,7 +17,7 @@ public interface Authenticator {
      * @param password Password
      * @return Authorize Result
      */
-    CompletableFuture<AuthorizeResult> authConnect(String clientId, String userName, String password);
+    CompletableFuture<AuthorizeResult> authConnectAsync(String clientId, String userName, String password);
 
     /**
      * Authorize client PUBLISH
@@ -28,7 +29,7 @@ public interface Authenticator {
      * @param retain    Retain
      * @return Authorize Result
      */
-    CompletableFuture<AuthorizeResult> authPublish(String clientId, String userName, String topicName, int qos, boolean retain);
+    CompletableFuture<AuthorizeResult> authPublishAsync(String clientId, String userName, String topicName, int qos, boolean retain);
 
     /**
      * Authorize client SUBSCRIBE
@@ -39,5 +40,5 @@ public interface Authenticator {
      * @param requestQos List of request QoS
      * @return List of granted QoS
      */
-    CompletableFuture<List<Integer>> authSubscribe(String clientId, String userName, List<String> topics, List<Integer> requestQos);
+    CompletableFuture<List<Integer>> authSubscribeAsync(String clientId, String userName, List<String> topics, List<Integer> requestQos);
 }

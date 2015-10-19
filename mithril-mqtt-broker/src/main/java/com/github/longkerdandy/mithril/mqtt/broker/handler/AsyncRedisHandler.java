@@ -220,7 +220,7 @@ public class AsyncRedisHandler extends SimpleChannelInboundHandler<MqttMessage> 
         logger.debug("Message received: Received CONNECT message from client {} user {}", this.clientId, this.userName);
 
         // Authorize client connect using provided Authenticator
-        this.authenticator.authConnect(this.clientId, this.userName, password).thenAccept(result -> {
+        this.authenticator.authConnectAsync(this.clientId, this.userName, password).thenAccept(result -> {
 
             // Authorize successful
             if (result == AuthorizeResult.OK) {
@@ -331,7 +331,7 @@ public class AsyncRedisHandler extends SimpleChannelInboundHandler<MqttMessage> 
         int packetId = msg.variableHeader().packetId();
 
         // The Topic Name in the PUBLISH Packet MUST NOT contain wildcard characters
-        if (!Topics.isValidTopicName(topicName, this.config)) {
+        if (!Validator.isTopicNameValid(topicName)) {
             logger.debug("Protocol violation: Client {} sent PUBLISH message contains invalid topic name {}, disconnect the client", this.clientId, topicName);
             ctx.close();
             return;
@@ -347,7 +347,7 @@ public class AsyncRedisHandler extends SimpleChannelInboundHandler<MqttMessage> 
         logger.debug("Message received: Received PUBLISH message from client {} user {} topic {}", this.clientId, this.userName, topicName);
 
         // Authorize client publish using provided Authenticator
-        this.authenticator.authPublish(this.clientId, this.userName, topicName, qos.value(), retain).thenAccept(result -> {
+        this.authenticator.authPublishAsync(this.clientId, this.userName, topicName, qos.value(), retain).thenAccept(result -> {
 
                     // Authorize successful
                     if (result == AuthorizeResult.OK) {
@@ -509,7 +509,7 @@ public class AsyncRedisHandler extends SimpleChannelInboundHandler<MqttMessage> 
         int packetId = msg.variableHeader().packetId();
         List<String> topics = new ArrayList<>();
         List<Integer> requestQos = new ArrayList<>();
-        msg.payload().topicSubscriptions().forEach(subscription -> {
+        msg.payload().subscriptions().forEach(subscription -> {
             topics.add(subscription.topic());
             requestQos.add(subscription.requestedQos().value());
         });
@@ -517,8 +517,8 @@ public class AsyncRedisHandler extends SimpleChannelInboundHandler<MqttMessage> 
         logger.debug("Message received: Received SUBSCRIBE message from client {} user {}", this.clientId, this.userName);
 
         // Authorize client subscribe using provided Authenticator
-        this.authenticator.authSubscribe(this.clientId, this.userName, topics, requestQos).thenAccept(grantedQos -> {
-            logger.trace("Authorization succeed: Subscribe to topic {} authorized for client {}", ArrayUtils.toString(msg.payload().topicSubscriptions()), this.clientId);
+        this.authenticator.authSubscribeAsync(this.clientId, this.userName, topics, requestQos).thenAccept(grantedQos -> {
+            logger.trace("Authorization succeed: Subscribe to topic {} authorized for client {}", ArrayUtils.toString(msg.payload().subscriptions()), this.clientId);
 
             for (int i = 0; i < topics.size(); i++) {
                 int maxQos = grantedQos.get(i);

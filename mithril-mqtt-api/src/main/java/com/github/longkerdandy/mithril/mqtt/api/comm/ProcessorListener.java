@@ -5,40 +5,41 @@ import com.github.longkerdandy.mithril.mqtt.api.internal.*;
 /**
  * Processor's Listener for Processor Communicator
  */
+@SuppressWarnings("unused")
 public interface ProcessorListener {
 
     /**
-     * Handle CONNECT message
+     * Handle internal connect message
      *
      * @param msg InternalMessage<Connect>
      */
     void onConnect(InternalMessage<Connect> msg);
 
     /**
-     * Handle PUBLISH message
+     * Handle internal publish message
      *
      * @param msg InternalMessage<Publish>
      */
     void onPublish(InternalMessage<Publish> msg);
 
     /**
-     * Handle SUBSCRIBE message
+     * Handle internal subscribe message
      *
      * @param msg InternalMessage<Subscribe>
      */
     void onSubscribe(InternalMessage<Subscribe> msg);
 
     /**
-     * Handle UNSUBSCRIBE message
+     * Handle internal unsubscribe message
      *
      * @param msg InternalMessage<Unsubscribe>
      */
     void onUnsubscribe(InternalMessage<Unsubscribe> msg);
 
     /**
-     * Handle DISCONNECT message
+     * Handle internal disconnect message
      *
-     * @param msg InternalMessage
+     * @param msg InternalMessage<Disconnect>
      */
-    void onDisconnect(InternalMessage msg);
+    void onDisconnect(InternalMessage<Disconnect> msg);
 }

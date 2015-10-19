@@ -23,17 +23,17 @@ import io.netty.util.internal.StringUtil;
  */
 public class MqttConnAckVariableHeader {
 
-    private final MqttConnectReturnCode connectReturnCode;
+    private final MqttConnectReturnCode returnCode;
 
     private final boolean sessionPresent;
 
-    public MqttConnAckVariableHeader(MqttConnectReturnCode connectReturnCode, boolean sessionPresent) {
-        this.connectReturnCode = connectReturnCode;
+    public MqttConnAckVariableHeader(MqttConnectReturnCode returnCode, boolean sessionPresent) {
+        this.returnCode = returnCode;
         this.sessionPresent = sessionPresent;
     }
 
-    public MqttConnectReturnCode connectReturnCode() {
-        return connectReturnCode;
+    public MqttConnectReturnCode returnCode() {
+        return returnCode;
     }
 
     public boolean sessionPresent() {
@@ -44,7 +44,7 @@ public class MqttConnAckVariableHeader {
     public String toString() {
         return StringUtil.simpleClassName(this)
                 + '['
-                + "connectReturnCode=" + connectReturnCode
+                + "returnCode=" + returnCode
                 + ", sessionPresent=" + sessionPresent
                 + ']';
     }

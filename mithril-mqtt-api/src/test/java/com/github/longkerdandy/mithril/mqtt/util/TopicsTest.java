@@ -97,15 +97,15 @@ public class TopicsTest {
         assert Arrays.equals(Topics.sanitize("/abc/def//g/h").toArray(), new String[]{EMPTY, "abc", "def", EMPTY, "g", "h", END});
     }
 
-    @Test
-    public void isTopicFilterTest() {
-        assert Topics.isTopicFilter(Arrays.asList("abc", "+", "g", "h", END));
-        assert Topics.isTopicFilter(Arrays.asList("abc", "def", "g", "#", END));
-        assert Topics.isTopicFilter(Arrays.asList("abc", "def", "#", END));
-        assert Topics.isTopicFilter(Arrays.asList("+", "+", "g", "#", END));
-        assert !Topics.isTopicFilter(Arrays.asList("abc", "def", "g", "h", END));
-        assert !Topics.isTopicFilter(Arrays.asList(EMPTY, "abc", "def", "g", "h", END));
-    }
+//    @Test
+//    public void isTopicFilterTest() {
+//        assert Topics.isTopicFilter(Arrays.asList("abc", "+", "g", "h", END));
+//        assert Topics.isTopicFilter(Arrays.asList("abc", "def", "g", "#", END));
+//        assert Topics.isTopicFilter(Arrays.asList("abc", "def", "#", END));
+//        assert Topics.isTopicFilter(Arrays.asList("+", "+", "g", "#", END));
+//        assert !Topics.isTopicFilter(Arrays.asList("abc", "def", "g", "h", END));
+//        assert !Topics.isTopicFilter(Arrays.asList(EMPTY, "abc", "def", "g", "h", END));
+//    }
 
     @Test
     public void antidoteTest() {

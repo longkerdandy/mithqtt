@@ -5,12 +5,23 @@ import io.netty.handler.codec.mqtt.MqttQoS;
 /**
  * Represent MQTT CONNECT Message's VariableHeader and Payload
  */
+@SuppressWarnings("unused")
 public class Connect {
 
     private boolean willRetain;
     private MqttQoS willQos;
     private String willTopic;
     private byte[] willMessage;
+
+    protected Connect() {
+    }
+
+    public Connect(boolean willRetain, MqttQoS willQos, String willTopic, byte[] willMessage) {
+        this.willRetain = willRetain;
+        this.willQos = willQos;
+        this.willTopic = willTopic;
+        this.willMessage = willMessage;
+    }
 
     public boolean isWillRetain() {
         return willRetain;

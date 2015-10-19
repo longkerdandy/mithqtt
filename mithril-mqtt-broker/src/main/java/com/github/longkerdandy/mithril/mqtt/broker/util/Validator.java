@@ -19,6 +19,20 @@ public class Validator {
     }
 
     /**
+     * Is MQTT topic name (no wildcards) valid
+     *
+     * @param topicName Topic Name
+     * @return True if valid
+     */
+    public static boolean isTopicNameValid(String topicName) {
+        if (StringUtils.isEmpty(topicName)) return false;
+        if (topicName.contains("+")) return false;
+        if (topicName.contains("#")) return false;
+        // TODO: validate based on config
+        return true;
+    }
+
+    /**
      * Is MQTT client id valid
      *
      * @param clientId Client Id

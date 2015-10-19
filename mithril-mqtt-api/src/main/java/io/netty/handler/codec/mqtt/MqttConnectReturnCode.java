@@ -16,10 +16,6 @@
 
 package io.netty.handler.codec.mqtt;
 
-import java.util.Collections;
-import java.util.HashMap;
-import java.util.Map;
-
 /**
  * Return Code of {@link io.netty.handler.codec.mqtt.MqttConnAckMessage}
  */
@@ -31,16 +27,6 @@ public enum MqttConnectReturnCode {
     CONNECTION_REFUSED_BAD_USER_NAME_OR_PASSWORD((byte) 0x04),
     CONNECTION_REFUSED_NOT_AUTHORIZED((byte) 0x05);
 
-    private static final Map<Byte, MqttConnectReturnCode> VALUE_TO_CODE_MAP;
-
-    static {
-        final Map<Byte, MqttConnectReturnCode> valueMap = new HashMap<>();
-        for (MqttConnectReturnCode code : values()) {
-            valueMap.put(code.byteValue, code);
-        }
-        VALUE_TO_CODE_MAP = Collections.unmodifiableMap(valueMap);
-    }
-
     private final byte byteValue;
 
     MqttConnectReturnCode(byte byteValue) {
@@ -48,8 +34,10 @@ public enum MqttConnectReturnCode {
     }
 
     public static MqttConnectReturnCode valueOf(byte b) {
-        if (VALUE_TO_CODE_MAP.containsKey(b)) {
-            return VALUE_TO_CODE_MAP.get(b);
+        for (MqttConnectReturnCode r : values()) {
+            if (r.byteValue == b) {
+                return r;
+            }
         }
         throw new IllegalArgumentException("unknown connect return code: " + (b & 0xFF));
     }
