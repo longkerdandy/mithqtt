@@ -7,6 +7,7 @@ import com.github.longkerdandy.mithril.mqtt.storage.redis.RedisSyncStorage;
 import com.github.longkerdandy.mithril.mqtt.util.Topics;
 import io.netty.handler.codec.mqtt.MqttMessageType;
 import io.netty.handler.codec.mqtt.MqttQoS;
+import io.netty.handler.codec.mqtt.MqttSubAckReturnCode;
 import io.netty.handler.codec.mqtt.MqttVersion;
 import org.apache.commons.lang3.StringUtils;
 import org.slf4j.Logger;
@@ -34,14 +35,8 @@ public class ProcessorListenerImpl implements ProcessorListener {
         // If the ClientId represents a Client already connected to the Server then the Server MUST
         // disconnect the existing Client
         if (StringUtils.isNotBlank(previous) && !previous.equals(msg.getBrokerId())) {
-            InternalMessage<Disconnect> m = new InternalMessage<>();
-            m.setMessageType(MqttMessageType.DISCONNECT);
-            m.setQos(MqttQoS.AT_MOST_ONCE);
-            m.setVersion(MqttVersion.MQTT_3_1_1);
-            m.setClientId(msg.getClientId());
-            Disconnect d = new Disconnect();
-            d.setClean(false);
-            m.setPayload(d);
+            InternalMessage<Disconnect> m = new InternalMessage<>(MqttMessageType.DISCONNECT, false, MqttQoS.AT_MOST_ONCE, false,
+                    MqttVersion.MQTT_3_1_1, false, msg.getClientId(), null, null, new Disconnect(false));
             this.communicator.sendToBroker(previous, m);
         }
 
@@ -175,15 +170,17 @@ public class ProcessorListenerImpl implements ProcessorListener {
             // sends a PUBLISH with QoS > 0
             // A PUBLISH Packet MUST NOT contain a Packet Identifier if its QoS value is set to
             int packetId = this.redis.getNextPacketId(clientId);
-            InternalMessage<Publish> m = new InternalMessage<>();
-            m.setMessageType(MqttMessageType.PUBLISH);
-            m.setQos(fQos);
-            m.setVersion(MqttVersion.MQTT_3_1_1);
-            m.setClientId(clientId);
-            Publish p = new Publish();
-            p.setPacketId(packetId);
-            p.setTopicName(msg.getPayload().getTopicName());
-            m.setPayload(p);
+            Publish p = new Publish(msg.getPayload().getTopicName(), packetId, msg.getPayload().getPayload());
+            InternalMessage<Publish> m = new InternalMessage<>(MqttMessageType.PUBLISH, false, fQos, false,
+                    MqttVersion.MQTT_3_1_1, false, clientId, null, null, p);
+
+            // Forward to recipient
+            String brokerId = this.redis.getConnectedNode(clientId);
+            boolean dup = false;
+            if (StringUtils.isNotBlank(brokerId)) {
+                dup = true;
+                this.communicator.sendToBroker(brokerId, m);
+            }
 
             // In the QoS 1 delivery protocol, the Sender
             // MUST treat the PUBLISH Packet as “unacknowledged” until it has received the corresponding
@@ -193,29 +190,92 @@ public class ProcessorListenerImpl implements ProcessorListener {
             // PUBREC packet from the receiver.
             if (fQos == MqttQoS.AT_LEAST_ONCE || fQos == MqttQoS.EXACTLY_ONCE) {
                 logger.trace("Add in-flight: Add in-flight PUBLISH message {} with QoS {} for client {}", packetId, fQos, clientId);
-                this.redis.addInFlightMessage(clientId, packetId, m, true);
+                this.redis.addInFlightMessage(clientId, packetId, m, dup);
             }
-
-            // Forward to recipient
-            String brokerId = this.redis.getConnectedNode(clientId);
-            if (StringUtils.isNotBlank(brokerId)) this.communicator.sendToBroker(brokerId, m);
         });
     }
 
     @Override
     public void onSubscribe(InternalMessage<Subscribe> msg) {
-        msg.getPayload().getTopicSubscriptions().forEach(subscription -> {
+        msg.getPayload().getSubscriptions().forEach(subscription -> {
+            // Granted only
+            if (subscription.getGrantedQos() != MqttSubAckReturnCode.FAILURE) {
 
+                // Sanitize to topic levels
+                List<String> topicLevels = Topics.sanitize(subscription.getTopic());
+
+                // If a Server receives a SUBSCRIBE Packet containing a Topic Filter that is identical to an existing
+                // Subscription’s Topic Filter then it MUST completely replace that existing Subscription with a new
+                // Subscription. The Topic Filter in the new Subscription will be identical to that in the previous Subscription,
+                // although its maximum QoS value could be different. Any existing retained messages matching the Topic
+                // Filter MUST be re-sent, but the flow of publications MUST NOT be interrupted.
+                // Where the Topic Filter is not identical to any existing Subscription’s filter, a new Subscription is created
+                // and all matching retained messages are sent.
+                logger.trace("Update subscription: Update client {} subscription to topic {} QoS {}", msg.getClientId(), String.join("/", topicLevels), subscription.getGrantedQos());
+                this.redis.updateSubscription(msg.getClientId(), topicLevels, MqttQoS.valueOf(subscription.getGrantedQos().value()));
+                // The Server is permitted to start sending PUBLISH packets matching the Subscription before the Server
+                // sends the SUBACK Packet.
+                for (InternalMessage<Publish> retain : this.redis.getAllRetainMessages(topicLevels)) {
+                    // Compare QoS
+                    if (retain.getQos().value() > subscription.getGrantedQos().value()) {
+                        retain.setQos(MqttQoS.valueOf(subscription.getGrantedQos().value()));
+                    }
+
+                    // In the QoS 1 delivery protocol, the Sender
+                    // MUST treat the PUBLISH Packet as “unacknowledged” until it has received the corresponding
+                    // PUBACK packet from the receiver.
+                    // In the QoS 2 delivery protocol, the Sender
+                    // MUST treat the PUBLISH packet as “unacknowledged” until it has received the corresponding
+                    // PUBREC packet from the receiver.
+                    if (retain.getQos() == MqttQoS.AT_LEAST_ONCE || retain.getQos() == MqttQoS.EXACTLY_ONCE) {
+                        logger.trace("Add in-flight: Add in-flight PUBLISH message {} with QoS {} for client {}", retain.getPayload().getPacketId(), retain.getQos(), retain.getClientId());
+                        this.redis.addInFlightMessage(retain.getClientId(), retain.getPayload().getPacketId(), retain, true);
+                    }
+
+                    // Forward to recipient
+                    this.communicator.sendToBroker(msg.getBrokerId(), retain);
+                }
+            }
         });
     }
 
     @Override
     public void onUnsubscribe(InternalMessage<Unsubscribe> msg) {
-
+        // The Topic Filters (whether they contain wildcards or not) supplied in an UNSUBSCRIBE packet MUST be
+        // compared character-by-character with the current set of Topic Filters held by the Server for the Client. If
+        // any filter matches exactly then its owning Subscription is deleted, otherwise no additional processing
+        // occurs
+        // If a Server deletes a Subscription:
+        // It MUST stop adding any new messages for delivery to the Client.
+        //1 It MUST complete the delivery of any QoS 1 or QoS 2 messages which it has started to send to
+        // the Client.
+        // It MAY continue to deliver any existing messages buffered for delivery to the Client.
+        msg.getPayload().getTopics().forEach(topic -> {
+            logger.trace("Remove subscription: Remove client {} subscription to topic {}", msg.getClientId(), topic);
+            this.redis.removeSubscription(msg.getClientId(), Topics.sanitize(topic));
+        });
     }
 
     @Override
     public void onDisconnect(InternalMessage msg) {
+        // If CleanSession is set to 1, the Client and Server MUST discard any previous Session and start a new
+        // one. This Session lasts as long as the Network Connection. State data associated with this Session
+        // MUST NOT be reused in any subsequent Session.
+        // When CleanSession is set to 1 the Client and Server need not process the deletion of state atomically.
+        if (msg.isCleanSession()) {
+            logger.trace("Clear session: Clear session state for client {} because current connection is clean session", msg.getClientId());
+            this.redis.removeAllSessionState(msg.getClientId());
+        }
 
+        // If the Will Flag is set to 1 this indicates that, if the Connect request is accepted, a Will Message MUST be
+        // stored on the Server and associated with the Network Connection. The Will Message MUST be published
+        // when the Network Connection is subsequently closed unless the Will Message has been deleted by the
+        // Server on receipt of a DISCONNECT Packet.
+        // Situations in which the Will Message is published include, but are not limited to:
+        // An I/O error or network failure detected by the Server.
+        // The Client fails to communicate within the Keep Alive time.
+        // The Client closes the Network Connection without first sending a DISCONNECT Packet.
+        // The Server closes the Network Connection because of a protocol error.
+        // TODO: Deal with Will Message after Netty fixed the field type
     }
 }

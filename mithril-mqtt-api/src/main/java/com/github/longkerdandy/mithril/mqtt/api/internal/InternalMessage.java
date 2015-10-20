@@ -123,10 +123,9 @@ public class InternalMessage<T> {
 
     public static InternalMessage<Disconnect> fromMqttMessage(MqttVersion version, boolean cleanSession, String clientId, String userName,
                                                               String brokerId,
-                                                              MqttMessage mqtt, boolean clean) {
-        InternalMessage<Disconnect> msg = fromMqttMessage(version, cleanSession, clientId, userName, brokerId, mqtt.fixedHeader());
-        msg.payload = new Disconnect(clean);
-        return msg;
+                                                              boolean clean) {
+        return new InternalMessage<>(MqttMessageType.DISCONNECT, false, MqttQoS.AT_MOST_ONCE, false,
+                version, cleanSession, clientId, userName, brokerId, new Disconnect(clean));
     }
 
     public static InternalMessage fromMqttMessage(MqttVersion version, boolean cleanSession, String clientId, String userName,

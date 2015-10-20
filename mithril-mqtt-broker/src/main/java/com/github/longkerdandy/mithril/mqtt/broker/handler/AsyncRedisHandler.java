@@ -7,7 +7,6 @@ import com.github.longkerdandy.mithril.mqtt.api.internal.InternalMessage;
 import com.github.longkerdandy.mithril.mqtt.broker.session.SessionRegistry;
 import com.github.longkerdandy.mithril.mqtt.broker.util.Validator;
 import com.github.longkerdandy.mithril.mqtt.storage.redis.RedisStorage;
-import com.github.longkerdandy.mithril.mqtt.util.Topics;
 import io.netty.channel.ChannelHandlerContext;
 import io.netty.channel.SimpleChannelInboundHandler;
 import io.netty.handler.codec.mqtt.*;
@@ -18,10 +17,8 @@ import org.apache.commons.lang3.exception.ExceptionUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import java.util.ArrayList;
 import java.util.List;
 
-import static com.github.longkerdandy.mithril.mqtt.storage.redis.RedisStorage.mapToMqtt;
 import static com.github.longkerdandy.mithril.mqtt.storage.redis.RedisStorage.mqttToMap;
 import static com.github.longkerdandy.mithril.mqtt.util.UUIDs.shortUuid;
 
@@ -274,7 +271,7 @@ public class AsyncRedisHandler extends SimpleChannelInboundHandler<MqttMessage> 
                         this.willMessage = (MqttPublishMessage) MqttMessageFactory.newMessage(
                                 new MqttFixedHeader(MqttMessageType.PUBLISH, false, willQos, willRetain, 0),
                                 new MqttPublishVariableHeader(msg.payload().willTopic(), 0),
-                                msg.payload().willMessage()     // TODO: payload should be ByteBuf
+                                msg.payload().willMessage()     // TODO: Deal with Will Message after Netty fixed the field type
                         );
                     }
 
@@ -318,89 +315,91 @@ public class AsyncRedisHandler extends SimpleChannelInboundHandler<MqttMessage> 
      * @param msg CONNECT MQTT Message
      */
     protected void onPublish(ChannelHandlerContext ctx, MqttPublishMessage msg) {
-        if (!this.connected) {
-            logger.debug("Protocol violation: Client {} must first sent a CONNECT message, now received PUBLISH message, disconnect the client", this.clientId);
-            ctx.close();
-            return;
-        }
+        try {
+            if (!this.connected) {
+                logger.debug("Protocol violation: Client {} must first sent a CONNECT message, now received PUBLISH message, disconnect the client", this.clientId);
+                ctx.close();
+                return;
+            }
 
-        boolean dup = msg.fixedHeader().dup();
-        MqttQoS qos = msg.fixedHeader().qos();
-        boolean retain = msg.fixedHeader().retain();
-        String topicName = msg.variableHeader().topicName();
-        int packetId = msg.variableHeader().packetId();
+            // boolean dup = msg.fixedHeader().dup();
+            MqttQoS qos = msg.fixedHeader().qos();
+            boolean retain = msg.fixedHeader().retain();
+            String topicName = msg.variableHeader().topicName();
+            int packetId = msg.variableHeader().packetId();
 
-        // The Topic Name in the PUBLISH Packet MUST NOT contain wildcard characters
-        if (!Validator.isTopicNameValid(topicName)) {
-            logger.debug("Protocol violation: Client {} sent PUBLISH message contains invalid topic name {}, disconnect the client", this.clientId, topicName);
-            ctx.close();
-            return;
-        }
+            // The Topic Name in the PUBLISH Packet MUST NOT contain wildcard characters
+            if (!this.validator.isTopicNameValid(topicName)) {
+                logger.debug("Protocol violation: Client {} sent PUBLISH message contains invalid topic name {}, disconnect the client", this.clientId, topicName);
+                ctx.close();
+                return;
+            }
 
-        // The Packet Identifier field is only present in PUBLISH Packets where the QoS level is 1 or 2.
-        if (packetId <= 0 && (qos == MqttQoS.AT_LEAST_ONCE || qos == MqttQoS.EXACTLY_ONCE)) {
-            logger.debug("Protocol violation: Client {} sent PUBLISH message does not contain packet id, disconnect the client", this.clientId);
-            ctx.close();
-            return;
-        }
+            // The Packet Identifier field is only present in PUBLISH Packets where the QoS level is 1 or 2.
+            if (packetId <= 0 && (qos == MqttQoS.AT_LEAST_ONCE || qos == MqttQoS.EXACTLY_ONCE)) {
+                logger.debug("Protocol violation: Client {} sent PUBLISH message does not contain packet id, disconnect the client", this.clientId);
+                ctx.close();
+                return;
+            }
 
-        logger.debug("Message received: Received PUBLISH message from client {} user {} topic {}", this.clientId, this.userName, topicName);
+            logger.debug("Message received: Received PUBLISH message from client {} user {} topic {}", this.clientId, this.userName, topicName);
 
-        // Authorize client publish using provided Authenticator
-        this.authenticator.authPublishAsync(this.clientId, this.userName, topicName, qos.value(), retain).thenAccept(result -> {
+            // Authorize client publish using provided Authenticator
+            this.authenticator.authPublishAsync(this.clientId, this.userName, topicName, qos.value(), retain).thenAccept(result -> {
 
-                    // Authorize successful
-                    if (result == AuthorizeResult.OK) {
-                        logger.trace("Authorization succeed: Publish to topic {} authorized for client {}", topicName, this.clientId);
+                        // Authorize successful
+                        if (result == AuthorizeResult.OK) {
+                            logger.trace("Authorization succeed: Publish to topic {} authorized for client {}", topicName, this.clientId);
 
-                        // Pass message to processor
-                        this.communicator.sendToProcessor(InternalMessage.fromMqttMessage(this.version, this.cleanSession, this.clientId, this.userName, this.config.getString("broker.id"), msg));
-
-                        // Release ByteBuf
-                        msg.payload().release();
+                            // Pass message to processor
+                            this.communicator.sendToProcessor(InternalMessage.fromMqttMessage(this.version, this.cleanSession, this.clientId, this.userName, this.config.getString("broker.id"), msg));
+                        }
                     }
-                }
-        );
+            );
 
-        // If a Server implementation does not authorize a PUBLISH to be performed by a Client; it has no way of
-        // informing that Client. It MUST either make a positive acknowledgement, according to the normal QoS
-        // rules, or close the Network Connection
+            // If a Server implementation does not authorize a PUBLISH to be performed by a Client; it has no way of
+            // informing that Client. It MUST either make a positive acknowledgement, according to the normal QoS
+            // rules, or close the Network Connection
 
-        // In the QoS 1 delivery protocol, the Receiver
-        // MUST respond with a PUBACK Packet containing the Packet Identifier from the incoming
-        // PUBLISH Packet, having accepted ownership of the Application Message
-        // The receiver is not required to complete delivery of the Application Message before sending the
-        // PUBACK. When its original sender receives the PUBACK packet, ownership of the Application
-        // Message is transferred to the receiver.
-        if (qos == MqttQoS.AT_LEAST_ONCE) {
-            logger.trace("Message response: Send PUBACK back to client {}", this.clientId);
-            this.registry.sendMessage(
-                    ctx,
-                    MqttMessageFactory.newMessage(
-                            new MqttFixedHeader(MqttMessageType.PUBACK, false, MqttQoS.AT_MOST_ONCE, false, 0),
-                            MqttPacketIdVariableHeader.from(packetId),
-                            null),
-                    this.clientId,
-                    packetId,
-                    true);
-        }
-        // In the QoS 2 delivery protocol, the Receiver
-        // UST respond with a PUBREC containing the Packet Identifier from the incoming PUBLISH
-        // Packet, having accepted ownership of the Application Message.
-        // The receiver is not required to complete delivery of the Application Message before sending the
-        // PUBREC or PUBCOMP. When its original sender receives the PUBREC packet, ownership of the
-        // Application Message is transferred to the receiver.
-        else if (qos == MqttQoS.EXACTLY_ONCE) {
-            logger.trace("Message response: Send PUBREC back to client {}", this.clientId);
-            this.registry.sendMessage(
-                    ctx,
-                    MqttMessageFactory.newMessage(
-                            new MqttFixedHeader(MqttMessageType.PUBREC, false, MqttQoS.AT_MOST_ONCE, false, 0),
-                            MqttPacketIdVariableHeader.from(packetId),
-                            null),
-                    this.clientId,
-                    packetId,
-                    true);
+            // In the QoS 1 delivery protocol, the Receiver
+            // MUST respond with a PUBACK Packet containing the Packet Identifier from the incoming
+            // PUBLISH Packet, having accepted ownership of the Application Message
+            // The receiver is not required to complete delivery of the Application Message before sending the
+            // PUBACK. When its original sender receives the PUBACK packet, ownership of the Application
+            // Message is transferred to the receiver.
+            if (qos == MqttQoS.AT_LEAST_ONCE) {
+                logger.trace("Message response: Send PUBACK back to client {}", this.clientId);
+                this.registry.sendMessage(
+                        ctx,
+                        MqttMessageFactory.newMessage(
+                                new MqttFixedHeader(MqttMessageType.PUBACK, false, MqttQoS.AT_MOST_ONCE, false, 0),
+                                MqttPacketIdVariableHeader.from(packetId),
+                                null),
+                        this.clientId,
+                        packetId,
+                        true);
+            }
+            // In the QoS 2 delivery protocol, the Receiver
+            // UST respond with a PUBREC containing the Packet Identifier from the incoming PUBLISH
+            // Packet, having accepted ownership of the Application Message.
+            // The receiver is not required to complete delivery of the Application Message before sending the
+            // PUBREC or PUBCOMP. When its original sender receives the PUBREC packet, ownership of the
+            // Application Message is transferred to the receiver.
+            else if (qos == MqttQoS.EXACTLY_ONCE) {
+                logger.trace("Message response: Send PUBREC back to client {}", this.clientId);
+                this.registry.sendMessage(
+                        ctx,
+                        MqttMessageFactory.newMessage(
+                                new MqttFixedHeader(MqttMessageType.PUBREC, false, MqttQoS.AT_MOST_ONCE, false, 0),
+                                MqttPacketIdVariableHeader.from(packetId),
+                                null),
+                        this.clientId,
+                        packetId,
+                        true);
+            }
+        } finally {
+            // Always release ByteBuf
+            msg.payload().release();
         }
     }
 
@@ -507,46 +506,16 @@ public class AsyncRedisHandler extends SimpleChannelInboundHandler<MqttMessage> 
         }
 
         int packetId = msg.variableHeader().packetId();
-        List<String> topics = new ArrayList<>();
-        List<Integer> requestQos = new ArrayList<>();
-        msg.payload().subscriptions().forEach(subscription -> {
-            topics.add(subscription.topic());
-            requestQos.add(subscription.requestedQos().value());
-        });
+        List<MqttTopicSubscription> requestSubscriptions = msg.payload().subscriptions();
 
         logger.debug("Message received: Received SUBSCRIBE message from client {} user {}", this.clientId, this.userName);
 
         // Authorize client subscribe using provided Authenticator
-        this.authenticator.authSubscribeAsync(this.clientId, this.userName, topics, requestQos).thenAccept(grantedQos -> {
+        this.authenticator.authSubscribeAsync(this.clientId, this.userName, requestSubscriptions).thenAccept(grantedQosLevels -> {
             logger.trace("Authorization succeed: Subscribe to topic {} authorized for client {}", ArrayUtils.toString(msg.payload().subscriptions()), this.clientId);
 
-            for (int i = 0; i < topics.size(); i++) {
-                int maxQos = grantedQos.get(i);
-
-                // Authorize successful
-                if (maxQos >= 0 && maxQos <= 2) {
-
-                    List<String> topicLevels = Topics.sanitize(topics.get(i));
-
-                    // If a Server receives a SUBSCRIBE Packet containing a Topic Filter that is identical to an existing
-                    // Subscription’s Topic Filter then it MUST completely replace that existing Subscription with a new
-                    // Subscription. The Topic Filter in the new Subscription will be identical to that in the previous Subscription,
-                    // although its maximum QoS value could be different. Any existing retained messages matching the Topic
-                    // Filter MUST be re-sent, but the flow of publications MUST NOT be interrupted.
-                    // Where the Topic Filter is not identical to any existing Subscription’s filter, a new Subscription is created
-                    // and all matching retained messages are sent.
-                    logger.trace("Update subscription: Update client {} subscription to topic {} QoS {}", this.clientId, String.join("/", topicLevels), grantedQos.get(i));
-                    this.redis.updateSubscription(this.clientId, topicLevels, String.valueOf(grantedQos.get(i)));
-                    // The Server is permitted to start sending PUBLISH packets matching the Subscription before the Server
-                    // sends the SUBACK Packet.
-                    this.redis.handleAllRetainMessage(topicLevels, map -> {
-                        int qos = Integer.parseInt(map.getOrDefault("qos", "0"));
-                        if (qos > maxQos) map.put("qos", String.valueOf(maxQos));
-                        logger.debug("Message response: Send RETAIN PUBLISH message {} back to client {} for topic {}", map.getOrDefault("packetId", "0"), this.clientId, String.join("/", topicLevels));
-                        this.registry.sendMessage(ctx, mapToMqtt(map), this.clientId, Integer.parseInt(map.getOrDefault("packetId", "0")), true);
-                    });
-                }
-            }
+            // Pass message to processor
+            this.communicator.sendToProcessor(InternalMessage.fromMqttMessage(this.version, this.cleanSession, this.clientId, this.userName, this.config.getString("broker.id"), msg, grantedQosLevels));
 
             // If a Server receives a SUBSCRIBE packet that contains multiple Topic Filters it MUST handle that packet
             // as if it had received a sequence of multiple SUBSCRIBE packets, except that it combines their responses
@@ -560,7 +529,7 @@ public class AsyncRedisHandler extends SimpleChannelInboundHandler<MqttMessage> 
                     MqttMessageFactory.newMessage(
                             new MqttFixedHeader(MqttMessageType.SUBACK, false, MqttQoS.AT_MOST_ONCE, false, 0),
                             MqttPacketIdVariableHeader.from(packetId),
-                            new MqttSubAckPayload(grantedQos)),
+                            new MqttSubAckPayload(grantedQosLevels)),
                     this.clientId,
                     packetId,
                     true);
@@ -578,19 +547,8 @@ public class AsyncRedisHandler extends SimpleChannelInboundHandler<MqttMessage> 
 
         int packetId = msg.variableHeader().packetId();
 
-        // The Topic Filters (whether they contain wildcards or not) supplied in an UNSUBSCRIBE packet MUST be
-        // compared character-by-character with the current set of Topic Filters held by the Server for the Client. If
-        // any filter matches exactly then its owning Subscription is deleted, otherwise no additional processing
-        // occurs
-        // If a Server deletes a Subscription:
-        // It MUST stop adding any new messages for delivery to the Client.
-        //1 It MUST complete the delivery of any QoS 1 or QoS 2 messages which it has started to send to
-        // the Client.
-        // It MAY continue to deliver any existing messages buffered for delivery to the Client.
-        msg.payload().topics().forEach(topic -> {
-            logger.trace("Remove subscription: Remove client {} subscription to topic {}", this.clientId, topic);
-            this.redis.removeSubscription(this.clientId, Topics.sanitize(topic));
-        });
+        // Pass message to processor
+        this.communicator.sendToProcessor(InternalMessage.fromMqttMessage(this.version, this.cleanSession, this.clientId, this.userName, this.config.getString("broker.id"), msg));
 
         // The Server MUST respond to an UNSUBSUBCRIBE request by sending an UNSUBACK packet. The
         // UNSUBACK Packet MUST have the same Packet Identifier as the UNSUBSCRIBE Packet.
@@ -650,7 +608,11 @@ public class AsyncRedisHandler extends SimpleChannelInboundHandler<MqttMessage> 
         // On receipt of DISCONNECT the Server:
         // MUST discard any Will Message associated with the current connection without publishing it.
         // SHOULD close the Network Connection if the Client has not already done so.
+        this.connected = false;
         ctx.close();
+
+        // Pass message to processor
+        this.communicator.sendToProcessor(InternalMessage.fromMqttMessage(this.version, this.cleanSession, this.clientId, this.userName, this.config.getString("broker.id"), true));
     }
 
     @Override
@@ -659,27 +621,8 @@ public class AsyncRedisHandler extends SimpleChannelInboundHandler<MqttMessage> 
 
             logger.debug("Connection lost: Connection lost from client {} user {}", this.clientId, this.userName);
 
-            // If CleanSession is set to 1, the Client and Server MUST discard any previous Session and start a new
-            // one. This Session lasts as long as the Network Connection. State data associated with this Session
-            // MUST NOT be reused in any subsequent Session.
-            // When CleanSession is set to 1 the Client and Server need not process the deletion of state atomically.
-            if (this.cleanSession) {
-                logger.trace("Clear session: Clear session state for client {} because current connection is clean session", this.clientId);
-                this.redis.removeAllSessionState(this.clientId);
-            }
-
-            // If the Will Flag is set to 1 this indicates that, if the Connect request is accepted, a Will Message MUST be
-            // stored on the Server and associated with the Network Connection. The Will Message MUST be published
-            // when the Network Connection is subsequently closed unless the Will Message has been deleted by the
-            // Server on receipt of a DISCONNECT Packet.
-            // Situations in which the Will Message is published include, but are not limited to:
-            // An I/O error or network failure detected by the Server.
-            // The Client fails to communicate within the Keep Alive time.
-            // The Client closes the Network Connection without first sending a DISCONNECT Packet.
-            // The Server closes the Network Connection because of a protocol error.
-            if (this.willMessage != null) {
-                // TODO: Publish will message
-            }
+            // Pass message to processor
+            this.communicator.sendToProcessor(InternalMessage.fromMqttMessage(this.version, this.cleanSession, this.clientId, this.userName, this.config.getString("broker.id"), false));
         }
     }
 

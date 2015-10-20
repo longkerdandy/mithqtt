@@ -1,5 +1,8 @@
 package com.github.longkerdandy.mithril.mqtt.api.auth;
 
+import io.netty.handler.codec.mqtt.MqttSubAckReturnCode;
+import io.netty.handler.codec.mqtt.MqttTopicSubscription;
+
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
 
@@ -34,11 +37,10 @@ public interface Authenticator {
     /**
      * Authorize client SUBSCRIBE
      *
-     * @param clientId   Client Id
-     * @param userName   User Name
-     * @param topics     List of Topic
-     * @param requestQos List of request QoS
+     * @param clientId             Client Id
+     * @param userName             User Name
+     * @param requestSubscriptions List of request Topic Subscription
      * @return List of granted QoS
      */
-    CompletableFuture<List<Integer>> authSubscribeAsync(String clientId, String userName, List<String> topics, List<Integer> requestQos);
+    CompletableFuture<List<MqttSubAckReturnCode>> authSubscribeAsync(String clientId, String userName, List<MqttTopicSubscription> requestSubscriptions);
 }

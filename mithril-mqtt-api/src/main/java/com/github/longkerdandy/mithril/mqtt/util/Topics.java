@@ -111,4 +111,14 @@ public class Topics {
 
         return levels;
     }
+
+    /**
+     * Is sanitized topic levels a topic filter (contains wildcard)
+     *
+     * @param topicLevels Sanitized Topic Levels
+     * @return True if is topic filter
+     */
+    public static boolean isTopicFilter(List<String> topicLevels) {
+        return topicLevels.contains("+") || topicLevels.get(topicLevels.size() - 2).equals("#");
+    }
 }

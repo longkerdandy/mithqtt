@@ -24,7 +24,7 @@ public class Validator {
      * @param topicName Topic Name
      * @return True if valid
      */
-    public static boolean isTopicNameValid(String topicName) {
+    public boolean isTopicNameValid(String topicName) {
         if (StringUtils.isEmpty(topicName)) return false;
         if (topicName.contains("+")) return false;
         if (topicName.contains("#")) return false;

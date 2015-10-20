@@ -160,6 +160,41 @@ public interface RedisSyncStorage {
     void removeAllQoS2MessageId(String clientId);
 
     /**
+     * Update topic subscription for the client
+     * Topic Levels must be sanitized
+     *
+     * @param clientId    Client Id
+     * @param topicLevels List of topic levels
+     * @param qos         Subscription QoS
+     */
+    void updateSubscription(String clientId, List<String> topicLevels, MqttQoS qos);
+
+    /***
+     * Remove topic name subscription for the client
+     * Topic Levels must be sanitized
+     *
+     * @param clientId    Client Id
+     * @param topicLevels List of topic levels
+     */
+    void removeSubscription(String clientId, List<String> topicLevels);
+
+    /**
+     * Remove all subscriptions for the client
+     *
+     * @param clientId Client Id
+     */
+    void removeAllSubscriptions(String clientId);
+
+    /**
+     * Get all subscriptions matching the topic
+     * This is a recursion method
+     *
+     * @param topicLevels List of topic levels
+     * @param map         Return Value: Subscriptions Key - Client Id, Value - QoS
+     */
+    void getMatchSubscriptions(List<String> topicLevels, Map<String, MqttQoS> map);
+
+    /**
      * Get specific retain message for the topic name
      *
      * @param topicLevels Topic Levels
@@ -191,13 +226,4 @@ public interface RedisSyncStorage {
      * @param topicLevels Topic Levels
      */
     void removeAllRetainMessage(List<String> topicLevels);
-
-    /**
-     * Get all subscriptions matching the topic
-     * This is a recursion method
-     *
-     * @param topicLevels List of topic levels
-     * @param map         Return Value: Subscriptions Key - Client Id, Value - QoS
-     */
-    void getMatchSubscriptions(List<String> topicLevels, Map<String, MqttQoS> map);
 }
