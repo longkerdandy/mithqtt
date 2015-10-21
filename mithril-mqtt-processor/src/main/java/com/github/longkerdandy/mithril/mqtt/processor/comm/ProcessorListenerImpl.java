@@ -67,7 +67,7 @@ public class ProcessorListenerImpl implements ProcessorListener {
                 }
             } else if (sessionExist == 1) {
                 logger.trace("Clear session: Clear session state for client {} because former connection is clean session", msg.getClientId());
-                this.redis.removeAllSessionState(msg.getClientId());
+                this.redis.removeAllSessionState(msg.getClientId(), msg.getBrokerId());
             }
         }
         // If CleanSession is set to 1, the Client and Server MUST discard any previous Session and start a new
@@ -77,7 +77,7 @@ public class ProcessorListenerImpl implements ProcessorListener {
         else {
             if (sessionExist >= 0) {
                 logger.trace("Clear session: Clear session state for client {} because current connection is clean session", msg.getClientId());
-                this.redis.removeAllSessionState(msg.getClientId());
+                this.redis.removeAllSessionState(msg.getClientId(), msg.getBrokerId());
             }
         }
 
@@ -273,13 +273,20 @@ public class ProcessorListenerImpl implements ProcessorListener {
 
     @Override
     public void onDisconnect(InternalMessage<Disconnect> msg) {
-        // If CleanSession is set to 1, the Client and Server MUST discard any previous Session and start a new
-        // one. This Session lasts as long as the Network Connection. State data associated with this Session
-        // MUST NOT be reused in any subsequent Session.
-        // When CleanSession is set to 1 the Client and Server need not process the deletion of state atomically.
-        if (msg.isCleanSession()) {
-            logger.trace("Clear session: Clear session state for client {} because current connection is clean session", msg.getClientId());
-            this.redis.removeAllSessionState(msg.getClientId());
+        // Test if client already reconnected to another broker
+        if (msg.getBrokerId().equals(this.redis.getConnectedNode(msg.getClientId()))) {
+
+            // If CleanSession is set to 1, the Client and Server MUST discard any previous Session and start a new
+            // one. This Session lasts as long as the Network Connection. State data associated with this Session
+            // MUST NOT be reused in any subsequent Session.
+            // When CleanSession is set to 1 the Client and Server need not process the deletion of state atomically.
+            if (msg.isCleanSession()) {
+                logger.trace("Clear session: Clear session state for client {} because current connection is clean session", msg.getClientId());
+                this.redis.removeAllSessionState(msg.getClientId(), msg.getBrokerId());
+            }
+
+            // Remove connected node
+            this.redis.removeConnectedNode(msg.getClientId(), msg.getBrokerId());
         }
 
         // If the Will Flag is set to 1 this indicates that, if the Connect request is accepted, a Will Message MUST be

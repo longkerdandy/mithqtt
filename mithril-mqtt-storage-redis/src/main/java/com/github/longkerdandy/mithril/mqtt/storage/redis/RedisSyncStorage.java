@@ -44,7 +44,7 @@ public interface RedisSyncStorage {
      * Remove connected mqtt server node for the client
      *
      * @param clientId Client Id
-     * @param node     MQTT Server Node
+     * @param node     MQTT Broker Node
      * @return Existed and removed?
      */
     boolean removeConnectedNode(String clientId, String node);
@@ -77,8 +77,9 @@ public interface RedisSyncStorage {
      * Remove all session state
      *
      * @param clientId Client Id
+     * @param node     MQTT Broker Node
      */
-    void removeAllSessionState(String clientId);
+    void removeAllSessionState(String clientId, String node);
 
     /**
      * Get next packet id for the client

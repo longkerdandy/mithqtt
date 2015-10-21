@@ -2,6 +2,7 @@ package com.github.longkerdandy.mithril.mqtt.broker;
 
 import com.github.longkerdandy.mithril.mqtt.api.auth.Authenticator;
 import com.github.longkerdandy.mithril.mqtt.api.comm.BrokerCommunicator;
+import com.github.longkerdandy.mithril.mqtt.api.comm.BrokerListenerFactory;
 import com.github.longkerdandy.mithril.mqtt.broker.comm.BrokerListenerFactoryImpl;
 import com.github.longkerdandy.mithril.mqtt.broker.handler.AsyncRedisHandler;
 import com.github.longkerdandy.mithril.mqtt.broker.session.SessionRegistry;
@@ -46,7 +47,8 @@ public class MqttBroker {
 
         // communicator
         BrokerCommunicator communicator = (BrokerCommunicator) Class.forName(brokerConfig.getString("communicator.class")).newInstance();
-        communicator.init(communicatorConfig, brokerConfig.getString("broker.id"), new BrokerListenerFactoryImpl());
+        BrokerListenerFactory listenerFactory = new BrokerListenerFactoryImpl(registry);
+        communicator.init(communicatorConfig, brokerConfig.getString("broker.id"), listenerFactory);
 
         // tcp server
         InternalLoggerFactory.setDefaultFactory(new Slf4JLoggerFactory());

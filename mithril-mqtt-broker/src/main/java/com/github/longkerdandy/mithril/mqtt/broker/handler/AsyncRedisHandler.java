@@ -598,10 +598,15 @@ public class AsyncRedisHandler extends SimpleChannelInboundHandler<MqttMessage> 
         // MUST discard any Will Message associated with the current connection without publishing it.
         // SHOULD close the Network Connection if the Client has not already done so.
         this.connected = false;
-        ctx.close();
 
-        // Pass message to processor
-        this.communicator.sendToProcessor(InternalMessage.fromMqttMessage(this.version, this.cleanSession, this.clientId, this.userName, this.config.getString("broker.id"), true));
+        // Test if client already reconnected to this broker
+        if (this.registry.removeSession(this.clientId, ctx)) {
+            // Pass message to processor
+            this.communicator.sendToProcessor(InternalMessage.fromMqttMessage(this.version, this.cleanSession, this.clientId, this.userName, this.config.getString("broker.id"), true));
+        }
+
+        // Make sure connection is closed
+        ctx.close();
     }
 
     @Override
@@ -610,8 +615,11 @@ public class AsyncRedisHandler extends SimpleChannelInboundHandler<MqttMessage> 
 
             logger.debug("Connection closed: Connection lost from client {} user {}", this.clientId, this.userName);
 
-            // Pass message to processor
-            this.communicator.sendToProcessor(InternalMessage.fromMqttMessage(this.version, this.cleanSession, this.clientId, this.userName, this.config.getString("broker.id"), false));
+            // Test if client already reconnected to this broker
+            if (this.registry.removeSession(this.clientId, ctx)) {
+                // Pass message to processor
+                this.communicator.sendToProcessor(InternalMessage.fromMqttMessage(this.version, this.cleanSession, this.clientId, this.userName, this.config.getString("broker.id"), false));
+            }
         }
     }
 

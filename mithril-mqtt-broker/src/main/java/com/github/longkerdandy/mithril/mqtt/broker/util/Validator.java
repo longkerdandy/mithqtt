@@ -8,6 +8,7 @@ import java.util.regex.Pattern;
 /**
  * Validator
  */
+@SuppressWarnings("unused")
 public class Validator {
 
     // MQTT client id validate regex pattern

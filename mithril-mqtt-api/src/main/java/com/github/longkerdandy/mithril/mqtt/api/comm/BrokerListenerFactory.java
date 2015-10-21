@@ -11,5 +11,5 @@ public interface BrokerListenerFactory {
      *
      * @return BrokerListener
      */
-    BrokerListener newListener(BrokerCommunicator communicator);
+    BrokerListener newListener();
 }
