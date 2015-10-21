@@ -11,5 +11,5 @@ public interface ProcessorListenerFactory {
      *
      * @return ProcessorListener
      */
-    ProcessorListener newListener(ProcessorCommunicator communicator);
+    ProcessorListener newListener();
 }

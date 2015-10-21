@@ -24,8 +24,13 @@ public class ProcessorListenerImpl implements ProcessorListener {
 
     private static final Logger logger = LoggerFactory.getLogger(ProcessorListener.class);
 
-    private ProcessorCommunicator communicator;
-    private RedisSyncStorage redis;
+    private final ProcessorCommunicator communicator;
+    private final RedisSyncStorage redis;
+
+    public ProcessorListenerImpl(ProcessorCommunicator communicator, RedisSyncStorage redis) {
+        this.communicator = communicator;
+        this.redis = redis;
+    }
 
     @Override
     public void onConnect(InternalMessage<Connect> msg) {
@@ -58,7 +63,7 @@ public class ProcessorListenerImpl implements ProcessorListener {
         if (!msg.isCleanSession()) {
             if (sessionExist == 0) {
                 for (InternalMessage inFlight : this.redis.getAllInFlightMessages(msg.getClientId())) {
-                    communicator.sendToBroker(msg.getBrokerId(), inFlight);
+                    this.communicator.sendToBroker(msg.getBrokerId(), inFlight);
                 }
             } else if (sessionExist == 1) {
                 logger.trace("Clear session: Clear session state for client {} because former connection is clean session", msg.getClientId());
@@ -75,6 +80,12 @@ public class ProcessorListenerImpl implements ProcessorListener {
                 this.redis.removeAllSessionState(msg.getClientId());
             }
         }
+
+        // If the Will Flag is set to 1 this indicates that, if the Connect request is accepted, a Will Message MUST be
+        // stored on the Server and associated with the Network Connection. The Will Message MUST be published
+        // when the Network Connection is subsequently closed unless the Will Message has been deleted by the
+        // Server on receipt of a DISCONNECT Packet.
+        // TODO: Deal with Will Message after Netty fixed the field type
 
         // last, mark client's session as existed
         this.redis.updateSessionExist(msg.getClientId(), msg.isCleanSession());
@@ -129,7 +140,7 @@ public class ProcessorListenerImpl implements ProcessorListener {
         else if (msg.getQos() == MqttQoS.EXACTLY_ONCE) {
             // The recipient of a Control Packet that contains the DUP flag set to 1 cannot assume that it has
             // seen an earlier copy of this packet.
-            if (!this.redis.addQoS2MessageId(msg.getClientId(), msg.getPayload().getPacketId()) || !msg.isDup()) {
+            if (!this.redis.addQoS2MessageId(msg.getClientId(), msg.getPayload().getPacketId())) {
                 onwardRecipients(msg);
             }
         }
@@ -158,6 +169,8 @@ public class ProcessorListenerImpl implements ProcessorListener {
         Map<String, MqttQoS> subscriptions = new HashMap<>();
         this.redis.getMatchSubscriptions(topicLevels, subscriptions);
         subscriptions.forEach((clientId, qos) -> {
+
+            // Compare publish QoS and subscription QoS
             MqttQoS fQos = msg.getQos().value() > qos.value() ? qos : msg.getQos();
 
             // Each time a Client sends a new packet of one of these
@@ -213,13 +226,18 @@ public class ProcessorListenerImpl implements ProcessorListener {
                 // and all matching retained messages are sent.
                 logger.trace("Update subscription: Update client {} subscription to topic {} QoS {}", msg.getClientId(), String.join("/", topicLevels), subscription.getGrantedQos());
                 this.redis.updateSubscription(msg.getClientId(), topicLevels, MqttQoS.valueOf(subscription.getGrantedQos().value()));
+
                 // The Server is permitted to start sending PUBLISH packets matching the Subscription before the Server
                 // sends the SUBACK Packet.
                 for (InternalMessage<Publish> retain : this.redis.getAllRetainMessages(topicLevels)) {
-                    // Compare QoS
+
+                    // Compare publish QoS and subscription QoS
                     if (retain.getQos().value() > subscription.getGrantedQos().value()) {
                         retain.setQos(MqttQoS.valueOf(subscription.getGrantedQos().value()));
                     }
+
+                    // Forward to recipient
+                    this.communicator.sendToBroker(msg.getBrokerId(), retain);
 
                     // In the QoS 1 delivery protocol, the Sender
                     // MUST treat the PUBLISH Packet as “unacknowledged” until it has received the corresponding
@@ -231,9 +249,6 @@ public class ProcessorListenerImpl implements ProcessorListener {
                         logger.trace("Add in-flight: Add in-flight PUBLISH message {} with QoS {} for client {}", retain.getPayload().getPacketId(), retain.getQos(), retain.getClientId());
                         this.redis.addInFlightMessage(retain.getClientId(), retain.getPayload().getPacketId(), retain, true);
                     }
-
-                    // Forward to recipient
-                    this.communicator.sendToBroker(msg.getBrokerId(), retain);
                 }
             }
         });

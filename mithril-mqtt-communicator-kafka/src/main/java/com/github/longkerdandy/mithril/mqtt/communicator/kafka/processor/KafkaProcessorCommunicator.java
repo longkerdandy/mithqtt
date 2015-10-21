@@ -32,7 +32,7 @@ public class KafkaProcessorCommunicator extends KafkaCommunicator implements Pro
 
         // launch all consumer workers
         for (final KafkaStream<String, InternalMessage> stream : streams) {
-            this.executor.submit(new KafkaProcessorWorker(stream, factory.newListener(this)));
+            this.executor.submit(new KafkaProcessorWorker(stream, factory.newListener()));
         }
     }
 }
