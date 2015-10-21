@@ -247,11 +247,10 @@ public class AsyncRedisHandler extends SimpleChannelInboundHandler<MqttMessage> 
 
                     // If the ClientId represents a Client already connected to the Server then the Server MUST
                     // disconnect the existing Client
-                    ChannelHandlerContext lastSession = this.registry.getSession(this.clientId);
+                    ChannelHandlerContext lastSession = this.registry.removeSession(this.clientId);
                     if (lastSession != null) {
                         logger.trace("Disconnect: Try to disconnect existed client {}", this.clientId);
                         lastSession.close();
-                        this.registry.removeSession(this.clientId, lastSession);
                     }
 
                     // If the Will Flag is set to 1 this indicates that, if the Connect request is accepted, a Will Message MUST be
@@ -263,17 +262,7 @@ public class AsyncRedisHandler extends SimpleChannelInboundHandler<MqttMessage> 
                     // The Client fails to communicate within the Keep Alive time.
                     // The Client closes the Network Connection without first sending a DISCONNECT Packet.
                     // The Server closes the Network Connection because of a protocol error.
-                    if (msg.variableHeader().willFlag()
-                            && StringUtils.isNotBlank(msg.payload().willTopic())
-                            && StringUtils.isNotBlank(msg.payload().willMessage())) {
-                        MqttQoS willQos = msg.variableHeader().willQos();
-                        boolean willRetain = msg.variableHeader().willRetain();
-                        this.willMessage = (MqttPublishMessage) MqttMessageFactory.newMessage(
-                                new MqttFixedHeader(MqttMessageType.PUBLISH, false, willQos, willRetain, 0),
-                                new MqttPublishVariableHeader(msg.payload().willTopic(), 0),
-                                msg.payload().willMessage()     // TODO: Deal with Will Message after Netty fixed the field type
-                        );
-                    }
+                    // TODO: Deal with Will Message after Netty fixed the field type
 
                     // If the Keep Alive value is non-zero and the Server does not receive a Control Packet from the Client
                     // within one and a half times the Keep Alive time period, it MUST disconnect the Network Connection to the
@@ -619,7 +608,7 @@ public class AsyncRedisHandler extends SimpleChannelInboundHandler<MqttMessage> 
     public void channelInactive(ChannelHandlerContext ctx) throws Exception {
         if (this.connected) {
 
-            logger.debug("Connection lost: Connection lost from client {} user {}", this.clientId, this.userName);
+            logger.debug("Connection closed: Connection lost from client {} user {}", this.clientId, this.userName);
 
             // Pass message to processor
             this.communicator.sendToProcessor(InternalMessage.fromMqttMessage(this.version, this.cleanSession, this.clientId, this.userName, this.config.getString("broker.id"), false));

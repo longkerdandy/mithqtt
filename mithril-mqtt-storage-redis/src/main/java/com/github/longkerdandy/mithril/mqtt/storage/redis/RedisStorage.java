@@ -4,7 +4,6 @@ import com.github.longkerdandy.mithril.mqtt.util.Topics;
 import com.lambdaworks.redis.*;
 import com.lambdaworks.redis.api.StatefulRedisConnection;
 import com.lambdaworks.redis.api.async.RedisAsyncCommands;
-import com.lambdaworks.redis.api.sync.RedisCommands;
 import io.netty.buffer.ByteBuf;
 import io.netty.handler.codec.mqtt.*;
 import org.apache.commons.lang3.ArrayUtils;

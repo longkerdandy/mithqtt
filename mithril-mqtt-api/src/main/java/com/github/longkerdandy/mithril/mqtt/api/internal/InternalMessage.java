@@ -1,6 +1,8 @@
 package com.github.longkerdandy.mithril.mqtt.api.internal;
 
+import io.netty.buffer.Unpooled;
 import io.netty.handler.codec.mqtt.*;
+import org.apache.commons.lang3.StringUtils;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -218,5 +220,65 @@ public class InternalMessage<T> {
 
     public void setPayload(T payload) {
         this.payload = payload;
+    }
+
+    public MqttMessage toMqttMessage() {
+        MqttFixedHeader fixedHeader = new MqttFixedHeader(messageType, dup, qos, retain, 0);
+        switch (messageType) {
+            case CONNECT:
+                Connect connect = (Connect) payload;
+                boolean userNameFlag = StringUtils.isNotBlank(userName);
+                boolean willFlag = connect.getWillMessage() != null && connect.getWillMessage().length > 0;
+                return MqttMessageFactory.newMessage(fixedHeader,
+                        new MqttConnectVariableHeader(version.protocolName(), version.protocolLevel(), userNameFlag, false, connect.isWillRetain(), connect.getWillQos(), willFlag, cleanSession, 0),
+                        // TODO: Deal with Will Message after Netty fixed the field type
+                        new MqttConnectPayload(clientId, connect.getWillTopic(), null, userName, null));
+            case CONNACK:
+                ConnAck connAck = (ConnAck) payload;
+                return MqttMessageFactory.newMessage(fixedHeader,
+                        new MqttConnAckVariableHeader(connAck.getReturnCode(), connAck.isSessionPresent()),
+                        null);
+            case SUBSCRIBE:
+                Subscribe subscribe = (Subscribe) payload;
+                List<MqttTopicSubscription> subscriptions = new ArrayList<>();
+                subscribe.getSubscriptions().forEach(s ->
+                                subscriptions.add(new MqttTopicSubscription(s.getTopic(), MqttQoS.valueOf(s.getGrantedQos().value())))
+                );
+                return MqttMessageFactory.newMessage(fixedHeader,
+                        MqttPacketIdVariableHeader.from(subscribe.getPacketId()),
+                        new MqttSubscribePayload(subscriptions));
+            case SUBACK:
+                SubAck subAck = (SubAck) payload;
+                return MqttMessageFactory.newMessage(fixedHeader,
+                        MqttPacketIdVariableHeader.from(subAck.getPacketId()),
+                        new MqttSubAckPayload(subAck.getGrantedQoSLevels()));
+            case UNSUBSCRIBE:
+                Unsubscribe unsubscribe = (Unsubscribe) payload;
+                return MqttMessageFactory.newMessage(fixedHeader,
+                        MqttPacketIdVariableHeader.from(unsubscribe.getPacketId()),
+                        new MqttUnsubscribePayload(unsubscribe.getTopics()));
+            case PUBLISH:
+                Publish publish = (Publish) payload;
+                return MqttMessageFactory.newMessage(fixedHeader,
+                        new MqttPublishVariableHeader(publish.getTopicName(), publish.getPacketId()),
+                        Unpooled.wrappedBuffer(publish.getPayload()));
+            case UNSUBACK:
+            case PUBACK:
+            case PUBREC:
+            case PUBREL:
+            case PUBCOMP:
+                PacketId packetId = (PacketId) payload;
+                return MqttMessageFactory.newMessage(fixedHeader,
+                        MqttPacketIdVariableHeader.from(packetId.getPacketId()),
+                        null);
+            case PINGREQ:
+            case PINGRESP:
+            case DISCONNECT:
+                return MqttMessageFactory.newMessage(fixedHeader,
+                        null,
+                        null);
+            default:
+                throw new IllegalStateException("unknown message type " + messageType);
+        }
     }
 }

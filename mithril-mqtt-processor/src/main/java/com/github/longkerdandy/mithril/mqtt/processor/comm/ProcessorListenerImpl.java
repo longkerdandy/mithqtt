@@ -272,7 +272,7 @@ public class ProcessorListenerImpl implements ProcessorListener {
     }
 
     @Override
-    public void onDisconnect(InternalMessage msg) {
+    public void onDisconnect(InternalMessage<Disconnect> msg) {
         // If CleanSession is set to 1, the Client and Server MUST discard any previous Session and start a new
         // one. This Session lasts as long as the Network Connection. State data associated with this Session
         // MUST NOT be reused in any subsequent Session.

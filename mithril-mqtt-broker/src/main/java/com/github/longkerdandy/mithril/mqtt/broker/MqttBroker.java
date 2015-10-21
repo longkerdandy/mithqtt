@@ -32,15 +32,24 @@ public class MqttBroker {
         PropertiesConfiguration communicatorConfig = args.length >= 2 ?
                 new PropertiesConfiguration(args[0]) : new PropertiesConfiguration("config/communicator.properties");
 
+        // validator
+        Validator validator = new Validator(brokerConfig);
+
+        // session registry
+        SessionRegistry registry = new SessionRegistry();
+
+        // storage
+        RedisStorage redis = null;
+
+        // authenticator
         Authenticator authenticator = null;
+
+        // communicator
         BrokerCommunicator communicator = (BrokerCommunicator) Class.forName(brokerConfig.getString("communicator.class")).newInstance();
         communicator.init(communicatorConfig, brokerConfig.getString("broker.id"), new BrokerListenerFactoryImpl());
-        RedisStorage redis = null;
-        Validator validator = new Validator(brokerConfig);
 
         // tcp server
         InternalLoggerFactory.setDefaultFactory(new Slf4JLoggerFactory());
-        SessionRegistry registry = new SessionRegistry();
         EventLoopGroup bossGroup = new NioEventLoopGroup();
         EventLoopGroup workerGroup = new NioEventLoopGroup();
         try {

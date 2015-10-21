@@ -45,6 +45,16 @@ public class SessionRegistry {
 
     /**
      * Remove MQTT session for the client
+     *
+     * @param clientId Client Id
+     * @return Removed MQTT Session
+     */
+    public ChannelHandlerContext removeSession(String clientId) {
+        return this.repo.remove(clientId);
+    }
+
+    /**
+     * Remove MQTT session for the client
      * Only if it is currently mapped to the specified value.
      *
      * @param clientId Client Id
@@ -67,7 +77,7 @@ public class SessionRegistry {
         ChannelHandlerContext ctx = getSession(clientId);
         if (ctx == null) {
             String pid = packetId == null || packetId <= 0 ? "" : String.valueOf(packetId);
-            logger.trace("Message sent: Message {} {} failed to send to {}: Client not connected to this node", msg.fixedHeader().messageType(), pid, clientId);
+            logger.debug("Message sent: Message {} {} failed to send to {}: Client not connected to this node", msg.fixedHeader().messageType(), pid, clientId);
             return;
         }
         sendMessage(ctx, msg, clientId, packetId, flush);
