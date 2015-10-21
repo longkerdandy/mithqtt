@@ -3,7 +3,7 @@ package com.github.longkerdandy.mithril.mqtt.processor.comm;
 import com.github.longkerdandy.mithril.mqtt.api.comm.ProcessorCommunicator;
 import com.github.longkerdandy.mithril.mqtt.api.comm.ProcessorListener;
 import com.github.longkerdandy.mithril.mqtt.api.internal.*;
-import com.github.longkerdandy.mithril.mqtt.storage.redis.RedisSyncStorage;
+import com.github.longkerdandy.mithril.mqtt.storage.redis.sync.RedisSyncStorage;
 import com.github.longkerdandy.mithril.mqtt.util.Topics;
 import io.netty.handler.codec.mqtt.MqttMessageType;
 import io.netty.handler.codec.mqtt.MqttQoS;

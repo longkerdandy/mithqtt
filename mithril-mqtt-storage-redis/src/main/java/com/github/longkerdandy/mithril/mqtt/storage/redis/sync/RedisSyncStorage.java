@@ -1,4 +1,4 @@
-package com.github.longkerdandy.mithril.mqtt.storage.redis;
+package com.github.longkerdandy.mithril.mqtt.storage.redis.sync;
 
 import com.github.longkerdandy.mithril.mqtt.api.internal.InternalMessage;
 import com.github.longkerdandy.mithril.mqtt.api.internal.Publish;
@@ -11,10 +11,11 @@ import java.util.Map;
 /**
  * Redis Synchronized Storage
  */
+@SuppressWarnings("unused")
 public interface RedisSyncStorage {
 
     /**
-     * Iteration connected clients for the mqtt server node
+     * Iteration connected clients for the mqtt broker node (id)
      *
      * @param node   MQTT Broker Node
      * @param cursor Scan Cursor
@@ -24,27 +25,27 @@ public interface RedisSyncStorage {
     ValueScanCursor<String> getConnectedClients(String node, String cursor, long count);
 
     /**
-     * Get connected mqtt broker node for the client
+     * Get connected mqtt broker node (id) for the client
      *
      * @param clientId Client Id
-     * @return MQTT Broker Node
+     * @return MQTT Broker Node (Id)
      */
     String getConnectedNode(String clientId);
 
     /**
-     * Update connected mqtt broker node for the client
+     * Update connected mqtt broker node (id) for the client
      *
      * @param clientId Client Id
-     * @param node     MQTT Broker Node
-     * @return Previous connected MQTT Broker Node
+     * @param node     MQTT Broker Node (Id)
+     * @return Previous connected MQTT Broker Node (Id), Null if not exist
      */
     String updateConnectedNode(String clientId, String node);
 
     /**
-     * Remove connected mqtt server node for the client
+     * Remove connected mqtt broker node (id) for the client
      *
      * @param clientId Client Id
-     * @param node     MQTT Broker Node
+     * @param node     MQTT Broker Node (Id)
      * @return Existed and removed?
      */
     boolean removeConnectedNode(String clientId, String node);

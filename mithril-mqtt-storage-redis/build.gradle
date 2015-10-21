@@ -3,7 +3,7 @@ dependencies {
     compile project(':mithril-mqtt-api')
 
     // netty
-    compile 'biz.paluch.redis:lettuce:4.0.Beta2'
+    compile 'biz.paluch.redis:lettuce:4.0.Final'
 
     // json
     testCompile 'com.fasterxml.jackson.core:jackson-core:2.6.1'

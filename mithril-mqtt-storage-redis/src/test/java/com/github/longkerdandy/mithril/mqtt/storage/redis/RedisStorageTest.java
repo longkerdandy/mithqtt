@@ -44,64 +44,6 @@ public class RedisStorageTest {
     }
 
     @Test
-    public void connectedTest() throws ExecutionException, InterruptedException {
-        assert redis.updateConnectedNode("client1", "node1").get().equals("OK");
-        assert redis.updateConnectedNode("client2", "node1").get().equals("OK");
-        assert redis.updateConnectedNode("client3", "node1").get().equals("OK");
-        assert redis.updateConnectedNode("client4", "node2").get().equals("OK");
-        assert redis.updateConnectedNode("client5", "node2").get().equals("OK");
-
-        assert redis.getConnectedNode("client1").get().equals("node1");
-        assert redis.getConnectedNode("client2").get().equals("node1");
-        assert redis.getConnectedNode("client3").get().equals("node1");
-        assert redis.getConnectedNode("client4").get().equals("node2");
-        assert redis.getConnectedNode("client5").get().equals("node2");
-
-        ValueScanCursor<String> vcs1 = redis.getConnectedClients("node1", "0", 100).get();
-        assert vcs1.getValues().contains("client1");
-        assert vcs1.getValues().contains("client2");
-        assert vcs1.getValues().contains("client3");
-        ValueScanCursor<String> vcs2 = redis.getConnectedClients("node2", "0", 100).get();
-        assert vcs2.getValues().contains("client4");
-        assert vcs2.getValues().contains("client5");
-
-        assert redis.removeConnectedNode("client3", "node1").get() == 1;
-        assert redis.removeConnectedNode("client4", "node1").get() == 0;   // not exist
-
-        assert redis.getConnectedNode("client3").get() == null;
-        assert redis.getConnectedNode("client4").get().equals("node2");
-
-        vcs1 = redis.getConnectedClients("node1", "0", 100).get();
-        assert !vcs1.getValues().contains("client3");
-        vcs2 = redis.getConnectedClients("node2", "0", 100).get();
-        assert vcs2.getValues().contains("client4");
-    }
-
-    @Test
-    public void packetIdTest() throws ExecutionException, InterruptedException {
-        assert redis.getNextPacketId("client1").get() == 1;
-        assert redis.getNextPacketId("client1").get() == 2;
-        assert redis.getNextPacketId("client1").get() == 3;
-
-        redis.conn.async().set(RedisKey.nextPacketId("client1"), "65533").get();
-
-        assert redis.getNextPacketId("client1").get() == 65534;
-        assert redis.getNextPacketId("client1").get() == 65535;
-        assert redis.getNextPacketId("client1").get() == 1;
-    }
-
-    @Test
-    public void existTest() throws ExecutionException, InterruptedException {
-        assert redis.getSessionExist("client1").get() == null;
-        redis.updateSessionExist("client1", false).get();
-        assert redis.getSessionExist("client1").get().equals("0");
-        redis.updateSessionExist("client1", true).get();
-        assert redis.getSessionExist("client1").get().equals("1");
-        redis.removeSessionExist("client1").get();
-        assert redis.getSessionExist("client1").get() == null;
-    }
-
-    @Test
     public void qos2Test() throws ExecutionException, InterruptedException {
         assert redis.addQoS2MessageId("client1", 10000).get() == 1;
         assert redis.addQoS2MessageId("client1", 10001).get() == 1;

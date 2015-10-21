@@ -3,7 +3,7 @@ package com.github.longkerdandy.mithril.mqtt.processor;
 import com.github.longkerdandy.mithril.mqtt.api.comm.ProcessorCommunicator;
 import com.github.longkerdandy.mithril.mqtt.api.comm.ProcessorListenerFactory;
 import com.github.longkerdandy.mithril.mqtt.processor.comm.ProcessorListenerFactoryImpl;
-import com.github.longkerdandy.mithril.mqtt.storage.redis.RedisSyncStorage;
+import com.github.longkerdandy.mithril.mqtt.storage.redis.sync.RedisSyncStorage;
 import org.apache.commons.configuration.PropertiesConfiguration;
 
 /**
