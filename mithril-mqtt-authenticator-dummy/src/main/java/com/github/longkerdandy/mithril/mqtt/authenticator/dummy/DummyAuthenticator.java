@@ -4,6 +4,7 @@ import com.github.longkerdandy.mithril.mqtt.api.auth.Authenticator;
 import com.github.longkerdandy.mithril.mqtt.api.auth.AuthorizeResult;
 import io.netty.handler.codec.mqtt.MqttSubAckReturnCode;
 import io.netty.handler.codec.mqtt.MqttTopicSubscription;
+import org.apache.commons.configuration.PropertiesConfiguration;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -14,6 +15,14 @@ import java.util.concurrent.CompletableFuture;
  * Which simply authorized everything
  */
 public class DummyAuthenticator implements Authenticator {
+
+    @Override
+    public void init(PropertiesConfiguration config) {
+    }
+
+    @Override
+    public void destroy() {
+    }
 
     @Override
     public CompletableFuture<AuthorizeResult> authConnectAsync(String clientId, String userName, String password) {
