@@ -140,7 +140,7 @@ public class ProcessorListenerImpl implements ProcessorListener {
         else if (msg.getQos() == MqttQoS.EXACTLY_ONCE) {
             // The recipient of a Control Packet that contains the DUP flag set to 1 cannot assume that it has
             // seen an earlier copy of this packet.
-            if (!this.redis.addQoS2MessageId(msg.getClientId(), msg.getPayload().getPacketId())) {
+            if (this.redis.addQoS2MessageId(msg.getClientId(), msg.getPayload().getPacketId())) {
                 onwardRecipients(msg);
             }
         }

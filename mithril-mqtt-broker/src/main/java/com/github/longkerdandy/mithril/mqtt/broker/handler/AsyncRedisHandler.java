@@ -52,7 +52,7 @@ public class AsyncRedisHandler extends SimpleChannelInboundHandler<MqttMessage> 
         this.registry = registry;
         this.config = config;
         this.validator = validator;
-        
+
         this.brokerId = config.getString("broker.id");
     }
 
@@ -306,91 +306,86 @@ public class AsyncRedisHandler extends SimpleChannelInboundHandler<MqttMessage> 
      * @param msg CONNECT MQTT Message
      */
     protected void onPublish(ChannelHandlerContext ctx, MqttPublishMessage msg) {
-        try {
-            if (!this.connected) {
-                logger.debug("Protocol violation: Client {} must first sent a CONNECT message, now received PUBLISH message, disconnect the client", this.clientId);
-                ctx.close();
-                return;
-            }
+        if (!this.connected) {
+            logger.debug("Protocol violation: Client {} must first sent a CONNECT message, now received PUBLISH message, disconnect the client", this.clientId);
+            ctx.close();
+            return;
+        }
 
-            // boolean dup = msg.fixedHeader().dup();
-            MqttQoS qos = msg.fixedHeader().qos();
-            boolean retain = msg.fixedHeader().retain();
-            String topicName = msg.variableHeader().topicName();
-            int packetId = msg.variableHeader().packetId();
+        // boolean dup = msg.fixedHeader().dup();
+        MqttQoS qos = msg.fixedHeader().qos();
+        boolean retain = msg.fixedHeader().retain();
+        String topicName = msg.variableHeader().topicName();
+        int packetId = msg.variableHeader().packetId();
 
-            // The Topic Name in the PUBLISH Packet MUST NOT contain wildcard characters
-            if (!this.validator.isTopicNameValid(topicName)) {
-                logger.debug("Protocol violation: Client {} sent PUBLISH message contains invalid topic name {}, disconnect the client", this.clientId, topicName);
-                ctx.close();
-                return;
-            }
+        // The Topic Name in the PUBLISH Packet MUST NOT contain wildcard characters
+        if (!this.validator.isTopicNameValid(topicName)) {
+            logger.debug("Protocol violation: Client {} sent PUBLISH message contains invalid topic name {}, disconnect the client", this.clientId, topicName);
+            ctx.close();
+            return;
+        }
 
-            // The Packet Identifier field is only present in PUBLISH Packets where the QoS level is 1 or 2.
-            if (packetId <= 0 && (qos == MqttQoS.AT_LEAST_ONCE || qos == MqttQoS.EXACTLY_ONCE)) {
-                logger.debug("Protocol violation: Client {} sent PUBLISH message does not contain packet id, disconnect the client", this.clientId);
-                ctx.close();
-                return;
-            }
+        // The Packet Identifier field is only present in PUBLISH Packets where the QoS level is 1 or 2.
+        if (packetId <= 0 && (qos == MqttQoS.AT_LEAST_ONCE || qos == MqttQoS.EXACTLY_ONCE)) {
+            logger.debug("Protocol violation: Client {} sent PUBLISH message does not contain packet id, disconnect the client", this.clientId);
+            ctx.close();
+            return;
+        }
 
-            logger.debug("Message received: Received PUBLISH message from client {} user {} topic {}", this.clientId, this.userName, topicName);
+        logger.debug("Message received: Received PUBLISH message from client {} user {} topic {}", this.clientId, this.userName, topicName);
 
-            // Authorize client publish using provided Authenticator
-            this.authenticator.authPublishAsync(this.clientId, this.userName, topicName, qos.value(), retain).thenAccept(result -> {
+        // Authorize client publish using provided Authenticator
+        this.authenticator.authPublishAsync(this.clientId, this.userName, topicName, qos.value(), retain).thenAccept(result -> {
 
-                        // Authorize successful
-                        if (result == AuthorizeResult.OK) {
-                            logger.trace("Authorization succeed: Publish to topic {} authorized for client {}", topicName, this.clientId);
+                    // Authorize successful
+                    if (result == AuthorizeResult.OK) {
+                        logger.trace("Authorization succeed: Publish to topic {} authorized for client {}", topicName, this.clientId);
 
-                            // Pass message to processor
-                            this.communicator.sendToProcessor(InternalMessage.fromMqttMessage(this.version, this.cleanSession, this.clientId, this.userName, this.brokerId, msg));
-                        }
+                        // Pass message to processor
+                        this.communicator.sendToProcessor(InternalMessage.fromMqttMessage(this.version, this.cleanSession, this.clientId, this.userName, this.brokerId, msg));
                     }
-            );
+                }
+        );
 
-            // If a Server implementation does not authorize a PUBLISH to be performed by a Client; it has no way of
-            // informing that Client. It MUST either make a positive acknowledgement, according to the normal QoS
-            // rules, or close the Network Connection
+        // If a Server implementation does not authorize a PUBLISH to be performed by a Client; it has no way of
+        // informing that Client. It MUST either make a positive acknowledgement, according to the normal QoS
+        // rules, or close the Network Connection
 
-            // In the QoS 1 delivery protocol, the Receiver
-            // MUST respond with a PUBACK Packet containing the Packet Identifier from the incoming
-            // PUBLISH Packet, having accepted ownership of the Application Message
-            // The receiver is not required to complete delivery of the Application Message before sending the
-            // PUBACK. When its original sender receives the PUBACK packet, ownership of the Application
-            // Message is transferred to the receiver.
-            if (qos == MqttQoS.AT_LEAST_ONCE) {
-                logger.trace("Message response: Send PUBACK back to client {}", this.clientId);
-                this.registry.sendMessage(
-                        ctx,
-                        MqttMessageFactory.newMessage(
-                                new MqttFixedHeader(MqttMessageType.PUBACK, false, MqttQoS.AT_MOST_ONCE, false, 0),
-                                MqttPacketIdVariableHeader.from(packetId),
-                                null),
-                        this.clientId,
-                        packetId,
-                        true);
-            }
-            // In the QoS 2 delivery protocol, the Receiver
-            // UST respond with a PUBREC containing the Packet Identifier from the incoming PUBLISH
-            // Packet, having accepted ownership of the Application Message.
-            // The receiver is not required to complete delivery of the Application Message before sending the
-            // PUBREC or PUBCOMP. When its original sender receives the PUBREC packet, ownership of the
-            // Application Message is transferred to the receiver.
-            else if (qos == MqttQoS.EXACTLY_ONCE) {
-                logger.trace("Message response: Send PUBREC back to client {}", this.clientId);
-                this.registry.sendMessage(
-                        ctx,
-                        MqttMessageFactory.newMessage(
-                                new MqttFixedHeader(MqttMessageType.PUBREC, false, MqttQoS.AT_MOST_ONCE, false, 0),
-                                MqttPacketIdVariableHeader.from(packetId),
-                                null),
-                        this.clientId,
-                        packetId,
-                        true);
-            }
-        } finally {
-            // Always release ByteBuf
-            msg.payload().release();
+        // In the QoS 1 delivery protocol, the Receiver
+        // MUST respond with a PUBACK Packet containing the Packet Identifier from the incoming
+        // PUBLISH Packet, having accepted ownership of the Application Message
+        // The receiver is not required to complete delivery of the Application Message before sending the
+        // PUBACK. When its original sender receives the PUBACK packet, ownership of the Application
+        // Message is transferred to the receiver.
+        if (qos == MqttQoS.AT_LEAST_ONCE) {
+            logger.trace("Message response: Send PUBACK back to client {}", this.clientId);
+            this.registry.sendMessage(
+                    ctx,
+                    MqttMessageFactory.newMessage(
+                            new MqttFixedHeader(MqttMessageType.PUBACK, false, MqttQoS.AT_MOST_ONCE, false, 0),
+                            MqttPacketIdVariableHeader.from(packetId),
+                            null),
+                    this.clientId,
+                    packetId,
+                    true);
+        }
+        // In the QoS 2 delivery protocol, the Receiver
+        // UST respond with a PUBREC containing the Packet Identifier from the incoming PUBLISH
+        // Packet, having accepted ownership of the Application Message.
+        // The receiver is not required to complete delivery of the Application Message before sending the
+        // PUBREC or PUBCOMP. When its original sender receives the PUBREC packet, ownership of the
+        // Application Message is transferred to the receiver.
+        else if (qos == MqttQoS.EXACTLY_ONCE) {
+            logger.trace("Message response: Send PUBREC back to client {}", this.clientId);
+            this.registry.sendMessage(
+                    ctx,
+                    MqttMessageFactory.newMessage(
+                            new MqttFixedHeader(MqttMessageType.PUBREC, false, MqttQoS.AT_MOST_ONCE, false, 0),
+                            MqttPacketIdVariableHeader.from(packetId),
+                            null),
+                    this.clientId,
+                    packetId,
+                    true);
         }
     }
 

@@ -61,7 +61,7 @@ public interface RedisSyncStorage {
      *
      * @param clientId Client Id
      * @param node     MQTT Broker Node (Id)
-     * @return Existed and removed?
+     * @return Connected node removed? (Exist)
      */
     boolean removeConnectedNode(String clientId, String node);
 
@@ -85,7 +85,7 @@ public interface RedisSyncStorage {
      * Remove session existence for the client
      *
      * @param clientId Client Id
-     * @return Removed?
+     * @return Session removed? (Exist)
      */
     boolean removeSessionExist(String clientId);
 
@@ -155,7 +155,7 @@ public interface RedisSyncStorage {
      *
      * @param clientId Client Id
      * @param packetId Packet Id
-     * @return Packet Id existed?
+     * @return Packet Id added? (Not exist)
      */
     boolean addQoS2MessageId(String clientId, int packetId);
 
@@ -164,7 +164,7 @@ public interface RedisSyncStorage {
      *
      * @param clientId Client Id
      * @param packetId Packet Id
-     * @return Packet Id existed?
+     * @return Packet Id removed? (Exist)
      */
     boolean removeQoS2MessageId(String clientId, int packetId);
 
