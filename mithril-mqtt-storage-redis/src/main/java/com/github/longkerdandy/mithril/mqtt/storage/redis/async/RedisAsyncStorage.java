@@ -2,6 +2,7 @@ package com.github.longkerdandy.mithril.mqtt.storage.redis.async;
 
 import com.github.longkerdandy.mithril.mqtt.api.internal.InternalMessage;
 import com.lambdaworks.redis.RedisFuture;
+import com.lambdaworks.redis.RedisURI;
 
 /**
  * Redis Asynchronous Storage
@@ -12,8 +13,10 @@ public interface RedisAsyncStorage {
     /**
      * Init the storage
      * Should be could before using redis storage
+     *
+     * @param redisURI Redis URI
      */
-    void init();
+    void init(RedisURI redisURI);
 
     /**
      * Destroy the storage

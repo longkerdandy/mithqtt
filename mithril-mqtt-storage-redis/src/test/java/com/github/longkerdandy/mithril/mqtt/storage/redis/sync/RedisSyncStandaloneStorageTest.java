@@ -31,8 +31,8 @@ public class RedisSyncStandaloneStorageTest {
 
     @BeforeClass
     public static void init() {
-        redis = new RedisSyncStandaloneStorage(RedisURI.create("redis://localhost"));
-        redis.init();
+        redis = new RedisSyncStandaloneStorage();
+        redis.init(RedisURI.create("redis://localhost"));
     }
 
     @AfterClass

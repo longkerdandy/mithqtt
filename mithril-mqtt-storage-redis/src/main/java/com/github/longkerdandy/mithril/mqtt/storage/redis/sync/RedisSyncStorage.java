@@ -2,6 +2,7 @@ package com.github.longkerdandy.mithril.mqtt.storage.redis.sync;
 
 import com.github.longkerdandy.mithril.mqtt.api.internal.InternalMessage;
 import com.github.longkerdandy.mithril.mqtt.api.internal.Publish;
+import com.lambdaworks.redis.RedisURI;
 import com.lambdaworks.redis.ValueScanCursor;
 import io.netty.handler.codec.mqtt.MqttQoS;
 
@@ -17,8 +18,10 @@ public interface RedisSyncStorage {
     /**
      * Init the storage
      * Should be could before using redis storage
+     *
+     * @param redisURI Redis URI
      */
-    void init();
+    void init(RedisURI redisURI);
 
     /**
      * Destroy the storage

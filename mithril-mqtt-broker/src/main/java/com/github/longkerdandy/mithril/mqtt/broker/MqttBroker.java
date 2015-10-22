@@ -8,6 +8,7 @@ import com.github.longkerdandy.mithril.mqtt.broker.handler.AsyncRedisHandler;
 import com.github.longkerdandy.mithril.mqtt.broker.session.SessionRegistry;
 import com.github.longkerdandy.mithril.mqtt.broker.util.Validator;
 import com.github.longkerdandy.mithril.mqtt.storage.redis.async.RedisAsyncStorage;
+import com.lambdaworks.redis.RedisURI;
 import io.netty.bootstrap.ServerBootstrap;
 import io.netty.channel.*;
 import io.netty.channel.nio.NioEventLoopGroup;
@@ -28,10 +29,18 @@ public class MqttBroker {
 
     public static void main(String[] args) throws Exception {
         // load config
-        PropertiesConfiguration brokerConfig = args.length >= 2 ?
-                new PropertiesConfiguration(args[0]) : new PropertiesConfiguration("config/broker.properties");
-        PropertiesConfiguration communicatorConfig = args.length >= 2 ?
-                new PropertiesConfiguration(args[0]) : new PropertiesConfiguration("config/communicator.properties");
+        PropertiesConfiguration brokerConfig;
+        PropertiesConfiguration redisConfig;
+        PropertiesConfiguration communicatorConfig;
+        if (args.length >= 3) {
+            brokerConfig = new PropertiesConfiguration(args[0]);
+            redisConfig = new PropertiesConfiguration(args[1]);
+            communicatorConfig = new PropertiesConfiguration(args[2]);
+        } else {
+            brokerConfig = new PropertiesConfiguration("config/broker.properties");
+            redisConfig = new PropertiesConfiguration("config/redis.properties");
+            communicatorConfig = new PropertiesConfiguration("config/communicator.properties");
+        }
 
         // validator
         Validator validator = new Validator(brokerConfig);
@@ -40,13 +49,14 @@ public class MqttBroker {
         SessionRegistry registry = new SessionRegistry();
 
         // storage
-        RedisAsyncStorage redis = null;
+        RedisAsyncStorage redis = (RedisAsyncStorage) Class.forName(redisConfig.getString("storage.async.class")).newInstance();
+        redis.init(RedisURI.create(redisConfig.getString("redis.uri")));
 
         // authenticator
         Authenticator authenticator = null;
 
         // communicator
-        BrokerCommunicator communicator = (BrokerCommunicator) Class.forName(brokerConfig.getString("communicator.class")).newInstance();
+        BrokerCommunicator communicator = (BrokerCommunicator) Class.forName(communicatorConfig.getString("communicator.class")).newInstance();
         BrokerListenerFactory listenerFactory = new BrokerListenerFactoryImpl(registry);
         communicator.init(communicatorConfig, brokerConfig.getString("broker.id"), listenerFactory);
 

@@ -31,10 +31,6 @@ public class RedisSyncStandaloneStorage implements RedisSyncStorage {
     // A thread-safe connection to a redis server. Multiple threads may share one StatefulRedisConnection
     private StatefulRedisConnection<String, String> conn;
 
-    public RedisSyncStandaloneStorage(RedisURI redisURI) {
-        this.client = RedisClient.create(redisURI);
-    }
-
     @SuppressWarnings("unused")
     protected RedisHashCommands<String, String> hash() {
         return this.conn.sync();
@@ -76,8 +72,9 @@ public class RedisSyncStandaloneStorage implements RedisSyncStorage {
     }
 
     @Override
-    public void init() {
+    public void init(RedisURI redisURI) {
         // open a new connection to a Redis server that treats keys and values as UTF-8 strings
+        this.client = RedisClient.create(redisURI);
         this.conn = this.client.connect();
     }
 
@@ -85,7 +82,7 @@ public class RedisSyncStandaloneStorage implements RedisSyncStorage {
     public void destroy() {
         // shutdown this client and close all open connections
         if (this.conn != null) this.conn.close();
-        this.client.shutdown();
+        if (this.client != null) this.client.shutdown();
     }
 
     @Override
