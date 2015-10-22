@@ -39,6 +39,7 @@ public class AsyncRedisHandler extends SimpleChannelInboundHandler<MqttMessage> 
     protected MqttVersion version;
     protected String clientId;
     protected String userName;
+    protected String brokerId;
     protected boolean connected;
     protected boolean cleanSession;
     protected int keepAlive;
@@ -51,6 +52,8 @@ public class AsyncRedisHandler extends SimpleChannelInboundHandler<MqttMessage> 
         this.registry = registry;
         this.config = config;
         this.validator = validator;
+        
+        this.brokerId = config.getString("broker.id");
     }
 
     @Override
@@ -275,7 +278,7 @@ public class AsyncRedisHandler extends SimpleChannelInboundHandler<MqttMessage> 
                     this.registry.saveSession(this.clientId, ctx);
 
                     // Pass message to processor
-                    this.communicator.sendToProcessor(InternalMessage.fromMqttMessage(this.version, this.cleanSession, this.clientId, this.userName, this.config.getString("broker.id"), msg));
+                    this.communicator.sendToProcessor(InternalMessage.fromMqttMessage(this.version, this.cleanSession, this.clientId, this.userName, this.brokerId, msg));
                 });
             }
 
@@ -340,7 +343,7 @@ public class AsyncRedisHandler extends SimpleChannelInboundHandler<MqttMessage> 
                             logger.trace("Authorization succeed: Publish to topic {} authorized for client {}", topicName, this.clientId);
 
                             // Pass message to processor
-                            this.communicator.sendToProcessor(InternalMessage.fromMqttMessage(this.version, this.cleanSession, this.clientId, this.userName, this.config.getString("broker.id"), msg));
+                            this.communicator.sendToProcessor(InternalMessage.fromMqttMessage(this.version, this.cleanSession, this.clientId, this.userName, this.brokerId, msg));
                         }
                     }
             );
@@ -440,7 +443,7 @@ public class AsyncRedisHandler extends SimpleChannelInboundHandler<MqttMessage> 
             this.registry.sendMessage(ctx, pubrel, this.clientId, packetId, true);
 
             // Save PUBREL as in-flight message
-            InternalMessage internal = InternalMessage.fromMqttMessage(this.version, this.cleanSession, this.clientId, this.userName, this.config.getString("broker.id"), pubrel);
+            InternalMessage internal = InternalMessage.fromMqttMessage(this.version, this.cleanSession, this.clientId, this.userName, this.brokerId, pubrel);
             logger.trace("Add in-flight: Add in-flight PUBREL message {} for client {}", packetId, this.clientId);
             this.redis.addInFlightMessage(this.clientId, packetId, internal, true);
         });
@@ -508,7 +511,7 @@ public class AsyncRedisHandler extends SimpleChannelInboundHandler<MqttMessage> 
             logger.trace("Authorization succeed: Subscribe to topic {} authorized for client {}", ArrayUtils.toString(msg.payload().subscriptions()), this.clientId);
 
             // Pass message to processor
-            this.communicator.sendToProcessor(InternalMessage.fromMqttMessage(this.version, this.cleanSession, this.clientId, this.userName, this.config.getString("broker.id"), msg, grantedQosLevels));
+            this.communicator.sendToProcessor(InternalMessage.fromMqttMessage(this.version, this.cleanSession, this.clientId, this.userName, this.brokerId, msg, grantedQosLevels));
 
             // If a Server receives a SUBSCRIBE packet that contains multiple Topic Filters it MUST handle that packet
             // as if it had received a sequence of multiple SUBSCRIBE packets, except that it combines their responses
@@ -541,7 +544,7 @@ public class AsyncRedisHandler extends SimpleChannelInboundHandler<MqttMessage> 
         int packetId = msg.variableHeader().packetId();
 
         // Pass message to processor
-        this.communicator.sendToProcessor(InternalMessage.fromMqttMessage(this.version, this.cleanSession, this.clientId, this.userName, this.config.getString("broker.id"), msg));
+        this.communicator.sendToProcessor(InternalMessage.fromMqttMessage(this.version, this.cleanSession, this.clientId, this.userName, this.brokerId, msg));
 
         // The Server MUST respond to an UNSUBSUBCRIBE request by sending an UNSUBACK packet. The
         // UNSUBACK Packet MUST have the same Packet Identifier as the UNSUBSCRIBE Packet.
@@ -606,7 +609,7 @@ public class AsyncRedisHandler extends SimpleChannelInboundHandler<MqttMessage> 
         // Test if client already reconnected to this broker
         if (this.registry.removeSession(this.clientId, ctx)) {
             // Pass message to processor
-            this.communicator.sendToProcessor(InternalMessage.fromMqttMessage(this.version, this.cleanSession, this.clientId, this.userName, this.config.getString("broker.id"), true));
+            this.communicator.sendToProcessor(InternalMessage.fromMqttMessage(this.version, this.cleanSession, this.clientId, this.userName, this.brokerId, true));
         }
 
         // Make sure connection is closed
@@ -622,7 +625,7 @@ public class AsyncRedisHandler extends SimpleChannelInboundHandler<MqttMessage> 
             // Test if client already reconnected to this broker
             if (this.registry.removeSession(this.clientId, ctx)) {
                 // Pass message to processor
-                this.communicator.sendToProcessor(InternalMessage.fromMqttMessage(this.version, this.cleanSession, this.clientId, this.userName, this.config.getString("broker.id"), false));
+                this.communicator.sendToProcessor(InternalMessage.fromMqttMessage(this.version, this.cleanSession, this.clientId, this.userName, this.brokerId, false));
             }
         }
     }
