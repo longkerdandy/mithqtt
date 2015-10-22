@@ -6,7 +6,7 @@ import com.github.longkerdandy.mithril.mqtt.api.comm.BrokerCommunicator;
 import com.github.longkerdandy.mithril.mqtt.api.internal.InternalMessage;
 import com.github.longkerdandy.mithril.mqtt.broker.session.SessionRegistry;
 import com.github.longkerdandy.mithril.mqtt.broker.util.Validator;
-import com.github.longkerdandy.mithril.mqtt.storage.redis.RedisStorage;
+import com.github.longkerdandy.mithril.mqtt.storage.redis.async.RedisAsyncStorage;
 import io.netty.channel.ChannelHandlerContext;
 import io.netty.channel.SimpleChannelInboundHandler;
 import io.netty.handler.codec.mqtt.*;
@@ -19,7 +19,6 @@ import org.slf4j.LoggerFactory;
 
 import java.util.List;
 
-import static com.github.longkerdandy.mithril.mqtt.storage.redis.RedisStorage.mqttToMap;
 import static com.github.longkerdandy.mithril.mqtt.util.UUIDs.shortUuid;
 
 /**
@@ -31,7 +30,7 @@ public class AsyncRedisHandler extends SimpleChannelInboundHandler<MqttMessage> 
 
     protected final Authenticator authenticator;
     protected final BrokerCommunicator communicator;
-    protected final RedisStorage redis;
+    protected final RedisAsyncStorage redis;
     protected final SessionRegistry registry;
     protected final PropertiesConfiguration config;
     protected final Validator validator;
@@ -45,7 +44,7 @@ public class AsyncRedisHandler extends SimpleChannelInboundHandler<MqttMessage> 
     protected int keepAlive;
     protected MqttPublishMessage willMessage;
 
-    public AsyncRedisHandler(Authenticator authenticator, BrokerCommunicator communicator, RedisStorage redis, SessionRegistry registry, PropertiesConfiguration config, Validator validator) {
+    public AsyncRedisHandler(Authenticator authenticator, BrokerCommunicator communicator, RedisAsyncStorage redis, SessionRegistry registry, PropertiesConfiguration config, Validator validator) {
         this.authenticator = authenticator;
         this.communicator = communicator;
         this.redis = redis;
@@ -431,14 +430,19 @@ public class AsyncRedisHandler extends SimpleChannelInboundHandler<MqttMessage> 
         // MUST NOT re-send the PUBLISH once it has sent the corresponding PUBREL packet.
         logger.trace("Remove in-flight: Remove in-flight PUBLISH message {} for client {}", packetId, this.clientId);
         this.redis.removeInFlightMessage(this.clientId, packetId).thenAccept(r -> {
-            MqttMessage rel = MqttMessageFactory.newMessage(
+
+            // Send back PUBREL
+            MqttMessage pubrel = MqttMessageFactory.newMessage(
                     new MqttFixedHeader(MqttMessageType.PUBREL, false, MqttQoS.AT_LEAST_ONCE, false, 0),
                     MqttPacketIdVariableHeader.from(packetId),
                     null);
-            logger.trace("Add in-flight: Add in-flight PUBREL message {} for client {}", packetId, this.clientId);
-            this.redis.addInFlightMessage(this.clientId, packetId, mqttToMap(rel));
             logger.trace("Message response: Send PUBREL back to client {}", this.clientId);
-            this.registry.sendMessage(ctx, rel, this.clientId, packetId, true);
+            this.registry.sendMessage(ctx, pubrel, this.clientId, packetId, true);
+
+            // Save PUBREL as in-flight message
+            InternalMessage internal = InternalMessage.fromMqttMessage(this.version, this.cleanSession, this.clientId, this.userName, this.config.getString("broker.id"), pubrel);
+            logger.trace("Add in-flight: Add in-flight PUBREL message {} for client {}", packetId, this.clientId);
+            this.redis.addInFlightMessage(this.clientId, packetId, internal, true);
         });
     }
 

@@ -15,6 +15,18 @@ import java.util.Map;
 public interface RedisSyncStorage {
 
     /**
+     * Init the storage
+     * Should be could before using redis storage
+     */
+    void init();
+
+    /**
+     * Destroy the storage
+     * Should be could when gracefully shutdown
+     */
+    void destroy();
+
+    /**
      * Iteration connected clients for the mqtt broker node (id)
      *
      * @param node   MQTT Broker Node
@@ -78,9 +90,8 @@ public interface RedisSyncStorage {
      * Remove all session state
      *
      * @param clientId Client Id
-     * @param node     MQTT Broker Node
      */
-    void removeAllSessionState(String clientId, String node);
+    void removeAllSessionState(String clientId);
 
     /**
      * Get next packet id for the client
@@ -162,8 +173,25 @@ public interface RedisSyncStorage {
     void removeAllQoS2MessageId(String clientId);
 
     /**
+     * Get the topic's subscriptions
+     * Topic Levels must been sanitized
+     *
+     * @param topicLevels List of topic levels
+     * @return Subscriptions: Key - Client Id, Value - QoS
+     */
+    Map<String, MqttQoS> getTopicSubscriptions(List<String> topicLevels);
+
+    /**
+     * Get the client's subscriptions
+     *
+     * @param clientId Client Id
+     * @return Subscriptions: Key - Topic, Value - QoS
+     */
+    Map<String, MqttQoS> getClientSubscriptions(String clientId);
+
+    /**
      * Update topic subscription for the client
-     * Topic Levels must be sanitized
+     * Topic Levels must been sanitized
      *
      * @param clientId    Client Id
      * @param topicLevels List of topic levels
@@ -173,7 +201,7 @@ public interface RedisSyncStorage {
 
     /***
      * Remove topic name subscription for the client
-     * Topic Levels must be sanitized
+     * Topic Levels must been sanitized
      *
      * @param clientId    Client Id
      * @param topicLevels List of topic levels
@@ -192,27 +220,18 @@ public interface RedisSyncStorage {
      * This is a recursion method
      *
      * @param topicLevels List of topic levels
-     * @param map         Return Value: Subscriptions Key - Client Id, Value - QoS
+     * @param map         RETURN VALUE! Subscriptions: Key - Client Id, Value - QoS
      */
     void getMatchSubscriptions(List<String> topicLevels, Map<String, MqttQoS> map);
 
     /**
-     * Get specific retain message for the topic name
-     *
-     * @param topicLevels Topic Levels
-     * @param packetId    Packet Id
-     * @return Retain message in Map format
-     */
-    InternalMessage<Publish> getRetainMessage(List<String> topicLevels, int packetId);
-
-    /**
      * Add retain message for the topic name
+     * Retain id will be generated
      *
      * @param topicLevels Topic Levels
-     * @param packetId    Packet Id
      * @param msg         Retain Message
      */
-    void addRetainMessage(List<String> topicLevels, int packetId, InternalMessage<Publish> msg);
+    void addRetainMessage(List<String> topicLevels, InternalMessage<Publish> msg);
 
     /**
      * Get all retain messages the topic name

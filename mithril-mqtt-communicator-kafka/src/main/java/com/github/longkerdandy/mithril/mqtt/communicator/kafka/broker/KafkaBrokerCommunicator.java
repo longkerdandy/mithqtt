@@ -32,7 +32,7 @@ public class KafkaBrokerCommunicator extends KafkaCommunicator implements Broker
 
         // launch all consumer workers
         for (final KafkaStream<String, InternalMessage> stream : streams) {
-            this.executor.submit(new KafkaBrokerWorker(stream, factory.newListener(this)));
+            this.executor.submit(new KafkaBrokerWorker(stream, factory.newListener()));
         }
     }
 }

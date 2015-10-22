@@ -67,7 +67,7 @@ public class ProcessorListenerImpl implements ProcessorListener {
                 }
             } else if (sessionExist == 1) {
                 logger.trace("Clear session: Clear session state for client {} because former connection is clean session", msg.getClientId());
-                this.redis.removeAllSessionState(msg.getClientId(), msg.getBrokerId());
+                this.redis.removeAllSessionState(msg.getClientId());
             }
         }
         // If CleanSession is set to 1, the Client and Server MUST discard any previous Session and start a new
@@ -77,7 +77,7 @@ public class ProcessorListenerImpl implements ProcessorListener {
         else {
             if (sessionExist >= 0) {
                 logger.trace("Clear session: Clear session state for client {} because current connection is clean session", msg.getClientId());
-                this.redis.removeAllSessionState(msg.getClientId(), msg.getBrokerId());
+                this.redis.removeAllSessionState(msg.getClientId());
             }
         }
 
@@ -117,7 +117,7 @@ public class ProcessorListenerImpl implements ProcessorListener {
             // as a retained message on the Server
             if (msg.getPayload().getPayload() != null && msg.getPayload().getPayload().length > 0) {
                 logger.trace("Add retain: Add retain messages for topic {} by client {}", msg.getPayload().getTopicName(), msg.getClientId());
-                this.redis.addRetainMessage(topicLevels, msg.getPayload().getPacketId(), msg);
+                this.redis.addRetainMessage(topicLevels, msg);
             }
         }
 
@@ -282,7 +282,7 @@ public class ProcessorListenerImpl implements ProcessorListener {
             // When CleanSession is set to 1 the Client and Server need not process the deletion of state atomically.
             if (msg.isCleanSession()) {
                 logger.trace("Clear session: Clear session state for client {} because current connection is clean session", msg.getClientId());
-                this.redis.removeAllSessionState(msg.getClientId(), msg.getBrokerId());
+                this.redis.removeAllSessionState(msg.getClientId());
             }
 
             // Remove connected node

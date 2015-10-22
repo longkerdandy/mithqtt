@@ -7,7 +7,7 @@ import com.github.longkerdandy.mithril.mqtt.broker.comm.BrokerListenerFactoryImp
 import com.github.longkerdandy.mithril.mqtt.broker.handler.AsyncRedisHandler;
 import com.github.longkerdandy.mithril.mqtt.broker.session.SessionRegistry;
 import com.github.longkerdandy.mithril.mqtt.broker.util.Validator;
-import com.github.longkerdandy.mithril.mqtt.storage.redis.RedisStorage;
+import com.github.longkerdandy.mithril.mqtt.storage.redis.async.RedisAsyncStorage;
 import io.netty.bootstrap.ServerBootstrap;
 import io.netty.channel.*;
 import io.netty.channel.nio.NioEventLoopGroup;
@@ -40,7 +40,7 @@ public class MqttBroker {
         SessionRegistry registry = new SessionRegistry();
 
         // storage
-        RedisStorage redis = null;
+        RedisAsyncStorage redis = null;
 
         // authenticator
         Authenticator authenticator = null;
