@@ -2,6 +2,7 @@ package com.github.longkerdandy.mithril.mqtt.api.auth;
 
 import io.netty.handler.codec.mqtt.MqttSubAckReturnCode;
 import io.netty.handler.codec.mqtt.MqttTopicSubscription;
+import org.apache.commons.configuration.PropertiesConfiguration;
 
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
@@ -11,6 +12,18 @@ import java.util.concurrent.CompletableFuture;
  */
 @SuppressWarnings("unused")
 public interface Authenticator {
+
+    /**
+     * Init the authenticator
+     *
+     * @param config Authenticator Configuration
+     */
+    void init(PropertiesConfiguration config);
+
+    /**
+     * Destroy the authenticator
+     */
+    void destroy();
 
     /**
      * Authorize client CONNECT

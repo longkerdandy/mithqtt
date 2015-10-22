@@ -7,6 +7,9 @@ dependencies {
     compile project(':mithril-mqtt-api')
     compile project(':mithril-mqtt-storage-redis')
 
+    runtime project(':mithril-mqtt-communicator-kafka')
+    runtime project(':mithril-mqtt-authenticator-dummy')
+
     // netty
     compile 'io.netty:netty-transport:4.1.0.Beta7'
 }

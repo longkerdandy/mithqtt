@@ -32,14 +32,17 @@ public class MqttBroker {
         PropertiesConfiguration brokerConfig;
         PropertiesConfiguration redisConfig;
         PropertiesConfiguration communicatorConfig;
-        if (args.length >= 3) {
+        PropertiesConfiguration authenticatorConfig;
+        if (args.length >= 4) {
             brokerConfig = new PropertiesConfiguration(args[0]);
             redisConfig = new PropertiesConfiguration(args[1]);
             communicatorConfig = new PropertiesConfiguration(args[2]);
+            authenticatorConfig = new PropertiesConfiguration(args[3]);
         } else {
             brokerConfig = new PropertiesConfiguration("config/broker.properties");
             redisConfig = new PropertiesConfiguration("config/redis.properties");
             communicatorConfig = new PropertiesConfiguration("config/communicator.properties");
+            authenticatorConfig = new PropertiesConfiguration("config/authenticator.properties");
         }
 
         // validator
@@ -53,7 +56,8 @@ public class MqttBroker {
         redis.init(RedisURI.create(redisConfig.getString("redis.uri")));
 
         // authenticator
-        Authenticator authenticator = null;
+        Authenticator authenticator = (Authenticator) Class.forName(authenticatorConfig.getString("authenticator.class")).newInstance();
+        authenticator.init(authenticatorConfig);
 
         // communicator
         BrokerCommunicator communicator = (BrokerCommunicator) Class.forName(communicatorConfig.getString("communicator.class")).newInstance();
