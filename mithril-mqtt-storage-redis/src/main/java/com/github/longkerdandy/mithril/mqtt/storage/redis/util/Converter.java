@@ -84,10 +84,10 @@ public class Converter {
             map.put("qos", String.valueOf(msg.getQos().value()));
             map.put("dup", BooleanUtils.toString(msg.isDup(), "1", "0"));
             map.put("version", msg.getVersion().toString());
-            map.put("clientId", msg.getClientId());
+            if (!msg.isRetain()) map.put("clientId", msg.getClientId());
             map.put("userName", msg.getUserName());
             map.put("topicName", publish.getTopicName());
-            map.put("packetId", String.valueOf(publish.getPacketId()));
+            if (!msg.isRetain()) map.put("packetId", String.valueOf(publish.getPacketId()));
             if (publish.getPayload() != null && publish.getPayload().length > 0) try {
                 map.put("payload", new String(publish.getPayload(), "ISO-8859-1"));
             } catch (UnsupportedEncodingException ignore) {

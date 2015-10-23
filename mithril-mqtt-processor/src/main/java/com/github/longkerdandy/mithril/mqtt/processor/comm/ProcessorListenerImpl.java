@@ -235,9 +235,18 @@ public class ProcessorListenerImpl implements ProcessorListener {
                 // sends the SUBACK Packet.
                 for (InternalMessage<Publish> retain : this.redis.getAllRetainMessages(topicLevels)) {
 
+                    // Set recipient client id
+                    retain.setClientId(msg.getClientId());
+
                     // Compare publish QoS and subscription QoS
                     if (retain.getQos().value() > subscription.getGrantedQos().value()) {
                         retain.setQos(MqttQoS.valueOf(subscription.getGrantedQos().value()));
+                    }
+
+                    // Set packet id
+                    if (retain.getQos() == MqttQoS.AT_LEAST_ONCE || retain.getQos() == MqttQoS.EXACTLY_ONCE) {
+                        int packetId = this.redis.getNextPacketId(msg.getClientId());
+                        retain.getPayload().setPacketId(packetId);
                     }
 
                     // Forward to recipient

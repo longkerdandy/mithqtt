@@ -442,7 +442,6 @@ public class RedisSyncStandaloneStorage implements RedisSyncStorage {
     public void addRetainMessage(List<String> topicLevels, InternalMessage<Publish> msg) {
         int retainId = Math.toIntExact(script().eval(RedisLua.INCRLIMIT, ScriptOutputType.INTEGER, new String[]{RedisKey.nextRetainId(topicLevels)}, new String[]{"65535"}));
         Map<String, String> map = internalToMap(msg);
-        map.put("packetId", "0");   // clear packet id
         String[] keys = new String[]{RedisKey.topicRetainList(topicLevels), RedisKey.topicRemainMessage(topicLevels, retainId)};
         String[] argv = ArrayUtils.addAll(new String[]{String.valueOf(retainId)}, mapToArray(map));
         script().eval("redis.call('RPUSH', KEYS[1], ARGV[1])\n" +

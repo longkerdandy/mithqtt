@@ -297,7 +297,6 @@ public class RedisSyncStandaloneStorageTest {
         assert publish.getQos() == MqttQoS.AT_LEAST_ONCE;
         assert !publish.isRetain();
         assert publish.getVersion() == MqttVersion.MQTT_3_1_1;
-        assert publish.getClientId().equals("client1");
         assert publish.getUserName().equals("user1");
         assert publish.getPayload().getTopicName().equals("menuTopic");
         jn = ObjectMapper.readTree(publish.getPayload().getPayload());
