@@ -592,7 +592,7 @@ public class AsyncRedisHandler extends SimpleChannelInboundHandler<MqttMessage> 
             return;
         }
 
-        logger.debug("Message received: Received CONNECT message from client {} user {}", this.clientId, this.userName);
+        logger.debug("Message received: Received DISCONNECT message from client {} user {}", this.clientId, this.userName);
 
         // If the Will Flag is set to 1 this indicates that, if the Connect request is accepted, a Will Message MUST be
         // stored on the Server and associated with the Network Connection. The Will Message MUST be published
