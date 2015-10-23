@@ -26,6 +26,7 @@ public class BrokerListenerImpl implements BrokerListener {
     @Override
     public void onPublish(InternalMessage<Publish> msg) {
         MqttMessage m = msg.toMqttMessage();
+        logger.trace("Message forward: Send PUBLISH message to client {}", msg.getClientId());
         this.registry.sendMessage(m, msg.getClientId(), msg.getPayload().getPacketId(), true);
     }
 

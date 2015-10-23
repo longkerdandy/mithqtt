@@ -1,6 +1,5 @@
 package com.github.longkerdandy.mithril.mqtt.communicator.kafka;
 
-import com.github.longkerdandy.mithril.mqtt.api.comm.Communicators;
 import com.github.longkerdandy.mithril.mqtt.api.internal.InternalMessage;
 import com.github.longkerdandy.mithril.mqtt.communicator.kafka.codec.InternalMessageSerializer;
 import kafka.consumer.Consumer;
@@ -29,11 +28,19 @@ public abstract class KafkaCommunicator {
 
     private static final Logger logger = LoggerFactory.getLogger(KafkaCommunicator.class);
 
+    protected static String BROKER_TOPIC_PREFIX;
+    protected static String PROCESSOR_TOPIC;
+
     protected KafkaProducer<String, InternalMessage> producer;
     protected ConsumerConnector consumer;
     protected ExecutorService executor;
 
     protected void init(PropertiesConfiguration config) {
+        BROKER_TOPIC_PREFIX = config.getString("communicator.broker.topic");
+        PROCESSOR_TOPIC = config.getString("communicator.processor.topic");
+
+        logger.trace("Initializing Kafka producer ...");
+
         // producer config
         Map<String, Object> map = new HashMap<>();
         map.put("bootstrap.servers", config.getString("bootstrap.servers"));
@@ -43,6 +50,8 @@ public abstract class KafkaCommunicator {
 
         // producer
         this.producer = new KafkaProducer<>(map);
+
+        logger.trace("Initializing Kafka consumer ...");
 
         // consumer config
         Properties props = new Properties();
@@ -64,20 +73,20 @@ public abstract class KafkaCommunicator {
             this.executor.shutdown();
             try {
                 if (!this.executor.awaitTermination(5000, TimeUnit.MILLISECONDS)) {
-                    logger.warn("Timed out waiting for consumer threads to shut down, exiting uncleanly");
+                    logger.warn("Communicator error: Timed out waiting for consumer threads to shut down, exiting uncleanly");
                 }
             } catch (InterruptedException e) {
-                logger.warn("Interrupted during shutdown, exiting uncleanly");
+                logger.warn("Communicator error: Interrupted during shutdown, exiting uncleanly");
             }
         }
     }
 
     public void sendToBroker(String brokerId, InternalMessage message) {
-        sendToTopic(Communicators.BROKER(brokerId), message);
+        sendToTopic(BROKER_TOPIC_PREFIX + "." + brokerId, message);
     }
 
     public void sendToProcessor(InternalMessage message) {
-        sendToTopic(Communicators.PROCESSOR, message);
+        sendToTopic(PROCESSOR_TOPIC, message);
     }
 
     public void sendToTopic(String topic, InternalMessage message) {
@@ -85,9 +94,9 @@ public abstract class KafkaCommunicator {
         this.producer.send(record,
                 (metadata, e) -> {
                     if (e != null)
-                        logger.error("Send internal message {} to topic {} failed: {}", message.getMessageType(), topic, ExceptionUtils.getMessage(e));
+                        logger.error("Communicator failed: Failed to send message {} to topic {}: {}", message.getMessageType(), topic, ExceptionUtils.getMessage(e));
                     else {
-                        logger.debug("Successful send internal message {} to mq {} partition {} offset {}", message.getMessageType(), topic, metadata.partition(), metadata.offset());
+                        logger.debug("Communicator succeed: Successful send message {} to topic {} partition {} offset {}", message.getMessageType(), topic, metadata.partition(), metadata.offset());
                     }
                 });
     }

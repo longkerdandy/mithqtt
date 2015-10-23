@@ -21,14 +21,22 @@ import io.netty.handler.logging.LoggingHandler;
 import io.netty.util.internal.logging.InternalLoggerFactory;
 import io.netty.util.internal.logging.Slf4JLoggerFactory;
 import org.apache.commons.configuration.PropertiesConfiguration;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 /**
  * MQTT Bridge
  */
 public class MqttBroker {
 
+    private static final Logger logger = LoggerFactory.getLogger(MqttBroker.class);
+
     public static void main(String[] args) throws Exception {
+
+        logger.debug("Starting MQTT broker ...");
+
         // load config
+        logger.debug("Loading MQTT broker config files ...");
         PropertiesConfiguration brokerConfig;
         PropertiesConfiguration redisConfig;
         PropertiesConfiguration communicatorConfig;
@@ -46,25 +54,31 @@ public class MqttBroker {
         }
 
         // validator
+        logger.debug("Initializing validator ...");
         Validator validator = new Validator(brokerConfig);
 
         // session registry
+        logger.debug("Initializing session registry ...");
         SessionRegistry registry = new SessionRegistry();
 
         // storage
+        logger.debug("Initializing redis storage ...");
         RedisAsyncStorage redis = (RedisAsyncStorage) Class.forName(redisConfig.getString("storage.async.class")).newInstance();
         redis.init(RedisURI.create(redisConfig.getString("redis.uri")));
 
         // authenticator
+        logger.debug("Initializing authenticator...");
         Authenticator authenticator = (Authenticator) Class.forName(authenticatorConfig.getString("authenticator.class")).newInstance();
         authenticator.init(authenticatorConfig);
 
         // communicator
+        logger.debug("Initializing communicator ...");
         BrokerCommunicator communicator = (BrokerCommunicator) Class.forName(communicatorConfig.getString("communicator.class")).newInstance();
         BrokerListenerFactory listenerFactory = new BrokerListenerFactoryImpl(registry);
         communicator.init(communicatorConfig, brokerConfig.getString("broker.id"), listenerFactory);
 
         // tcp server
+        logger.debug("Initializing MQTT broker server ...");
         InternalLoggerFactory.setDefaultFactory(new Slf4JLoggerFactory());
         EventLoopGroup bossGroup = new NioEventLoopGroup();
         EventLoopGroup workerGroup = new NioEventLoopGroup();
@@ -89,6 +103,8 @@ public class MqttBroker {
 
             // Bind and start to accept incoming connections.
             ChannelFuture f = b.bind(brokerConfig.getString("mqtt.host"), brokerConfig.getInt("mqtt.port")).sync();
+
+            logger.info("MQTT broker is up and running.");
 
             // Wait until the server socket is closed.
             // Do this to gracefully shut down the server.

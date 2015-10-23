@@ -35,11 +35,13 @@ public class ProcessorListenerImpl implements ProcessorListener {
     @Override
     public void onConnect(InternalMessage<Connect> msg) {
         // first, mark client's connected broker node
+        logger.trace("Update node: Mark client {} connected to broker {}", msg.getClientId(), msg.getBrokerId());
         String previous = this.redis.updateConnectedNode(msg.getClientId(), msg.getBrokerId());
 
         // If the ClientId represents a Client already connected to the Server then the Server MUST
         // disconnect the existing Client
         if (StringUtils.isNotBlank(previous) && !previous.equals(msg.getBrokerId())) {
+            logger.trace("Communicator sending: Send DISCONNECT message to broker {} to drop the existing client {}", msg.getBrokerId(), msg.getClientId());
             InternalMessage<Disconnect> m = new InternalMessage<>(MqttMessageType.DISCONNECT, false, MqttQoS.AT_MOST_ONCE, false,
                     MqttVersion.MQTT_3_1_1, false, msg.getClientId(), null, null, new Disconnect(false));
             this.communicator.sendToBroker(previous, m);
@@ -62,6 +64,7 @@ public class ProcessorListenerImpl implements ProcessorListener {
         int sessionExist = this.redis.getSessionExist(msg.getClientId());
         if (!msg.isCleanSession()) {
             if (sessionExist == 0) {
+                logger.trace("Communicator sending: Resend In-Flight messages to broker {} for client {}", msg.getBrokerId(), msg.getClientId());
                 for (InternalMessage inFlight : this.redis.getAllInFlightMessages(msg.getClientId())) {
                     this.communicator.sendToBroker(msg.getBrokerId(), inFlight);
                 }
@@ -191,6 +194,7 @@ public class ProcessorListenerImpl implements ProcessorListener {
             String brokerId = this.redis.getConnectedNode(clientId);
             boolean dup = false;
             if (StringUtils.isNotBlank(brokerId)) {
+                logger.trace("Communicator sending: Send PUBLISH message to broker {} for client {} subscription", brokerId, clientId);
                 dup = true;
                 this.communicator.sendToBroker(brokerId, m);
             }
@@ -224,7 +228,7 @@ public class ProcessorListenerImpl implements ProcessorListener {
                 // Filter MUST be re-sent, but the flow of publications MUST NOT be interrupted.
                 // Where the Topic Filter is not identical to any existing Subscription’s filter, a new Subscription is created
                 // and all matching retained messages are sent.
-                logger.trace("Update subscription: Update client {} subscription to topic {} QoS {}", msg.getClientId(), String.join("/", topicLevels), subscription.getGrantedQos());
+                logger.trace("Update subscription: Update client {} subscription with topic {} QoS {}", msg.getClientId(), String.join("/", topicLevels), subscription.getGrantedQos());
                 this.redis.updateSubscription(msg.getClientId(), topicLevels, MqttQoS.valueOf(subscription.getGrantedQos().value()));
 
                 // The Server is permitted to start sending PUBLISH packets matching the Subscription before the Server
@@ -237,6 +241,7 @@ public class ProcessorListenerImpl implements ProcessorListener {
                     }
 
                     // Forward to recipient
+                    logger.trace("Communicator sending: Send retained PUBLISH message to broker {} for client {} subscription with topic {}", msg.getBrokerId(), msg.getClientId(), String.join("/", topicLevels));
                     this.communicator.sendToBroker(msg.getBrokerId(), retain);
 
                     // In the QoS 1 delivery protocol, the Sender
@@ -266,7 +271,7 @@ public class ProcessorListenerImpl implements ProcessorListener {
         // the Client.
         // It MAY continue to deliver any existing messages buffered for delivery to the Client.
         msg.getPayload().getTopics().forEach(topic -> {
-            logger.trace("Remove subscription: Remove client {} subscription to topic {}", msg.getClientId(), topic);
+            logger.trace("Remove subscription: Remove client {} subscription with topic {}", msg.getClientId(), topic);
             this.redis.removeSubscription(msg.getClientId(), Topics.sanitize(topic));
         });
     }
@@ -286,6 +291,7 @@ public class ProcessorListenerImpl implements ProcessorListener {
             }
 
             // Remove connected node
+            logger.trace("Remove node: Mark client {} disconnected from broker {}", msg.getClientId(), msg.getBrokerId());
             this.redis.removeConnectedNode(msg.getClientId(), msg.getBrokerId());
         }
 

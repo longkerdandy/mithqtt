@@ -278,6 +278,7 @@ public class AsyncRedisHandler extends SimpleChannelInboundHandler<MqttMessage> 
                     this.registry.saveSession(this.clientId, ctx);
 
                     // Pass message to processor
+                    logger.trace("Communicator sending: Re-direct CONNECT message to processor for client {} user {}", this.clientId, this.userName);
                     this.communicator.sendToProcessor(InternalMessage.fromMqttMessage(this.version, this.cleanSession, this.clientId, this.userName, this.brokerId, msg));
                 });
             }
@@ -342,6 +343,7 @@ public class AsyncRedisHandler extends SimpleChannelInboundHandler<MqttMessage> 
                         logger.trace("Authorization succeed: Publish to topic {} authorized for client {}", topicName, this.clientId);
 
                         // Pass message to processor
+                        logger.trace("Communicator sending: Re-direct PUBLISH message to processor for client {} user {}", this.clientId, this.userName);
                         this.communicator.sendToProcessor(InternalMessage.fromMqttMessage(this.version, this.cleanSession, this.clientId, this.userName, this.brokerId, msg));
                     }
                 }
@@ -439,7 +441,7 @@ public class AsyncRedisHandler extends SimpleChannelInboundHandler<MqttMessage> 
 
             // Save PUBREL as in-flight message
             InternalMessage internal = InternalMessage.fromMqttMessage(this.version, this.cleanSession, this.clientId, this.userName, this.brokerId, pubrel);
-            logger.trace("Add in-flight: Add in-flight PUBREL message {} for client {}", packetId, this.clientId);
+            logger.trace("Add in-flight: Add In-Flight PUBREL message {} for client {}", packetId, this.clientId);
             this.redis.addInFlightMessage(this.clientId, packetId, internal, true);
         });
     }
@@ -506,6 +508,7 @@ public class AsyncRedisHandler extends SimpleChannelInboundHandler<MqttMessage> 
             logger.trace("Authorization succeed: Subscribe to topic {} authorized for client {}", ArrayUtils.toString(msg.payload().subscriptions()), this.clientId);
 
             // Pass message to processor
+            logger.trace("Communicator sending: Re-direct SUBSCRIBE message to processor for client {} user {}", this.clientId, this.userName);
             this.communicator.sendToProcessor(InternalMessage.fromMqttMessage(this.version, this.cleanSession, this.clientId, this.userName, this.brokerId, msg, grantedQosLevels));
 
             // If a Server receives a SUBSCRIBE packet that contains multiple Topic Filters it MUST handle that packet
@@ -539,6 +542,7 @@ public class AsyncRedisHandler extends SimpleChannelInboundHandler<MqttMessage> 
         int packetId = msg.variableHeader().packetId();
 
         // Pass message to processor
+        logger.trace("Communicator sending: Re-direct UNSUBSCRIBE message to processor for client {} user {}", this.clientId, this.userName);
         this.communicator.sendToProcessor(InternalMessage.fromMqttMessage(this.version, this.cleanSession, this.clientId, this.userName, this.brokerId, msg));
 
         // The Server MUST respond to an UNSUBSUBCRIBE request by sending an UNSUBACK packet. The
@@ -604,6 +608,7 @@ public class AsyncRedisHandler extends SimpleChannelInboundHandler<MqttMessage> 
         // Test if client already reconnected to this broker
         if (this.registry.removeSession(this.clientId, ctx)) {
             // Pass message to processor
+            logger.trace("Communicator sending: Re-direct DISCONNECT message to processor for client {} user {}", this.clientId, this.userName);
             this.communicator.sendToProcessor(InternalMessage.fromMqttMessage(this.version, this.cleanSession, this.clientId, this.userName, this.brokerId, true));
         }
 
@@ -620,6 +625,7 @@ public class AsyncRedisHandler extends SimpleChannelInboundHandler<MqttMessage> 
             // Test if client already reconnected to this broker
             if (this.registry.removeSession(this.clientId, ctx)) {
                 // Pass message to processor
+                logger.trace("Communicator sending: Send DISCONNECT message to processor for client {} user {} which connection is lost", this.clientId, this.userName);
                 this.communicator.sendToProcessor(InternalMessage.fromMqttMessage(this.version, this.cleanSession, this.clientId, this.userName, this.brokerId, false));
             }
         }

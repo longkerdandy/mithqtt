@@ -7,35 +7,35 @@
     </appender>
 
     <!-- Commons Config -->
-    <logger name="org.apache.commons.configuration" level="INFO" additivity="false">
+    <logger name="org.apache.commons.configuration" level="WARN" additivity="false">
         <appender-ref ref="Console"/>
     </logger>
 
     <!-- Kafka -->
-    <logger name="org.apache.zookeeper" level="INFO" additivity="false">
+    <logger name="org.apache.zookeeper" level="WARN" additivity="false">
         <appender-ref ref="Console"/>
     </logger>
-    <logger name="org.apache.kafka" level="INFO" additivity="false">
+    <logger name="org.apache.kafka" level="WARN" additivity="false">
         <appender-ref ref="Console"/>
     </logger>
-    <logger name="org.I0Itec.zkclient" level="INFO" additivity="false">
+    <logger name="org.I0Itec.zkclient" level="WARN" additivity="false">
         <appender-ref ref="Console"/>
     </logger>
-    <logger name="kafka" level="INFO" additivity="false">
+    <logger name="kafka" level="WARN" additivity="false">
         <appender-ref ref="Console"/>
     </logger>
 
     <!-- Redis Client -->
-    <logger name="com.lambdaworks.redis" level="INFO" additivity="false">
+    <logger name="com.lambdaworks.redis" level="WARN" additivity="false">
         <appender-ref ref="Console"/>
     </logger>
 
     <!-- Netty -->
-    <logger name="io.netty" level="INFO" additivity="false">
+    <logger name="io.netty" level="WARN" additivity="false">
         <appender-ref ref="Console"/>
     </logger>
 
-    <root level="DEBUG">
+    <root level="TRACE">
         <appender-ref ref="Console"/>
     </root>
 </configuration>

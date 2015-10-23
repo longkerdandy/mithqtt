@@ -30,7 +30,7 @@ public class KafkaBrokerWorker implements Runnable {
         for (MessageAndMetadata<String, InternalMessage> m : this.stream) {
             InternalMessage msg = m.message();
             if (msg != null) {
-                logger.debug("Communicator received: Received {} message from broker {} client {]", msg.getMessageType(), msg.getBrokerId(), msg.getClientId());
+                logger.debug("Communicator received: Received {} message from for client {}", msg.getMessageType(), msg.getBrokerId(), msg.getClientId());
                 switch (msg.getMessageType()) {
                     case PUBLISH:
                         this.listener.onPublish((InternalMessage<Publish>) msg);
@@ -39,7 +39,7 @@ public class KafkaBrokerWorker implements Runnable {
                         this.listener.onDisconnect(msg);
                         break;
                     default:
-                        logger.warn("Internal error: Communicator received unexpected message type {}", msg.getMessageType());
+                        logger.warn("Communicator error: Communicator received unexpected message type {}", msg.getMessageType());
                 }
             }
         }

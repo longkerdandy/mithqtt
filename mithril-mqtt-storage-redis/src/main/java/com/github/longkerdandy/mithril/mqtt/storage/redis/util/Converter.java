@@ -44,7 +44,7 @@ public class Converter {
                     false,
                     map.get("clientId"),
                     map.get("userName"),
-                    map.get("brokerId"),
+                    null,
                     new Publish(
                             map.get("topicName"),
                             Integer.parseInt(map.getOrDefault("packetId", "0")),
@@ -60,7 +60,7 @@ public class Converter {
                     false,
                     map.get("clientId"),
                     map.get("userName"),
-                    map.get("brokerId"),
+                    null,
                     new PacketId(Integer.parseInt(map.getOrDefault("packetId", "0"))));
         } else {
             throw new IllegalArgumentException("Invalid in-flight MQTT message type: " + MqttMessageType.valueOf(type));
@@ -86,7 +86,6 @@ public class Converter {
             map.put("version", msg.getVersion().toString());
             map.put("clientId", msg.getClientId());
             map.put("userName", msg.getUserName());
-            map.put("brokerId", msg.getBrokerId());
             map.put("topicName", publish.getTopicName());
             map.put("packetId", String.valueOf(publish.getPacketId()));
             if (publish.getPayload() != null && publish.getPayload().length > 0) try {
@@ -100,7 +99,6 @@ public class Converter {
             map.put("version", msg.getVersion().toString());
             map.put("clientId", msg.getClientId());
             map.put("userName", msg.getUserName());
-            map.put("brokerId", msg.getBrokerId());
             map.put("packetId", String.valueOf(packetId.getPacketId()));
             return map;
         } else {

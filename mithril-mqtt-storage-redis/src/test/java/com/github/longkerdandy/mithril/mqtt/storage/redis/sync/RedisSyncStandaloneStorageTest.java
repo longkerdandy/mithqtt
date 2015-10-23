@@ -135,7 +135,6 @@ public class RedisSyncStandaloneStorageTest {
         assert publish.getVersion() == MqttVersion.MQTT_3_1_1;
         assert publish.getClientId().equals("client1");
         assert publish.getUserName().equals("user1");
-        assert publish.getBrokerId().equals("broker1");
         assert publish.getPayload().getTopicName().equals("menuTopic");
         assert publish.getPayload().getPacketId() == 123456;
         jn = ObjectMapper.readTree(publish.getPayload().getPayload());
@@ -183,7 +182,6 @@ public class RedisSyncStandaloneStorageTest {
         assert pubrel.getVersion() == MqttVersion.MQTT_3_1_1;
         assert pubrel.getClientId().equals("client1");
         assert pubrel.getUserName().equals("user1");
-        assert pubrel.getBrokerId().equals("broker1");
         assert pubrel.getPayload().getPacketId() == 10001;
 
         redis.removeAllInFlightMessage("client1");
@@ -301,7 +299,6 @@ public class RedisSyncStandaloneStorageTest {
         assert publish.getVersion() == MqttVersion.MQTT_3_1_1;
         assert publish.getClientId().equals("client1");
         assert publish.getUserName().equals("user1");
-        assert publish.getBrokerId().equals("broker1");
         assert publish.getPayload().getTopicName().equals("menuTopic");
         jn = ObjectMapper.readTree(publish.getPayload().getPayload());
         assert jn.get("menu").get("id").textValue().endsWith("file");
