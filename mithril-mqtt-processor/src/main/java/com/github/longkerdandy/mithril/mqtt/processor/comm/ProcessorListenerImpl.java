@@ -228,7 +228,7 @@ public class ProcessorListenerImpl implements ProcessorListener {
                 // Filter MUST be re-sent, but the flow of publications MUST NOT be interrupted.
                 // Where the Topic Filter is not identical to any existing Subscription’s filter, a new Subscription is created
                 // and all matching retained messages are sent.
-                logger.trace("Update subscription: Update client {} subscription with topic {} QoS {}", msg.getClientId(), String.join("/", topicLevels), subscription.getGrantedQos());
+                logger.trace("Update subscription: Update client {} subscription with topic {} QoS {}", msg.getClientId(), subscription.getTopic(), subscription.getGrantedQos());
                 this.redis.updateSubscription(msg.getClientId(), topicLevels, MqttQoS.valueOf(subscription.getGrantedQos().value()));
 
                 // The Server is permitted to start sending PUBLISH packets matching the Subscription before the Server
@@ -241,7 +241,7 @@ public class ProcessorListenerImpl implements ProcessorListener {
                     }
 
                     // Forward to recipient
-                    logger.trace("Communicator sending: Send retained PUBLISH message to broker {} for client {} subscription with topic {}", msg.getBrokerId(), msg.getClientId(), String.join("/", topicLevels));
+                    logger.trace("Communicator sending: Send retained PUBLISH message to broker {} for client {} subscription with topic {}", msg.getBrokerId(), msg.getClientId(), subscription.getTopic());
                     this.communicator.sendToBroker(msg.getBrokerId(), retain);
 
                     // In the QoS 1 delivery protocol, the Sender
