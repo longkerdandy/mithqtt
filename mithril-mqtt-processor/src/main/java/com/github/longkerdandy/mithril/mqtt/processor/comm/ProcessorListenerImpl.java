@@ -185,7 +185,10 @@ public class ProcessorListenerImpl implements ProcessorListener {
             // corresponding SUBACK or UNSUBACK. The same conditions apply to a Server when it
             // sends a PUBLISH with QoS > 0
             // A PUBLISH Packet MUST NOT contain a Packet Identifier if its QoS value is set to
-            int packetId = this.redis.getNextPacketId(clientId);
+            int packetId = 0;
+            if (fQos == MqttQoS.AT_LEAST_ONCE || fQos == MqttQoS.EXACTLY_ONCE) {
+                packetId = this.redis.getNextPacketId(clientId);
+            }
             Publish p = new Publish(msg.getPayload().getTopicName(), packetId, msg.getPayload().getPayload());
             InternalMessage<Publish> m = new InternalMessage<>(MqttMessageType.PUBLISH, false, fQos, false,
                     MqttVersion.MQTT_3_1_1, false, clientId, null, null, p);
