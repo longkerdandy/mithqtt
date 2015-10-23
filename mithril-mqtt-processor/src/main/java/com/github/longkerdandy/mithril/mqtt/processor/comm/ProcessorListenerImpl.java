@@ -107,7 +107,7 @@ public class ProcessorListenerImpl implements ProcessorListener {
             // previously retained for that topic. It SHOULD store the new QoS 0 message as the new retained
             // message for that topic, but MAY choose to discard it at any time - if this happens there will be no retained
             // message for that topic.
-            if (msg.getQos() == MqttQoS.AT_MOST_ONCE) {
+            if (msg.getQos() == MqttQoS.AT_MOST_ONCE || msg.getPayload().getPayload() == null || msg.getPayload().getPayload().length == 0) {
                 logger.trace("Clear retain: Clear retain messages for topic {} by client {}", msg.getPayload().getTopicName(), msg.getClientId());
                 this.redis.removeAllRetainMessage(topicLevels);
             }
