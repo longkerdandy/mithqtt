@@ -30,7 +30,7 @@ public class KafkaBrokerWorker implements Runnable {
         for (MessageAndMetadata<String, InternalMessage> m : this.stream) {
             InternalMessage msg = m.message();
             if (msg != null) {
-                logger.debug("Communicator received: Received {} message from for client {}", msg.getMessageType(), msg.getBrokerId(), msg.getClientId());
+                logger.debug("Communicator received: Received {} message for client {}", msg.getMessageType(), msg.getClientId());
                 switch (msg.getMessageType()) {
                     case PUBLISH:
                         this.listener.onPublish((InternalMessage<Publish>) msg);
