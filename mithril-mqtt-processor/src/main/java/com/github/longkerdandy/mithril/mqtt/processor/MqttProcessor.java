@@ -28,7 +28,6 @@ public class MqttProcessor {
         }
 
         // storage
-        // storage
         RedisSyncStorage redis = (RedisSyncStorage) Class.forName(redisConfig.getString("storage.sync.class")).newInstance();
         redis.init(RedisURI.create(redisConfig.getString("redis.uri")));
 
