@@ -98,11 +98,6 @@ public class SessionRegistry {
         future.addListener(new GenericFutureListener<ChannelFuture>() {
             @Override
             public void operationComplete(ChannelFuture future) throws Exception {
-                // decrease the reference count
-                if (msg.fixedHeader().messageType() == MqttMessageType.PUBLISH) {
-                    ((MqttPublishMessage) msg).payload().release();
-                }
-
                 if (future.isSuccess()) {
                     logger.debug("Message succeed: Message {} {} has been sent to client {} successfully", msg.fixedHeader().messageType(), pid, clientId);
                 } else {
