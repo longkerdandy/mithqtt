@@ -3,8 +3,6 @@ package com.github.longkerdandy.mithril.mqtt.broker.session;
 import io.netty.channel.ChannelFuture;
 import io.netty.channel.ChannelHandlerContext;
 import io.netty.handler.codec.mqtt.MqttMessage;
-import io.netty.handler.codec.mqtt.MqttMessageType;
-import io.netty.handler.codec.mqtt.MqttPublishMessage;
 import io.netty.util.concurrent.GenericFutureListener;
 import org.apache.commons.lang3.exception.ExceptionUtils;
 import org.slf4j.Logger;

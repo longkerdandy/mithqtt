@@ -193,13 +193,18 @@ public class AsyncRedisHandler extends SimpleChannelInboundHandler<MqttMessage> 
         // If the Password Flag is set to 0, a password MUST NOT be present in the payload
         // If the Password Flag is set to 1, a password MUST be present in the payload
         // If the User Name Flag is set to 0, the Password Flag MUST be set to 0
+        // Validate User Name based on configuration
+        // Validate Password based on configuration
         if (userNameFlag) {
-            if (StringUtils.isBlank(this.userName)) malformed = true;
-            if (passwordFlag && StringUtils.isBlank(password)) malformed = true;
-            if (!passwordFlag && StringUtils.isNotBlank(password)) malformed = true;
+            if (StringUtils.isBlank(this.userName) || !this.validator.isUserNameValid(this.userName))
+                malformed = true;
         } else {
-            if (StringUtils.isNotBlank(this.userName)) malformed = true;
-            if (passwordFlag || StringUtils.isNotBlank(password)) malformed = true;
+            if (StringUtils.isNotBlank(this.userName) || passwordFlag) malformed = true;
+        }
+        if (passwordFlag) {
+            if (StringUtils.isBlank(password) || !this.validator.isPasswordValid(password)) malformed = true;
+        } else {
+            if (StringUtils.isNotBlank(password)) malformed = true;
         }
         if (malformed) {
             logger.debug("Protocol violation: Bad user name or password from client {}, send CONNACK and disconnect the client", this.clientId);
@@ -320,6 +325,7 @@ public class AsyncRedisHandler extends SimpleChannelInboundHandler<MqttMessage> 
         int packetId = msg.variableHeader().packetId();
 
         // The Topic Name in the PUBLISH Packet MUST NOT contain wildcard characters
+        // Validate Topic Name based on configuration
         if (!this.validator.isTopicNameValid(topicName)) {
             logger.debug("Protocol violation: Client {} sent PUBLISH message contains invalid topic name {}, disconnect the client", this.clientId, topicName);
             ctx.close();
@@ -501,6 +507,13 @@ public class AsyncRedisHandler extends SimpleChannelInboundHandler<MqttMessage> 
         int packetId = msg.variableHeader().packetId();
         List<MqttTopicSubscription> requestSubscriptions = msg.payload().subscriptions();
 
+        // Validate Topic Filter based on configuration
+        requestSubscriptions.forEach(subscription -> {
+            if (!this.validator.isTopicFilterValid(subscription.topic())) {
+                throw new IllegalArgumentException(subscription.topic() + " is not a valid topic filter");
+            }
+        });
+
         logger.debug("Message received: Received SUBSCRIBE message from client {} user {}", this.clientId, this.userName);
 
         // Authorize client subscribe using provided Authenticator
@@ -536,6 +549,13 @@ public class AsyncRedisHandler extends SimpleChannelInboundHandler<MqttMessage> 
             ctx.close();
             return;
         }
+
+        // Validate Topic Filter based on configuration
+        msg.payload().topics().forEach(topic -> {
+            if (!this.validator.isTopicFilterValid(topic)) {
+                throw new IllegalArgumentException(topic + " is not a valid topic filter");
+            }
+        });
 
         logger.debug("Message received: Received UNSUBSCRIBE message from client {} user {} topics {}", this.clientId, this.userName, ArrayUtils.toString(msg.payload().topics()));
 

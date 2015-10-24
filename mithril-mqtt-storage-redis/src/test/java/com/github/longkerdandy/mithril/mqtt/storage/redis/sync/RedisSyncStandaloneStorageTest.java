@@ -221,12 +221,12 @@ public class RedisSyncStandaloneStorageTest {
         redis.updateSubscription("client2", Topics.sanitizeTopicFilter("a/+"), MqttQoS.AT_LEAST_ONCE);
         redis.updateSubscription("client2", Topics.sanitizeTopicName("a/c/e"), MqttQoS.EXACTLY_ONCE);
 
-        assert redis.getClientSubscriptions("client1").get("a/+/e/^") == MqttQoS.AT_MOST_ONCE;
-        assert redis.getClientSubscriptions("client1").get("a/+/^") == MqttQoS.AT_LEAST_ONCE;
-        assert redis.getClientSubscriptions("client1").get("a/c/e/^") == MqttQoS.EXACTLY_ONCE;
-        assert redis.getClientSubscriptions("client2").get("a/#/^") == MqttQoS.AT_MOST_ONCE;
-        assert redis.getClientSubscriptions("client2").get("a/+/^") == MqttQoS.AT_LEAST_ONCE;
-        assert redis.getClientSubscriptions("client2").get("a/c/e/^") == MqttQoS.EXACTLY_ONCE;
+        assert redis.getClientSubscriptions("client1").get("a/+/e/" + Topics.END) == MqttQoS.AT_MOST_ONCE;
+        assert redis.getClientSubscriptions("client1").get("a/+/" + Topics.END) == MqttQoS.AT_LEAST_ONCE;
+        assert redis.getClientSubscriptions("client1").get("a/c/e/" + Topics.END) == MqttQoS.EXACTLY_ONCE;
+        assert redis.getClientSubscriptions("client2").get("a/#/" + Topics.END) == MqttQoS.AT_MOST_ONCE;
+        assert redis.getClientSubscriptions("client2").get("a/+/" + Topics.END) == MqttQoS.AT_LEAST_ONCE;
+        assert redis.getClientSubscriptions("client2").get("a/c/e/" + Topics.END) == MqttQoS.EXACTLY_ONCE;
 
         assert redis.getTopicSubscriptions(Topics.sanitizeTopicFilter("a/+/e")).get("client1") == MqttQoS.AT_MOST_ONCE;
         assert redis.getTopicSubscriptions(Topics.sanitizeTopicFilter("a/+")).get("client1") == MqttQoS.AT_LEAST_ONCE;
@@ -238,7 +238,7 @@ public class RedisSyncStandaloneStorageTest {
         redis.removeSubscription("client1", Topics.sanitizeTopicFilter("a/+"));
 
         assert !redis.getTopicSubscriptions(Topics.sanitizeTopicFilter("a/+")).containsKey("client1");
-        assert !redis.getClientSubscriptions("client1").containsKey("a/+/^");
+        assert !redis.getClientSubscriptions("client1").containsKey("a/+/" + Topics.END);
     }
 
     @Test

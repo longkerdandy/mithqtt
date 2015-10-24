@@ -12,9 +12,9 @@ import java.util.List;
 public class Topics {
 
     // Present an empty level in the wildcard topic filter
-    public static final String EMPTY = "~";
+    public static final String EMPTY = "Ø";
     // Present the end of the wildcard topic filter
-    public static final String END = "^";
+    public static final String END = "†";
 
     private Topics() {
     }
