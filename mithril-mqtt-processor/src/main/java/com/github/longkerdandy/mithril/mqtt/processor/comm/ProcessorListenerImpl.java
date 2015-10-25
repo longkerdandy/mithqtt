@@ -84,14 +84,11 @@ public class ProcessorListenerImpl implements ProcessorListener {
             }
         }
 
-        // If the Will Flag is set to 1 this indicates that, if the Connect request is accepted, a Will Message MUST be
-        // stored on the Server and associated with the Network Connection. The Will Message MUST be published
-        // when the Network Connection is subsequently closed unless the Will Message has been deleted by the
-        // Server on receipt of a DISCONNECT Packet.
-        // TODO: Deal with Will Message after Netty fixed the field type
-
         // last, mark client's session as existed
         this.redis.updateSessionExist(msg.getClientId(), msg.isCleanSession());
+
+        // finally pass message to bridge
+        this.communicator.sendToBridge(msg);
     }
 
     @Override
@@ -147,6 +144,9 @@ public class ProcessorListenerImpl implements ProcessorListener {
                 onwardRecipients(msg);
             }
         }
+
+        // finally pass message to bridge
+        this.communicator.sendToBridge(msg);
     }
 
     /**
@@ -269,6 +269,9 @@ public class ProcessorListenerImpl implements ProcessorListener {
                 }
             }
         });
+
+        // finally pass message to bridge
+        this.communicator.sendToBridge(msg);
     }
 
     @Override
@@ -286,12 +289,18 @@ public class ProcessorListenerImpl implements ProcessorListener {
             logger.trace("Remove subscription: Remove client {} subscription with topic {}", msg.getClientId(), topic);
             this.redis.removeSubscription(msg.getClientId(), Topics.sanitize(topic));
         });
+
+        // finally pass message to bridge
+        this.communicator.sendToBridge(msg);
     }
 
     @Override
     public void onDisconnect(InternalMessage<Disconnect> msg) {
         // Test if client already reconnected to another broker
-        if (msg.getBrokerId().equals(this.redis.getConnectedNode(msg.getClientId()))) {
+        if (this.redis.removeConnectedNode(msg.getClientId(), msg.getBrokerId())) {
+
+            // Remove connected node
+            logger.trace("Remove node: Mark client {} disconnected from broker {}", msg.getClientId(), msg.getBrokerId());
 
             // If CleanSession is set to 1, the Client and Server MUST discard any previous Session and start a new
             // one. This Session lasts as long as the Network Connection. State data associated with this Session
@@ -302,20 +311,8 @@ public class ProcessorListenerImpl implements ProcessorListener {
                 this.redis.removeAllSessionState(msg.getClientId());
             }
 
-            // Remove connected node
-            logger.trace("Remove node: Mark client {} disconnected from broker {}", msg.getClientId(), msg.getBrokerId());
-            this.redis.removeConnectedNode(msg.getClientId(), msg.getBrokerId());
+            // finally pass message to bridge
+            this.communicator.sendToBridge(msg);
         }
-
-        // If the Will Flag is set to 1 this indicates that, if the Connect request is accepted, a Will Message MUST be
-        // stored on the Server and associated with the Network Connection. The Will Message MUST be published
-        // when the Network Connection is subsequently closed unless the Will Message has been deleted by the
-        // Server on receipt of a DISCONNECT Packet.
-        // Situations in which the Will Message is published include, but are not limited to:
-        // An I/O error or network failure detected by the Server.
-        // The Client fails to communicate within the Keep Alive time.
-        // The Client closes the Network Connection without first sending a DISCONNECT Packet.
-        // The Server closes the Network Connection because of a protocol error.
-        // TODO: Deal with Will Message after Netty fixed the field type
     }
 }

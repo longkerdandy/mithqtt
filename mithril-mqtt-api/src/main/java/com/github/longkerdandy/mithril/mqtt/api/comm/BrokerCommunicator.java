@@ -5,7 +5,7 @@ import org.apache.commons.configuration.PropertiesConfiguration;
 
 /**
  * Broker Communicator
- * Communicate between processors and brokers
+ * Link broker to other modules
  */
 @SuppressWarnings("unused")
 public interface BrokerCommunicator {

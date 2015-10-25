@@ -4,6 +4,7 @@ import com.github.longkerdandy.mithril.mqtt.api.auth.Authenticator;
 import com.github.longkerdandy.mithril.mqtt.api.auth.AuthorizeResult;
 import com.github.longkerdandy.mithril.mqtt.api.comm.BrokerCommunicator;
 import com.github.longkerdandy.mithril.mqtt.api.internal.InternalMessage;
+import com.github.longkerdandy.mithril.mqtt.api.internal.Publish;
 import com.github.longkerdandy.mithril.mqtt.broker.session.SessionRegistry;
 import com.github.longkerdandy.mithril.mqtt.broker.util.Validator;
 import com.github.longkerdandy.mithril.mqtt.storage.redis.async.RedisAsyncStorage;
@@ -43,7 +44,7 @@ public class AsyncRedisHandler extends SimpleChannelInboundHandler<MqttMessage> 
     protected boolean connected;
     protected boolean cleanSession;
     protected int keepAlive;
-    protected MqttPublishMessage willMessage;
+    protected InternalMessage<Publish> willMessage;
 
     public AsyncRedisHandler(Authenticator authenticator, BrokerCommunicator communicator, RedisAsyncStorage redis, SessionRegistry registry, PropertiesConfiguration config, Validator validator) {
         this.authenticator = authenticator;
@@ -264,11 +265,6 @@ public class AsyncRedisHandler extends SimpleChannelInboundHandler<MqttMessage> 
                     // stored on the Server and associated with the Network Connection. The Will Message MUST be published
                     // when the Network Connection is subsequently closed unless the Will Message has been deleted by the
                     // Server on receipt of a DISCONNECT Packet.
-                    // Situations in which the Will Message is published include, but are not limited to:
-                    // An I/O error or network failure detected by the Server.
-                    // The Client fails to communicate within the Keep Alive time.
-                    // The Client closes the Network Connection without first sending a DISCONNECT Packet.
-                    // The Server closes the Network Connection because of a protocol error.
                     // TODO: Deal with Will Message after Netty fixed the field type
 
                     // If the Keep Alive value is non-zero and the Server does not receive a Control Packet from the Client
@@ -648,6 +644,17 @@ public class AsyncRedisHandler extends SimpleChannelInboundHandler<MqttMessage> 
                 logger.trace("Communicator sending: Send DISCONNECT message to processor for client {} user {} which connection is lost", this.clientId, this.userName);
                 this.communicator.sendToProcessor(InternalMessage.fromMqttMessage(this.version, this.cleanSession, this.clientId, this.userName, this.brokerId, false));
             }
+
+            // If the Will Flag is set to 1 this indicates that, if the Connect request is accepted, a Will Message MUST be
+            // stored on the Server and associated with the Network Connection. The Will Message MUST be published
+            // when the Network Connection is subsequently closed unless the Will Message has been deleted by the
+            // Server on receipt of a DISCONNECT Packet.
+            // Situations in which the Will Message is published include, but are not limited to:
+            // An I/O error or network failure detected by the Server.
+            // The Client fails to communicate within the Keep Alive time.
+            // The Client closes the Network Connection without first sending a DISCONNECT Packet.
+            // The Server closes the Network Connection because of a protocol error.
+            // TODO: Deal with Will Message after Netty fixed the field type
         }
     }
 
