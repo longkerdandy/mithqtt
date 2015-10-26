@@ -35,7 +35,7 @@ public interface ProcessorCommunicator {
      * Send internal message to bridge
      * 3rd party program can handle the message from there
      *
-     * @param message  Internal Message
+     * @param message Internal Message
      */
     void sendToBridge(InternalMessage message);
 

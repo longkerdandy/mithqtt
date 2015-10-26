@@ -6,21 +6,31 @@ package com.github.longkerdandy.mithril.mqtt.api.internal;
 @SuppressWarnings("unused")
 public class Disconnect {
 
-    // clean exit means client sent DISCONNECT before closing the connection
-    private boolean clean;
+    private boolean cleanSession;
+    // cleanExit exit means client sent DISCONNECT before closing the connection
+    private boolean cleanExit;
 
     protected Disconnect() {
     }
 
-    public Disconnect(boolean clean) {
-        this.clean = clean;
+    public Disconnect(boolean cleanSession, boolean cleanExit) {
+        this.cleanSession = cleanSession;
+        this.cleanExit = cleanExit;
     }
 
-    public boolean isClean() {
-        return clean;
+    public boolean isCleanSession() {
+        return cleanSession;
     }
 
-    public void setClean(boolean clean) {
-        this.clean = clean;
+    public void setCleanSession(boolean cleanSession) {
+        this.cleanSession = cleanSession;
+    }
+
+    public boolean isCleanExit() {
+        return cleanExit;
+    }
+
+    public void setCleanExit(boolean cleanExit) {
+        this.cleanExit = cleanExit;
     }
 }

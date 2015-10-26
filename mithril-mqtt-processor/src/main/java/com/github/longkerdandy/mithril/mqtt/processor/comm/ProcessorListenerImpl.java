@@ -43,7 +43,7 @@ public class ProcessorListenerImpl implements ProcessorListener {
         if (StringUtils.isNotBlank(previous) && !previous.equals(msg.getBrokerId())) {
             logger.trace("Communicator sending: Send DISCONNECT message to broker {} to drop the existing client {}", msg.getBrokerId(), msg.getClientId());
             InternalMessage<Disconnect> m = new InternalMessage<>(MqttMessageType.DISCONNECT, false, MqttQoS.AT_MOST_ONCE, false,
-                    MqttVersion.MQTT_3_1_1, false, msg.getClientId(), null, null, new Disconnect(false));
+                    MqttVersion.MQTT_3_1_1, msg.getClientId(), null, null, new Disconnect(false, false));
             this.communicator.sendToBroker(previous, m);
         }
 
@@ -62,7 +62,7 @@ public class ProcessorListenerImpl implements ProcessorListener {
         // QoS 2 messages which have been received from the Client, but have not been completely acknowledged.
         // Optionally, QoS 0 messages pending transmission to the Client.
         int sessionExist = this.redis.getSessionExist(msg.getClientId());
-        if (!msg.isCleanSession()) {
+        if (!msg.getPayload().isCleanSession()) {
             if (sessionExist == 0) {
                 logger.trace("Communicator sending: Resend In-Flight messages to broker {} for client {}", msg.getBrokerId(), msg.getClientId());
                 for (InternalMessage inFlight : this.redis.getAllInFlightMessages(msg.getClientId())) {
@@ -85,7 +85,7 @@ public class ProcessorListenerImpl implements ProcessorListener {
         }
 
         // last, mark client's session as existed
-        this.redis.updateSessionExist(msg.getClientId(), msg.isCleanSession());
+        this.redis.updateSessionExist(msg.getClientId(), msg.getPayload().isCleanSession());
 
         // finally pass message to bridge
         this.communicator.sendToBridge(msg);
@@ -191,7 +191,7 @@ public class ProcessorListenerImpl implements ProcessorListener {
             }
             Publish p = new Publish(msg.getPayload().getTopicName(), packetId, msg.getPayload().getPayload());
             InternalMessage<Publish> m = new InternalMessage<>(MqttMessageType.PUBLISH, false, fQos, false,
-                    MqttVersion.MQTT_3_1_1, false, clientId, null, null, p);
+                    MqttVersion.MQTT_3_1_1, clientId, null, null, p);
 
             // Forward to recipient
             String brokerId = this.redis.getConnectedNode(clientId);
@@ -306,7 +306,7 @@ public class ProcessorListenerImpl implements ProcessorListener {
             // one. This Session lasts as long as the Network Connection. State data associated with this Session
             // MUST NOT be reused in any subsequent Session.
             // When CleanSession is set to 1 the Client and Server need not process the deletion of state atomically.
-            if (msg.isCleanSession()) {
+            if (msg.getPayload().isCleanSession()) {
                 logger.trace("Clear session: Clear session state for client {} because current connection is clean session", msg.getClientId());
                 this.redis.removeAllSessionState(msg.getClientId());
             }

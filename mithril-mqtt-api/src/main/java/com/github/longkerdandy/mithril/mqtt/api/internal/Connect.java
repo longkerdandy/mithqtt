@@ -8,6 +8,7 @@ import io.netty.handler.codec.mqtt.MqttQoS;
 @SuppressWarnings("unused")
 public class Connect {
 
+    private boolean cleanSession;
     private boolean willRetain;
     private MqttQoS willQos;
     private String willTopic;
@@ -16,11 +17,20 @@ public class Connect {
     protected Connect() {
     }
 
-    public Connect(boolean willRetain, MqttQoS willQos, String willTopic, byte[] willMessage) {
+    public Connect(boolean cleanSession, boolean willRetain, MqttQoS willQos, String willTopic, byte[] willMessage) {
+        this.cleanSession = cleanSession;
         this.willRetain = willRetain;
         this.willQos = willQos;
         this.willTopic = willTopic;
         this.willMessage = willMessage;
+    }
+
+    public boolean isCleanSession() {
+        return cleanSession;
+    }
+
+    public void setCleanSession(boolean cleanSession) {
+        this.cleanSession = cleanSession;
     }
 
     public boolean isWillRetain() {

@@ -25,7 +25,7 @@ public class InternalMessageCodecTest {
         grantedQosLevels.add(MqttSubAckReturnCode.SUCCESS_MAX_QOS1);
         SubAck subAck = new SubAck(10000, grantedQosLevels);
         InternalMessage<SubAck> msg = new InternalMessage<>(MqttMessageType.SUBACK, false, MqttQoS.AT_LEAST_ONCE, false,
-                MqttVersion.MQTT_3_1_1, false, "Client_A", "User_A", "Broker_A", subAck);
+                MqttVersion.MQTT_3_1_1, "Client_A", "User_A", "Broker_A", subAck);
 
         InternalMessageDecoder decoder = new InternalMessageDecoder();
         InternalMessageEncoder encoder = new InternalMessageEncoder();
@@ -41,7 +41,6 @@ public class InternalMessageCodecTest {
         assert msg.getQos() == MqttQoS.AT_LEAST_ONCE;
         assert !msg.isRetain();
         assert msg.getVersion() == MqttVersion.MQTT_3_1_1;
-        assert !msg.isCleanSession();
         assert msg.getClientId().equals("Client_A");
         assert msg.getUserName().equals("User_A");
         assert msg.getBrokerId().equals("Broker_A");
