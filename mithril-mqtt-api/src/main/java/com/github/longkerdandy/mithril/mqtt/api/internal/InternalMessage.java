@@ -64,8 +64,7 @@ public class InternalMessage<T> {
                                                            String brokerId,
                                                            MqttConnectMessage mqtt) {
         InternalMessage<Connect> msg = fromMqttMessage(version, clientId, userName, brokerId, mqtt.fixedHeader());
-        // TODO: Deal with Will Message after Netty fixed the field type
-        msg.payload = new Connect(mqtt.variableHeader().cleanSession(), mqtt.variableHeader().willRetain(), mqtt.variableHeader().willQos(), mqtt.payload().willTopic(), null);
+        msg.payload = new Connect(mqtt.variableHeader().cleanSession(), mqtt.variableHeader().willRetain(), mqtt.variableHeader().willQos(), mqtt.payload().willTopic(), mqtt.payload().willMessage().getBytes());
         return msg;
     }
 
@@ -221,8 +220,7 @@ public class InternalMessage<T> {
                 boolean willFlag = connect.getWillMessage() != null && connect.getWillMessage().length > 0;
                 return MqttMessageFactory.newMessage(fixedHeader,
                         new MqttConnectVariableHeader(version.protocolName(), version.protocolLevel(), userNameFlag, false, connect.isWillRetain(), connect.getWillQos(), willFlag, connect.isCleanSession(), 0),
-                        // TODO: Deal with Will Message after Netty fixed the field type
-                        new MqttConnectPayload(clientId, connect.getWillTopic(), null, userName, null));
+                        new MqttConnectPayload(clientId, connect.getWillTopic(), new String(connect.getWillMessage()), userName, null));
             case CONNACK:
                 ConnAck connAck = (ConnAck) payload;
                 return MqttMessageFactory.newMessage(fixedHeader,

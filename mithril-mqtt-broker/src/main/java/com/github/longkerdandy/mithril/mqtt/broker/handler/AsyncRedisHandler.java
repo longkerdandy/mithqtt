@@ -265,7 +265,17 @@ public class AsyncRedisHandler extends SimpleChannelInboundHandler<MqttMessage> 
                     // stored on the Server and associated with the Network Connection. The Will Message MUST be published
                     // when the Network Connection is subsequently closed unless the Will Message has been deleted by the
                     // Server on receipt of a DISCONNECT Packet.
-                    // TODO: Deal with Will Message after Netty fixed the field type
+                    String willTopic = msg.payload().willTopic();
+                    String willMessage = msg.payload().willMessage();
+                    if (msg.variableHeader().willFlag()
+                            && StringUtils.isNoneEmpty(willTopic) && this.validator.isTopicNameValid(willTopic)
+                            && StringUtils.isNotEmpty(willMessage)) {
+                        Publish p = new Publish(willTopic, 0, willMessage.getBytes());
+                        this.willMessage = new InternalMessage<>(
+                                MqttMessageType.PUBLISH, false, msg.variableHeader().willQos(), msg.variableHeader().willRetain(),
+                                this.version, this.clientId, this.userName, this.brokerId,
+                                p);
+                    }
 
                     // If the Keep Alive value is non-zero and the Server does not receive a Control Packet from the Client
                     // within one and a half times the Keep Alive time period, it MUST disconnect the Network Connection to the
@@ -654,7 +664,20 @@ public class AsyncRedisHandler extends SimpleChannelInboundHandler<MqttMessage> 
             // The Client fails to communicate within the Keep Alive time.
             // The Client closes the Network Connection without first sending a DISCONNECT Packet.
             // The Server closes the Network Connection because of a protocol error.
-            // TODO: Deal with Will Message after Netty fixed the field type
+
+            // Authorize client publish using provided Authenticator
+            this.authenticator.authPublishAsync(this.clientId, this.userName, this.willMessage.getPayload().getTopicName(), this.willMessage.getQos().value(), this.willMessage.isRetain()).thenAccept(result -> {
+
+                        // Authorize successful
+                        if (result == AuthorizeResult.OK) {
+                            logger.trace("Authorization succeed: WILL message to topic {} authorized for client {}", this.willMessage.getPayload().getTopicName(), this.clientId);
+
+                            // Pass message to processor
+                            logger.trace("Communicator sending: Re-direct WILL message to processor for client {} user {}", this.clientId, this.userName);
+                            this.communicator.sendToProcessor(this.willMessage);
+                        }
+                    }
+            );
         }
     }
 
