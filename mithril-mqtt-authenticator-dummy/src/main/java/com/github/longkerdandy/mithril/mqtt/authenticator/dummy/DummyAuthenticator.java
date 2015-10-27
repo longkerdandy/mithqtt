@@ -2,7 +2,7 @@ package com.github.longkerdandy.mithril.mqtt.authenticator.dummy;
 
 import com.github.longkerdandy.mithril.mqtt.api.auth.Authenticator;
 import com.github.longkerdandy.mithril.mqtt.api.auth.AuthorizeResult;
-import io.netty.handler.codec.mqtt.MqttSubAckReturnCode;
+import io.netty.handler.codec.mqtt.MqttGrantedQoS;
 import io.netty.handler.codec.mqtt.MqttTopicSubscription;
 import org.apache.commons.configuration.PropertiesConfiguration;
 
@@ -35,10 +35,10 @@ public class DummyAuthenticator implements Authenticator {
     }
 
     @Override
-    public CompletableFuture<List<MqttSubAckReturnCode>> authSubscribeAsync(String clientId, String userName, List<MqttTopicSubscription> requestSubscriptions) {
-        List<MqttSubAckReturnCode> r = new ArrayList<>();
+    public CompletableFuture<List<MqttGrantedQoS>> authSubscribeAsync(String clientId, String userName, List<MqttTopicSubscription> requestSubscriptions) {
+        List<MqttGrantedQoS> r = new ArrayList<>();
         requestSubscriptions.forEach(subscription ->
-                r.add(MqttSubAckReturnCode.valueOf(subscription.requestedQos().value())));
+                r.add(MqttGrantedQoS.valueOf(subscription.requestedQos().value())));
         return CompletableFuture.completedFuture(r);
     }
 }

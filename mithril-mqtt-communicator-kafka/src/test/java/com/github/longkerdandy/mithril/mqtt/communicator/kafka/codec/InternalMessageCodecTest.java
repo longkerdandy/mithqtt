@@ -4,7 +4,7 @@ import com.github.longkerdandy.mithril.mqtt.api.internal.InternalMessage;
 import com.github.longkerdandy.mithril.mqtt.api.internal.SubAck;
 import io.netty.handler.codec.mqtt.MqttMessageType;
 import io.netty.handler.codec.mqtt.MqttQoS;
-import io.netty.handler.codec.mqtt.MqttSubAckReturnCode;
+import io.netty.handler.codec.mqtt.MqttGrantedQoS;
 import io.netty.handler.codec.mqtt.MqttVersion;
 import org.junit.Test;
 
@@ -19,10 +19,10 @@ public class InternalMessageCodecTest {
     @Test
     @SuppressWarnings("unchecked")
     public void subAckTest() {
-        List<MqttSubAckReturnCode> grantedQosLevels = new ArrayList<>();
-        grantedQosLevels.add(MqttSubAckReturnCode.SUCCESS_MAX_QOS2);
-        grantedQosLevels.add(MqttSubAckReturnCode.FAILURE);
-        grantedQosLevels.add(MqttSubAckReturnCode.SUCCESS_MAX_QOS1);
+        List<MqttGrantedQoS> grantedQosLevels = new ArrayList<>();
+        grantedQosLevels.add(MqttGrantedQoS.SUCCESS_MAX_QOS2);
+        grantedQosLevels.add(MqttGrantedQoS.FAILURE);
+        grantedQosLevels.add(MqttGrantedQoS.SUCCESS_MAX_QOS1);
         SubAck subAck = new SubAck(10000, grantedQosLevels);
         InternalMessage<SubAck> msg = new InternalMessage<>(MqttMessageType.SUBACK, false, MqttQoS.AT_LEAST_ONCE, false,
                 MqttVersion.MQTT_3_1_1, "Client_A", "User_A", "Broker_A", subAck);
@@ -46,8 +46,8 @@ public class InternalMessageCodecTest {
         assert msg.getBrokerId().equals("Broker_A");
         assert msg.getPayload().getPacketId() == 10000;
         assert msg.getPayload().getGrantedQoSLevels().size() == 3;
-        assert msg.getPayload().getGrantedQoSLevels().get(0) == MqttSubAckReturnCode.SUCCESS_MAX_QOS2;
-        assert msg.getPayload().getGrantedQoSLevels().get(1) == MqttSubAckReturnCode.FAILURE;
-        assert msg.getPayload().getGrantedQoSLevels().get(2) == MqttSubAckReturnCode.SUCCESS_MAX_QOS1;
+        assert msg.getPayload().getGrantedQoSLevels().get(0) == MqttGrantedQoS.SUCCESS_MAX_QOS2;
+        assert msg.getPayload().getGrantedQoSLevels().get(1) == MqttGrantedQoS.FAILURE;
+        assert msg.getPayload().getGrantedQoSLevels().get(2) == MqttGrantedQoS.SUCCESS_MAX_QOS1;
     }
 }

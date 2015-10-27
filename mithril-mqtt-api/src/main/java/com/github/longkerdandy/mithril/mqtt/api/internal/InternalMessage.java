@@ -79,7 +79,7 @@ public class InternalMessage<T> {
 
     public static InternalMessage<Subscribe> fromMqttMessage(MqttVersion version, String clientId, String userName,
                                                              String brokerId,
-                                                             MqttSubscribeMessage mqtt, List<MqttSubAckReturnCode> returnCodes) {
+                                                             MqttSubscribeMessage mqtt, List<MqttGrantedQoS> returnCodes) {
         InternalMessage<Subscribe> msg = fromMqttMessage(version, clientId, userName, brokerId, mqtt.fixedHeader());
         // forge topic subscriptions
         if (mqtt.payload().subscriptions().size() != returnCodes.size()) {

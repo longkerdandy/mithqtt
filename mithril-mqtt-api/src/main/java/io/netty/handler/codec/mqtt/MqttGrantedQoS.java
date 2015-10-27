@@ -19,7 +19,7 @@ package io.netty.handler.codec.mqtt;
 /**
  * Return Code of {@link io.netty.handler.codec.mqtt.MqttSubAckMessage}
  */
-public enum MqttSubAckReturnCode {
+public enum MqttGrantedQoS {
     SUCCESS_MAX_QOS0(0),
     SUCCESS_MAX_QOS1(1),
     SUCCESS_MAX_QOS2(2),
@@ -27,12 +27,12 @@ public enum MqttSubAckReturnCode {
 
     private final int value;
 
-    MqttSubAckReturnCode(int value) {
+    MqttGrantedQoS(int value) {
         this.value = value;
     }
 
-    public static MqttSubAckReturnCode valueOf(int value) {
-        for (MqttSubAckReturnCode r : values()) {
+    public static MqttGrantedQoS valueOf(int value) {
+        for (MqttGrantedQoS r : values()) {
             if (r.value == value) {
                 return r;
             }

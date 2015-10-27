@@ -28,23 +28,23 @@ import java.util.List;
  */
 public class MqttSubAckPayload {
 
-    private final List<MqttSubAckReturnCode> grantedQoSLevels;
+    private final List<MqttGrantedQoS> grantedQoSLevels;
 
-    public MqttSubAckPayload(MqttSubAckReturnCode... grantedQoSLevels) {
+    public MqttSubAckPayload(MqttGrantedQoS... grantedQoSLevels) {
         if (grantedQoSLevels == null) {
             throw new IllegalArgumentException("Empty grantedQoSLevels");
         }
-        List<MqttSubAckReturnCode> list = new ArrayList<>(grantedQoSLevels.length);
+        List<MqttGrantedQoS> list = new ArrayList<>(grantedQoSLevels.length);
         Collections.addAll(list, grantedQoSLevels);
         this.grantedQoSLevels = Collections.unmodifiableList(list);
     }
 
-    public MqttSubAckPayload(Iterable<MqttSubAckReturnCode> grantedQoSLevels) {
+    public MqttSubAckPayload(Iterable<MqttGrantedQoS> grantedQoSLevels) {
         if (grantedQoSLevels == null) {
             throw new IllegalArgumentException("Empty grantedQoSLevels");
         }
-        List<MqttSubAckReturnCode> list = new ArrayList<>();
-        for (MqttSubAckReturnCode v : grantedQoSLevels) {
+        List<MqttGrantedQoS> list = new ArrayList<>();
+        for (MqttGrantedQoS v : grantedQoSLevels) {
             if (v == null) {
                 continue;
             }
@@ -53,7 +53,7 @@ public class MqttSubAckPayload {
         this.grantedQoSLevels = Collections.unmodifiableList(list);
     }
 
-    public List<MqttSubAckReturnCode> grantedQoSLevels() {
+    public List<MqttGrantedQoS> grantedQoSLevels() {
         return grantedQoSLevels;
     }
 

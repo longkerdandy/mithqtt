@@ -1,6 +1,6 @@
 package com.github.longkerdandy.mithril.mqtt.api.auth;
 
-import io.netty.handler.codec.mqtt.MqttSubAckReturnCode;
+import io.netty.handler.codec.mqtt.MqttGrantedQoS;
 import io.netty.handler.codec.mqtt.MqttTopicSubscription;
 import org.apache.commons.configuration.PropertiesConfiguration;
 
@@ -55,5 +55,5 @@ public interface Authenticator {
      * @param requestSubscriptions List of request Topic Subscription
      * @return List of granted QoS
      */
-    CompletableFuture<List<MqttSubAckReturnCode>> authSubscribeAsync(String clientId, String userName, List<MqttTopicSubscription> requestSubscriptions);
+    CompletableFuture<List<MqttGrantedQoS>> authSubscribeAsync(String clientId, String userName, List<MqttTopicSubscription> requestSubscriptions);
 }

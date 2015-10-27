@@ -1,6 +1,6 @@
 package com.github.longkerdandy.mithril.mqtt.api.internal;
 
-import io.netty.handler.codec.mqtt.MqttSubAckReturnCode;
+import io.netty.handler.codec.mqtt.MqttGrantedQoS;
 
 /**
  * Contains a topic name and granted Qos Level.
@@ -10,12 +10,12 @@ import io.netty.handler.codec.mqtt.MqttSubAckReturnCode;
 public class TopicSubscription {
 
     private String topic;
-    private MqttSubAckReturnCode grantedQos;
+    private MqttGrantedQoS grantedQos;
 
     protected TopicSubscription() {
     }
 
-    public TopicSubscription(String topic, MqttSubAckReturnCode grantedQos) {
+    public TopicSubscription(String topic, MqttGrantedQoS grantedQos) {
         this.topic = topic;
         this.grantedQos = grantedQos;
     }
@@ -28,11 +28,11 @@ public class TopicSubscription {
         this.topic = topic;
     }
 
-    public MqttSubAckReturnCode getGrantedQos() {
+    public MqttGrantedQoS getGrantedQos() {
         return grantedQos;
     }
 
-    public void setGrantedQos(MqttSubAckReturnCode grantedQos) {
+    public void setGrantedQos(MqttGrantedQoS grantedQos) {
         this.grantedQos = grantedQos;
     }
 }

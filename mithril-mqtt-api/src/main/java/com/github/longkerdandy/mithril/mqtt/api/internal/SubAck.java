@@ -1,6 +1,6 @@
 package com.github.longkerdandy.mithril.mqtt.api.internal;
 
-import io.netty.handler.codec.mqtt.MqttSubAckReturnCode;
+import io.netty.handler.codec.mqtt.MqttGrantedQoS;
 
 import java.util.List;
 
@@ -11,12 +11,12 @@ import java.util.List;
 public class SubAck {
 
     private int packetId;
-    private List<MqttSubAckReturnCode> grantedQoSLevels;
+    private List<MqttGrantedQoS> grantedQoSLevels;
 
     protected SubAck() {
     }
 
-    public SubAck(int packetId, List<MqttSubAckReturnCode> grantedQoSLevels) {
+    public SubAck(int packetId, List<MqttGrantedQoS> grantedQoSLevels) {
         this.packetId = packetId;
         this.grantedQoSLevels = grantedQoSLevels;
     }
@@ -29,11 +29,11 @@ public class SubAck {
         this.packetId = packetId;
     }
 
-    public List<MqttSubAckReturnCode> getGrantedQoSLevels() {
+    public List<MqttGrantedQoS> getGrantedQoSLevels() {
         return grantedQoSLevels;
     }
 
-    public void setGrantedQoSLevels(List<MqttSubAckReturnCode> grantedQoSLevels) {
+    public void setGrantedQoSLevels(List<MqttGrantedQoS> grantedQoSLevels) {
         this.grantedQoSLevels = grantedQoSLevels;
     }
 }

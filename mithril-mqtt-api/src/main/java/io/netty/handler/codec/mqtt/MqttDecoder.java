@@ -275,12 +275,12 @@ public class MqttDecoder extends ReplayingDecoder<DecoderState> {
     private static Result<MqttSubAckPayload> decodeSubAckPayload(
             ByteBuf buffer,
             int bytesRemainingInVariablePart) {
-        final List<MqttSubAckReturnCode> grantedQos = new ArrayList<>();
+        final List<MqttGrantedQoS> grantedQos = new ArrayList<>();
         int numberOfBytesConsumed = 0;
         while (numberOfBytesConsumed < bytesRemainingInVariablePart) {
             int qos = buffer.readUnsignedByte() & 0x03;
             numberOfBytesConsumed++;
-            grantedQos.add(MqttSubAckReturnCode.valueOf(qos));
+            grantedQos.add(MqttGrantedQoS.valueOf(qos));
         }
         return new Result<>(new MqttSubAckPayload(grantedQos), numberOfBytesConsumed);
     }

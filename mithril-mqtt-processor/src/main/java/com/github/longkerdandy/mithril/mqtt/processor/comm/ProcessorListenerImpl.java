@@ -7,7 +7,7 @@ import com.github.longkerdandy.mithril.mqtt.storage.redis.sync.RedisSyncStorage;
 import com.github.longkerdandy.mithril.mqtt.util.Topics;
 import io.netty.handler.codec.mqtt.MqttMessageType;
 import io.netty.handler.codec.mqtt.MqttQoS;
-import io.netty.handler.codec.mqtt.MqttSubAckReturnCode;
+import io.netty.handler.codec.mqtt.MqttGrantedQoS;
 import io.netty.handler.codec.mqtt.MqttVersion;
 import org.apache.commons.lang3.StringUtils;
 import org.slf4j.Logger;
@@ -219,7 +219,7 @@ public class ProcessorListenerImpl implements ProcessorListener {
     public void onSubscribe(InternalMessage<Subscribe> msg) {
         msg.getPayload().getSubscriptions().forEach(subscription -> {
             // Granted only
-            if (subscription.getGrantedQos() != MqttSubAckReturnCode.FAILURE) {
+            if (subscription.getGrantedQos() != MqttGrantedQoS.FAILURE) {
 
                 // Sanitize to topic levels
                 List<String> topicLevels = Topics.sanitize(subscription.getTopic());
