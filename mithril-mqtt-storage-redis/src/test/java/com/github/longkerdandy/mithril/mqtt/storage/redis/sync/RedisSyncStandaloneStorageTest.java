@@ -122,7 +122,7 @@ public class RedisSyncStandaloneStorageTest {
         JsonNode jn = ObjectMapper.readTree(json);
         InternalMessage<Publish> publish = new InternalMessage<>(
                 MqttMessageType.PUBLISH, false, MqttQoS.AT_LEAST_ONCE, false,
-                MqttVersion.MQTT_3_1_1, false, "client1", "user1", "broker1",
+                MqttVersion.MQTT_3_1_1, "client1", "user1", "broker1",
                 new Publish("menuTopic", 123456, ObjectMapper.writeValueAsBytes(jn)));
 
         redis.addInFlightMessage("client1", 123456, publish, false);
@@ -157,18 +157,18 @@ public class RedisSyncStandaloneStorageTest {
 
         InternalMessage<PacketId> pubrel = new InternalMessage<>(
                 MqttMessageType.PUBREL, false, MqttQoS.AT_LEAST_ONCE, false,
-                MqttVersion.MQTT_3_1_1, false, "client1", "user1", "broker1",
+                MqttVersion.MQTT_3_1_1, "client1", "user1", "broker1",
                 new PacketId(10000));
 
         redis.addInFlightMessage("client1", 10000, pubrel, false);
         pubrel = new InternalMessage<>(
                 MqttMessageType.PUBREL, false, MqttQoS.AT_LEAST_ONCE, false,
-                MqttVersion.MQTT_3_1_1, false, "client1", "user1", "broker1",
+                MqttVersion.MQTT_3_1_1, "client1", "user1", "broker1",
                 new PacketId(10001));
         redis.addInFlightMessage("client1", 10001, pubrel, false);
         pubrel = new InternalMessage<>(
                 MqttMessageType.PUBREL, false, MqttQoS.AT_LEAST_ONCE, false,
-                MqttVersion.MQTT_3_1_1, false, "client1", "user1", "broker1",
+                MqttVersion.MQTT_3_1_1, "client1", "user1", "broker1",
                 new PacketId(10002));
         redis.addInFlightMessage("client1", 10002, pubrel, false);
 
@@ -286,7 +286,7 @@ public class RedisSyncStandaloneStorageTest {
         JsonNode jn = ObjectMapper.readTree(json);
         InternalMessage<Publish> publish = new InternalMessage<>(
                 MqttMessageType.PUBLISH, false, MqttQoS.AT_LEAST_ONCE, false,
-                MqttVersion.MQTT_3_1_1, false, "client1", "user1", "broker1",
+                MqttVersion.MQTT_3_1_1, "client1", "user1", "broker1",
                 new Publish("menuTopic", 123456, ObjectMapper.writeValueAsBytes(jn)));
 
         redis.addRetainMessage(Topics.sanitize("a/b/c/d"), publish);
