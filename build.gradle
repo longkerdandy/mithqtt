@@ -33,7 +33,8 @@ subprojects {
         // junit
         testCompile 'junit:junit:4.12'
 
-        // mockito
+        // mock
         compile 'org.mockito:mockito-all:1.10.19'
+        compile 'org.easymock:easymock:3.4'
     }
 }
