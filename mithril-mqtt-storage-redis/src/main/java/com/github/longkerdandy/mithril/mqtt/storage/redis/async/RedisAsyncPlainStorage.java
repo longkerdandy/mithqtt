@@ -17,9 +17,10 @@ import static com.github.longkerdandy.mithril.mqtt.storage.redis.util.Converter.
 import static com.github.longkerdandy.mithril.mqtt.storage.redis.util.Converter.mapToArray;
 
 /**
- * Asynchronous Storage for Standalone Redis setup
+ * Asynchronous Storage for Plain Redis setup
+ * Single, Master Salve, Sentinel
  */
-public class RedisAsyncStandaloneStorage implements RedisAsyncStorage {
+public class RedisAsyncPlainStorage implements RedisAsyncStorage {
 
     // A scalable thread-safe Redis client. Multiple threads may share one connection if they avoid
     // blocking and transactional operations such as BLPOP and MULTI/EXEC.

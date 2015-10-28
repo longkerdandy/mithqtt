@@ -23,15 +23,15 @@ import java.util.Map;
 import static com.github.longkerdandy.mithril.mqtt.storage.redis.util.JSONs.ObjectMapper;
 
 /**
- * RedisSyncStandaloneStorage Test
+ * RedisSyncPlainStorage Test
  */
-public class RedisSyncStandaloneStorageTest {
+public class RedisSyncPlainStorageTest {
 
-    private static RedisSyncStandaloneStorage redis;
+    private static RedisSyncPlainStorage redis;
 
     @BeforeClass
     public static void init() {
-        redis = new RedisSyncStandaloneStorage();
+        redis = new RedisSyncPlainStorage();
         redis.init(RedisURI.create("redis://localhost"));
     }
 

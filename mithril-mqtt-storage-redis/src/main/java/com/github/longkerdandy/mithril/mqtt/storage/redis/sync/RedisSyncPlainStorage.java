@@ -21,9 +21,10 @@ import static com.github.longkerdandy.mithril.mqtt.storage.redis.util.Converter.
 import static com.github.longkerdandy.mithril.mqtt.util.Topics.END;
 
 /**
- * Synchronized Storage for Standalone Redis setup
+ * Synchronized Storage for Plain Redis setup
+ * Single, Master Salve, Sentinel
  */
-public class RedisSyncStandaloneStorage implements RedisSyncStorage {
+public class RedisSyncPlainStorage implements RedisSyncStorage {
 
     // A scalable thread-safe Redis client. Multiple threads may share one connection if they avoid
     // blocking and transactional operations such as BLPOP and MULTI/EXEC.
