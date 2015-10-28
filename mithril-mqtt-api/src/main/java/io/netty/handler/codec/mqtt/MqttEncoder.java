@@ -375,6 +375,7 @@ public class MqttEncoder extends MessageToMessageEncoder<MqttMessage> {
 
     @Override
     protected void encode(ChannelHandlerContext ctx, MqttMessage msg, List<Object> out) throws Exception {
+        Mqtts.sanitize(msg);    // sanitize message
         out.add(doEncode(ctx.alloc(), msg));
     }
 }

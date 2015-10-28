@@ -24,7 +24,7 @@ import io.netty.util.internal.StringUtil;
  */
 public final class MqttPacketIdVariableHeader {
 
-    private final int packetId;
+    protected int packetId;
 
     private MqttPacketIdVariableHeader(int packetId) {
         this.packetId = packetId;

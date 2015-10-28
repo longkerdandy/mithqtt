@@ -248,7 +248,9 @@ public class InternalMessage<T> {
             case PUBLISH:
                 Publish publish = (Publish) payload;
                 return MqttMessageFactory.newMessage(fixedHeader,
-                        new MqttPublishVariableHeader(publish.getTopicName(), publish.getPacketId()),
+                        (qos == MqttQoS.AT_MOST_ONCE) ?
+                                MqttPublishVariableHeader.from(publish.getTopicName()) :
+                                MqttPublishVariableHeader.from(publish.getTopicName(), publish.getPacketId()),
                         Unpooled.wrappedBuffer(publish.getPayload()));
             case UNSUBACK:
             case PUBACK:

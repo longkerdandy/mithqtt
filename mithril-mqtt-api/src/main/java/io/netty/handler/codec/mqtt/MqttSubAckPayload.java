@@ -28,7 +28,7 @@ import java.util.List;
  */
 public class MqttSubAckPayload {
 
-    private final List<MqttGrantedQoS> grantedQoSLevels;
+    protected List<MqttGrantedQoS> grantedQoSLevels;
 
     public MqttSubAckPayload(MqttGrantedQoS... grantedQoSLevels) {
         if (grantedQoSLevels == null) {

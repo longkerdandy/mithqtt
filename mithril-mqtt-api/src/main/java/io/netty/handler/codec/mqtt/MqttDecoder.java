@@ -177,8 +177,9 @@ public class MqttDecoder extends ReplayingDecoder<DecoderState> {
             packetId = decodedMessageId.value;
             numberOfBytesConsumed += decodedMessageId.numberOfBytesConsumed;
         }
-        final MqttPublishVariableHeader mqttPublishVariableHeader =
-                new MqttPublishVariableHeader(decodedTopic.value, packetId);
+        final MqttPublishVariableHeader mqttPublishVariableHeader = (mqttFixedHeader.qos().value() > 0) ?
+                MqttPublishVariableHeader.from(decodedTopic.value, packetId) :
+                MqttPublishVariableHeader.from(decodedTopic.value);
         return new Result<>(mqttPublishVariableHeader, numberOfBytesConsumed);
     }
 
@@ -397,6 +398,7 @@ public class MqttDecoder extends ReplayingDecoder<DecoderState> {
                     MqttMessage message = MqttMessageFactory.newMessage(mqttFixedHeader, variableHeader, payload);
                     mqttFixedHeader = null;
                     variableHeader = null;
+                    Mqtts.sanitize(message);    // sanitize message
                     out.add(message);
                     break;
                 } catch (Exception cause) {

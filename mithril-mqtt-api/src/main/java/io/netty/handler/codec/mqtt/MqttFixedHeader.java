@@ -24,11 +24,11 @@ import io.netty.util.internal.StringUtil;
  */
 public class MqttFixedHeader {
 
-    private final MqttMessageType messageType;
-    private final boolean dup;
-    private final MqttQoS qos;
-    private final boolean retain;
-    private final int remainingLength;
+    protected MqttMessageType messageType;
+    protected boolean dup;
+    protected MqttQoS qos;
+    protected boolean retain;
+    protected int remainingLength;
 
     public MqttFixedHeader(
             MqttMessageType messageType,

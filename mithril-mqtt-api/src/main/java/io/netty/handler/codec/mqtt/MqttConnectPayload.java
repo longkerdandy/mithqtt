@@ -23,11 +23,11 @@ import io.netty.util.internal.StringUtil;
  */
 public class MqttConnectPayload {
 
-    private final String clientId;
-    private final String willTopic;
-    private final String willMessage;
-    private final String userName;
-    private final String password;
+    protected String clientId;
+    protected String willTopic;
+    protected String willMessage;
+    protected String userName;
+    protected String password;
 
     public MqttConnectPayload(
             String clientId,

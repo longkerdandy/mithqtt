@@ -23,9 +23,8 @@ import io.netty.util.internal.StringUtil;
  */
 public class MqttConnAckVariableHeader {
 
-    private final MqttConnectReturnCode returnCode;
-
-    private final boolean sessionPresent;
+    protected MqttConnectReturnCode returnCode;
+    protected boolean sessionPresent;
 
     public MqttConnAckVariableHeader(MqttConnectReturnCode returnCode, boolean sessionPresent) {
         this.returnCode = returnCode;

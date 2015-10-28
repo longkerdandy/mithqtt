@@ -105,7 +105,7 @@ public class MqttCodecTest {
     private static MqttPublishMessage createPublishMessage() {
         MqttFixedHeader mqttFixedHeader =
                 new MqttFixedHeader(MqttMessageType.PUBLISH, false, MqttQoS.AT_LEAST_ONCE, true, 0);
-        MqttPublishVariableHeader mqttPublishVariableHeader = new MqttPublishVariableHeader("/abc", 1234);
+        MqttPublishVariableHeader mqttPublishVariableHeader = MqttPublishVariableHeader.from("/abc", 1234);
         ByteBuf payload = ALLOCATOR.buffer();
         payload.writeBytes("whatever".getBytes(CharsetUtil.UTF_8));
         return new MqttPublishMessage(mqttFixedHeader, mqttPublishVariableHeader, payload);

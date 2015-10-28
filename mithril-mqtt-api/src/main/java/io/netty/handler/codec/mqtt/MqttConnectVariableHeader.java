@@ -23,15 +23,15 @@ import io.netty.util.internal.StringUtil;
  */
 public class MqttConnectVariableHeader {
 
-    private final String protocolName;
-    private final int protocolLevel;
-    private final boolean userNameFlag;
-    private final boolean passwordFlag;
-    private final boolean willRetain;
-    private final MqttQoS willQos;
-    private final boolean willFlag;
-    private final boolean cleanSession;
-    private final int keepAlive;
+    protected String protocolName;
+    protected int protocolLevel;
+    protected boolean userNameFlag;
+    protected boolean passwordFlag;
+    protected boolean willRetain;
+    protected MqttQoS willQos;
+    protected boolean willFlag;
+    protected boolean cleanSession;
+    protected int keepAlive;
 
     public MqttConnectVariableHeader(
             String protocolName,

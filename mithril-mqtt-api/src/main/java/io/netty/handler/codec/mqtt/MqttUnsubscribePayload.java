@@ -27,7 +27,7 @@ import java.util.List;
  */
 public class MqttUnsubscribePayload {
 
-    private final List<String> topics;
+    protected List<String> topics;
 
     public MqttUnsubscribePayload(List<String> topics) {
         this.topics = Collections.unmodifiableList(topics);

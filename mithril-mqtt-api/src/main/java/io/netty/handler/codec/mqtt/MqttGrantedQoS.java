@@ -37,7 +37,7 @@ public enum MqttGrantedQoS {
                 return r;
             }
         }
-        throw new IllegalArgumentException("invalid suback return code: " + value);
+        throw new IllegalArgumentException("invalid granted QoS: " + value);
     }
 
     public int value() {

@@ -24,10 +24,10 @@ import io.netty.util.internal.StringUtil;
  */
 public class MqttMessage {
 
-    private final MqttFixedHeader fixedHeader;
-    private final Object variableHeader;
-    private final Object payload;
-    private final DecoderResult decoderResult;
+    protected MqttFixedHeader fixedHeader;
+    protected Object variableHeader;
+    protected Object payload;
+    protected DecoderResult decoderResult;
 
     public MqttMessage(MqttFixedHeader fixedHeader) {
         this(fixedHeader, null, null);

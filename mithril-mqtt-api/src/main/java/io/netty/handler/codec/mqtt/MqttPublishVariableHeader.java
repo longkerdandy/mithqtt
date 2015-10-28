@@ -23,12 +23,23 @@ import io.netty.util.internal.StringUtil;
  */
 public class MqttPublishVariableHeader {
 
-    private final String topicName;
-    private final int packetId;
+    protected String topicName;
+    protected int packetId;
 
-    public MqttPublishVariableHeader(String topicName, int packetId) {
+    private MqttPublishVariableHeader(String topicName, int packetId) {
         this.topicName = topicName;
         this.packetId = packetId;
+    }
+
+    public static MqttPublishVariableHeader from(String topicName) {
+        return new MqttPublishVariableHeader(topicName, 0);
+    }
+
+    public static MqttPublishVariableHeader from(String topicName, int packetId) {
+        if (packetId < 1 || packetId > 0xffff) {
+            throw new IllegalArgumentException("packetId: " + packetId + " (expected: 1 ~ 65535)");
+        }
+        return new MqttPublishVariableHeader(topicName, packetId);
     }
 
     public String topicName() {

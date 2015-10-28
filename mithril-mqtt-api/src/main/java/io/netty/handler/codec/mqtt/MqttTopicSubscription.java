@@ -24,8 +24,8 @@ import io.netty.util.internal.StringUtil;
  */
 public class MqttTopicSubscription {
 
-    private final String topic;
-    private final MqttQoS requestedQos;
+    protected String topic;
+    protected MqttQoS requestedQos;
 
     public MqttTopicSubscription(String topic, MqttQoS requestedQos) {
         this.topic = topic;

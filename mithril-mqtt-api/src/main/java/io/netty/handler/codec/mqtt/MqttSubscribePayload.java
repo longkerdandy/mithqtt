@@ -27,7 +27,7 @@ import java.util.List;
  */
 public class MqttSubscribePayload {
 
-    private final List<MqttTopicSubscription> subscriptions;
+    protected List<MqttTopicSubscription> subscriptions;
 
     public MqttSubscribePayload(List<MqttTopicSubscription> subscriptions) {
         this.subscriptions = Collections.unmodifiableList(subscriptions);
