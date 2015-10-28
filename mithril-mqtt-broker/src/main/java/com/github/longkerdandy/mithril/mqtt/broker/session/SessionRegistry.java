@@ -4,7 +4,6 @@ import io.netty.channel.ChannelFuture;
 import io.netty.channel.ChannelHandlerContext;
 import io.netty.handler.codec.mqtt.MqttMessage;
 import io.netty.util.concurrent.GenericFutureListener;
-import org.apache.commons.lang3.exception.ExceptionUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -99,7 +98,7 @@ public class SessionRegistry {
                 if (future.isSuccess()) {
                     logger.debug("Message succeed: Message {} {} has been sent to client {} successfully", msg.fixedHeader().messageType(), pid, clientId);
                 } else {
-                    logger.debug("Message failed: Message {} {} failed to send to client {}: {}", msg.fixedHeader().messageType(), pid, clientId, ExceptionUtils.getMessage(future.cause()));
+                    logger.debug("Message failed: Message {} {} failed to send to client {}: ", msg.fixedHeader().messageType(), pid, clientId, future.cause());
                 }
             }
         });

@@ -4,7 +4,6 @@ import com.fasterxml.jackson.databind.JavaType;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.github.longkerdandy.mithril.mqtt.api.internal.*;
 import kafka.serializer.Decoder;
-import org.apache.commons.lang3.exception.ExceptionUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -68,7 +67,7 @@ public class InternalMessageDecoder implements Decoder<InternalMessage> {
                     return null;
             }
         } catch (IOException e) {
-            logger.warn("Decode error: Decode internal message with error: {}", ExceptionUtils.getMessage(e));
+            logger.warn("Decode error: Decode internal message with error: ", e);
             return null;
         }
     }

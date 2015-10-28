@@ -6,7 +6,6 @@ import kafka.consumer.Consumer;
 import kafka.consumer.ConsumerConfig;
 import kafka.javaapi.consumer.ConsumerConnector;
 import org.apache.commons.configuration.PropertiesConfiguration;
-import org.apache.commons.lang3.exception.ExceptionUtils;
 import org.apache.kafka.clients.producer.KafkaProducer;
 import org.apache.kafka.clients.producer.ProducerRecord;
 import org.apache.kafka.common.serialization.StringSerializer;
@@ -100,7 +99,7 @@ public abstract class KafkaCommunicator {
         this.producer.send(record,
                 (metadata, e) -> {
                     if (e != null)
-                        logger.error("Communicator failed: Failed to send message {} to topic {}: {}", message.getMessageType(), topic, ExceptionUtils.getMessage(e));
+                        logger.error("Communicator failed: Failed to send message {} to topic {}: ", message.getMessageType(), topic, e);
                     else {
                         logger.debug("Communicator succeed: Successful send message {} to topic {} partition {} offset {}", message.getMessageType(), topic, metadata.partition(), metadata.offset());
                     }

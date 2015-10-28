@@ -684,7 +684,7 @@ public class AsyncRedisHandler extends SimpleChannelInboundHandler<MqttMessage> 
     @Override
     public void exceptionCaught(ChannelHandlerContext ctx, Throwable cause) {
         if (this.connected) {
-            logger.debug("Exception caught: Exception caught from client {} user {}: {}", this.clientId, this.userName, ExceptionUtils.getMessage(cause));
+            logger.debug("Exception caught: Exception caught from client {} user {}: ", this.clientId, this.userName, cause);
         }
         ctx.close();
     }
