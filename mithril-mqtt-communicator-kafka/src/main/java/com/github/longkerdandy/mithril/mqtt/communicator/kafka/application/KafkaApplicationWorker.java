@@ -1,6 +1,6 @@
-package com.github.longkerdandy.mithril.mqtt.communicator.kafka.processor;
+package com.github.longkerdandy.mithril.mqtt.communicator.kafka.application;
 
-import com.github.longkerdandy.mithril.mqtt.api.comm.ProcessorListener;
+import com.github.longkerdandy.mithril.mqtt.api.comm.ApplicationListener;
 import com.github.longkerdandy.mithril.mqtt.api.internal.*;
 import kafka.consumer.KafkaStream;
 import kafka.message.MessageAndMetadata;
@@ -10,14 +10,14 @@ import org.slf4j.LoggerFactory;
 /**
  * Processor Communicator Worker for Kafka
  */
-public class KafkaProcessorWorker implements Runnable {
+public class KafkaApplicationWorker implements Runnable {
 
-    private static final Logger logger = LoggerFactory.getLogger(KafkaProcessorWorker.class);
+    private static final Logger logger = LoggerFactory.getLogger(KafkaApplicationWorker.class);
 
     private final KafkaStream<String, InternalMessage> stream;
-    private final ProcessorListener listener;
+    private final ApplicationListener listener;
 
-    public KafkaProcessorWorker(KafkaStream<String, InternalMessage> stream, ProcessorListener listener) {
+    public KafkaApplicationWorker(KafkaStream<String, InternalMessage> stream, ApplicationListener listener) {
         this.stream = stream;
         this.listener = listener;
     }

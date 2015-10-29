@@ -5,7 +5,7 @@ import org.apache.commons.configuration.PropertiesConfiguration;
 
 /**
  * Processor Communicator
- * Communicate between processors and brokers
+ * Link processor to other modules
  */
 @SuppressWarnings("unused")
 public interface ProcessorCommunicator {

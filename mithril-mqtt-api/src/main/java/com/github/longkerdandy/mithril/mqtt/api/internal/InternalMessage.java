@@ -64,7 +64,9 @@ public class InternalMessage<T> {
                                                            String brokerId,
                                                            MqttConnectMessage mqtt) {
         InternalMessage<Connect> msg = fromMqttMessage(version, clientId, userName, brokerId, mqtt.fixedHeader());
-        msg.payload = new Connect(mqtt.variableHeader().cleanSession(), mqtt.variableHeader().willRetain(), mqtt.variableHeader().willQos(), mqtt.payload().willTopic(), mqtt.payload().willMessage().getBytes());
+        msg.payload = mqtt.variableHeader().willFlag() ?
+                new Connect(mqtt.variableHeader().cleanSession(), mqtt.variableHeader().willRetain(), mqtt.variableHeader().willQos(), mqtt.payload().willTopic(), mqtt.payload().willMessage().getBytes()) :
+                new Connect(mqtt.variableHeader().cleanSession(), false, MqttQoS.AT_MOST_ONCE, null, null);
         return msg;
     }
 

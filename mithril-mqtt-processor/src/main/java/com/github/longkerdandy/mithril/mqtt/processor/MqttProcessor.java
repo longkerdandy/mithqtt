@@ -30,7 +30,7 @@ public class MqttProcessor {
             redisConfig = new PropertiesConfiguration(args[1]);
             communicatorConfig = new PropertiesConfiguration(args[2]);
         } else {
-            // processorConfig = new PropertiesConfiguration("config/broker.properties");
+            // processorConfig = new PropertiesConfiguration("config/processor.properties");
             redisConfig = new PropertiesConfiguration("config/redis.properties");
             communicatorConfig = new PropertiesConfiguration("config/communicator.properties");
         }

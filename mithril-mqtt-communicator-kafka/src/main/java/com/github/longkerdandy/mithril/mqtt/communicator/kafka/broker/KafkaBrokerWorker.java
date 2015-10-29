@@ -1,6 +1,7 @@
 package com.github.longkerdandy.mithril.mqtt.communicator.kafka.broker;
 
 import com.github.longkerdandy.mithril.mqtt.api.comm.BrokerListener;
+import com.github.longkerdandy.mithril.mqtt.api.internal.Disconnect;
 import com.github.longkerdandy.mithril.mqtt.api.internal.InternalMessage;
 import com.github.longkerdandy.mithril.mqtt.api.internal.Publish;
 import kafka.consumer.KafkaStream;
@@ -36,7 +37,7 @@ public class KafkaBrokerWorker implements Runnable {
                         this.listener.onPublish((InternalMessage<Publish>) msg);
                         break;
                     case DISCONNECT:
-                        this.listener.onDisconnect(msg);
+                        this.listener.onDisconnect((InternalMessage<Disconnect>) msg);
                         break;
                     default:
                         logger.warn("Communicator error: Communicator received unexpected message type {}", msg.getMessageType());

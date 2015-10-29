@@ -91,7 +91,7 @@ public abstract class KafkaCommunicator {
     }
 
     public void sendToApplication(InternalMessage message) {
-        sendToTopic(PROCESSOR_TOPIC, message);
+        sendToTopic(APPLICATION_TOPIC, message);
     }
 
     public void sendToTopic(String topic, InternalMessage message) {

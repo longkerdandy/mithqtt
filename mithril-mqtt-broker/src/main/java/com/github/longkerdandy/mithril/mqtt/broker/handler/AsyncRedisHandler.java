@@ -665,19 +665,21 @@ public class AsyncRedisHandler extends SimpleChannelInboundHandler<MqttMessage> 
             // The Client closes the Network Connection without first sending a DISCONNECT Packet.
             // The Server closes the Network Connection because of a protocol error.
 
-            // Authorize client publish using provided Authenticator
-            this.authenticator.authPublishAsync(this.clientId, this.userName, this.willMessage.getPayload().getTopicName(), this.willMessage.getQos().value(), this.willMessage.isRetain()).thenAccept(result -> {
+            if (this.willMessage != null) {
+                // Authorize client publish using provided Authenticator
+                this.authenticator.authPublishAsync(this.clientId, this.userName, this.willMessage.getPayload().getTopicName(), this.willMessage.getQos().value(), this.willMessage.isRetain()).thenAccept(result -> {
 
-                        // Authorize successful
-                        if (result == AuthorizeResult.OK) {
-                            logger.trace("Authorization succeed: WILL message to topic {} authorized for client {}", this.willMessage.getPayload().getTopicName(), this.clientId);
+                            // Authorize successful
+                            if (result == AuthorizeResult.OK) {
+                                logger.trace("Authorization succeed: WILL message to topic {} authorized for client {}", this.willMessage.getPayload().getTopicName(), this.clientId);
 
-                            // Pass message to processor
-                            logger.trace("Communicator sending: Re-direct WILL message to processor for client {} user {}", this.clientId, this.userName);
-                            this.communicator.sendToProcessor(this.willMessage);
+                                // Pass message to processor
+                                logger.trace("Communicator sending: Re-direct WILL message to processor for client {} user {}", this.clientId, this.userName);
+                                this.communicator.sendToProcessor(this.willMessage);
+                            }
                         }
-                    }
-            );
+                );
+            }
         }
     }
 

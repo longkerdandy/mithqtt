@@ -22,7 +22,7 @@ import java.util.Map;
  */
 public class ProcessorListenerImpl implements ProcessorListener {
 
-    private static final Logger logger = LoggerFactory.getLogger(ProcessorListener.class);
+    private static final Logger logger = LoggerFactory.getLogger(ProcessorListenerImpl.class);
 
     private final ProcessorCommunicator communicator;
     private final RedisSyncStorage redis;
@@ -253,8 +253,13 @@ public class ProcessorListenerImpl implements ProcessorListener {
                     }
 
                     // Forward to recipient
-                    logger.trace("Communicator sending: Send retained PUBLISH message to broker {} for client {} subscription with topic {}", msg.getBrokerId(), msg.getClientId(), subscription.getTopic());
-                    this.communicator.sendToBroker(msg.getBrokerId(), retain);
+                    String brokerId = this.redis.getConnectedNode(msg.getClientId());
+                    boolean dup = false;
+                    if (StringUtils.isNotBlank(brokerId)) {
+                        logger.trace("Communicator sending: Send retained PUBLISH message to broker {} for client {} subscription with topic {}", brokerId, msg.getClientId(), subscription.getTopic());
+                        dup = true;
+                        this.communicator.sendToBroker(brokerId, retain);
+                    }
 
                     // In the QoS 1 delivery protocol, the Sender
                     // MUST treat the PUBLISH Packet as “unacknowledged” until it has received the corresponding
@@ -264,7 +269,7 @@ public class ProcessorListenerImpl implements ProcessorListener {
                     // PUBREC packet from the receiver.
                     if (retain.getQos() == MqttQoS.AT_LEAST_ONCE || retain.getQos() == MqttQoS.EXACTLY_ONCE) {
                         logger.trace("Add in-flight: Add in-flight PUBLISH message {} with QoS {} for client {}", retain.getPayload().getPacketId(), retain.getQos(), retain.getClientId());
-                        this.redis.addInFlightMessage(retain.getClientId(), retain.getPayload().getPacketId(), retain, true);
+                        this.redis.addInFlightMessage(retain.getClientId(), retain.getPayload().getPacketId(), retain, dup);
                     }
                 }
             }
