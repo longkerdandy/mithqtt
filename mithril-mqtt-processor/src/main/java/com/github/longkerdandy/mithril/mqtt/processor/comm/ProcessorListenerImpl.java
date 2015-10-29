@@ -88,7 +88,7 @@ public class ProcessorListenerImpl implements ProcessorListener {
         this.redis.updateSessionExist(msg.getClientId(), msg.getPayload().isCleanSession());
 
         // finally pass message to bridge
-        this.communicator.sendToBridge(msg);
+        this.communicator.sendToApplication(msg);
     }
 
     @Override
@@ -146,7 +146,7 @@ public class ProcessorListenerImpl implements ProcessorListener {
         }
 
         // finally pass message to bridge
-        this.communicator.sendToBridge(msg);
+        this.communicator.sendToApplication(msg);
     }
 
     /**
@@ -271,7 +271,7 @@ public class ProcessorListenerImpl implements ProcessorListener {
         });
 
         // finally pass message to bridge
-        this.communicator.sendToBridge(msg);
+        this.communicator.sendToApplication(msg);
     }
 
     @Override
@@ -291,7 +291,7 @@ public class ProcessorListenerImpl implements ProcessorListener {
         });
 
         // finally pass message to bridge
-        this.communicator.sendToBridge(msg);
+        this.communicator.sendToApplication(msg);
     }
 
     @Override
@@ -312,7 +312,7 @@ public class ProcessorListenerImpl implements ProcessorListener {
             }
 
             // finally pass message to bridge
-            this.communicator.sendToBridge(msg);
+            this.communicator.sendToApplication(msg);
         }
     }
 }

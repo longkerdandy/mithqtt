@@ -32,12 +32,12 @@ public interface ProcessorCommunicator {
     void sendToBroker(String brokerId, InternalMessage message);
 
     /**
-     * Send internal message to bridge
-     * 3rd party program can handle the message from there
+     * Send internal message to outside
+     * 3rd party application can handle the message from there
      *
      * @param message Internal Message
      */
-    void sendToBridge(InternalMessage message);
+    void sendToApplication(InternalMessage message);
 
     /**
      * Send internal message to given topic

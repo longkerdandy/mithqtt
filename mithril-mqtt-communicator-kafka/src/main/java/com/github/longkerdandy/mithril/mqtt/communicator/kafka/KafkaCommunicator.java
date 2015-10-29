@@ -29,7 +29,7 @@ public abstract class KafkaCommunicator {
 
     protected static String BROKER_TOPIC_PREFIX;
     protected static String PROCESSOR_TOPIC;
-    protected static String BRIDGE_TOPIC;
+    protected static String APPLICATION_TOPIC;
 
     protected KafkaProducer<String, InternalMessage> producer;
     protected ConsumerConnector consumer;
@@ -38,7 +38,7 @@ public abstract class KafkaCommunicator {
     protected void init(PropertiesConfiguration config) {
         BROKER_TOPIC_PREFIX = config.getString("communicator.broker.topic");
         PROCESSOR_TOPIC = config.getString("communicator.processor.topic");
-        BRIDGE_TOPIC = config.getString("communicator.bridge.topic");
+        APPLICATION_TOPIC = config.getString("communicator.application.topic");
 
         logger.trace("Initializing Kafka producer ...");
 
@@ -90,7 +90,7 @@ public abstract class KafkaCommunicator {
         sendToTopic(PROCESSOR_TOPIC, message);
     }
 
-    public void sendToBridge(InternalMessage message) {
+    public void sendToApplication(InternalMessage message) {
         sendToTopic(PROCESSOR_TOPIC, message);
     }
 
