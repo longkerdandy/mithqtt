@@ -38,7 +38,7 @@ public abstract class KafkaCommunicator {
     protected void init(PropertiesConfiguration config) {
         BROKER_TOPIC_PREFIX = config.getString("communicator.broker.topic");
         PROCESSOR_TOPIC = config.getString("communicator.processor.topic");
-        PROCESSOR_TOPIC = config.getString("communicator.bridge.topic");
+        BRIDGE_TOPIC = config.getString("communicator.bridge.topic");
 
         logger.trace("Initializing Kafka producer ...");
 
