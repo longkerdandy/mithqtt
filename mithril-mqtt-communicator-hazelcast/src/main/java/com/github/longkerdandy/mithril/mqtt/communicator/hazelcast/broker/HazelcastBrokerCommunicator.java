@@ -4,8 +4,7 @@ import com.github.longkerdandy.mithril.mqtt.api.comm.BrokerCommunicator;
 import com.github.longkerdandy.mithril.mqtt.api.comm.BrokerListenerFactory;
 import com.github.longkerdandy.mithril.mqtt.api.internal.InternalMessage;
 import com.github.longkerdandy.mithril.mqtt.communicator.hazelcast.HazelcastCommunicator;
-import com.hazelcast.core.IAtomicLong;
-import com.hazelcast.ringbuffer.Ringbuffer;
+import com.hazelcast.core.IQueue;
 import org.apache.commons.configuration.PropertiesConfiguration;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -28,10 +27,9 @@ public class HazelcastBrokerCommunicator extends HazelcastCommunicator implement
         init(config);
 
 
-        logger.trace("Initializing Hazelcast broker resources ...");
+        logger.trace("Initializing Hazelcast broker RingBuffer ...");
 
-        Ringbuffer<InternalMessage> brokerBuffer = this.hazelcast.getRingbuffer(BROKER_TOPIC_PREFIX + "." + brokerId);
-        IAtomicLong brokerSeq = this.hazelcast.getAtomicLong(BROKER_TOPIC_PREFIX + "." + brokerId + ".seq");
+        IQueue<InternalMessage> brokerQueue = this.hazelcast.getQueue(BROKER_TOPIC_PREFIX + "." + brokerId);
 
         logger.trace("Initializing Hazelcast broker consumer's workers ...");
 
@@ -39,7 +37,7 @@ public class HazelcastBrokerCommunicator extends HazelcastCommunicator implement
         int threads = config.getInt("consumer.threads");
         this.executor = Executors.newFixedThreadPool(threads);
         for (int i = 0; i < 10; i++) {
-            this.executor.submit(new HazelcastBrokerWorker(brokerBuffer, brokerSeq, factory.newListener()));
+            this.executor.submit(new HazelcastBrokerWorker(brokerQueue, factory.newListener()));
         }
     }
 

@@ -12,8 +12,12 @@ dependencies {
     compile project(':mithril-mqtt-api')
     compile project(':mithril-mqtt-storage-redis')
 
-    runtime project(':mithril-mqtt-communicator-kafka')
+    // authenticator
     runtime project(':mithril-mqtt-authenticator-dummy')
+
+    // communicator
+    runtime project(':mithril-mqtt-communicator-hazelcast')
+    runtime project(':mithril-mqtt-communicator-kafka')
 
     // netty
     compile 'io.netty:netty-transport:4.1.0.Beta7'

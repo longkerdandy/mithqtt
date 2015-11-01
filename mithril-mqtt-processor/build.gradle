@@ -12,5 +12,7 @@ dependencies {
     compile project(':mithril-mqtt-api')
     compile project(':mithril-mqtt-storage-redis')
 
+    // communicator
+    runtime project(':mithril-mqtt-communicator-hazelcast')
     runtime project(':mithril-mqtt-communicator-kafka')
 }

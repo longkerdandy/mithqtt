@@ -30,7 +30,7 @@ public class HazelcastProcessorCommunicator extends HazelcastCommunicator implem
         int threads = config.getInt("consumer.threads");
         this.executor = Executors.newFixedThreadPool(threads);
         for (int i = 0; i < 10; i++) {
-            this.executor.submit(new HazelcastProcessorWorker(this.processorBuffer, this.processorSeq, factory.newListener()));
+            this.executor.submit(new HazelcastProcessorWorker(this.processorQueue, factory.newListener()));
         }
     }
 
