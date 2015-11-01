@@ -27,9 +27,9 @@ public abstract class KafkaCommunicator {
 
     private static final Logger logger = LoggerFactory.getLogger(KafkaCommunicator.class);
 
-    protected static String BROKER_TOPIC_PREFIX;
-    protected static String PROCESSOR_TOPIC;
-    protected static String APPLICATION_TOPIC;
+    protected String BROKER_TOPIC_PREFIX;
+    protected String PROCESSOR_TOPIC;
+    protected String APPLICATION_TOPIC;
 
     protected KafkaProducer<String, InternalMessage> producer;
     protected ConsumerConnector consumer;
@@ -94,7 +94,7 @@ public abstract class KafkaCommunicator {
         sendToTopic(APPLICATION_TOPIC, message);
     }
 
-    public void sendToTopic(String topic, InternalMessage message) {
+    protected void sendToTopic(String topic, InternalMessage message) {
         ProducerRecord<String, InternalMessage> record = new ProducerRecord<>(topic, message);
         this.producer.send(record,
                 (metadata, e) -> {

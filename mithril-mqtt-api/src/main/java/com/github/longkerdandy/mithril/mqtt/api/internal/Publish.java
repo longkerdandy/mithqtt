@@ -1,10 +1,12 @@
 package com.github.longkerdandy.mithril.mqtt.api.internal;
 
+import java.io.Serializable;
+
 /**
  * Represent MQTT PUBLISH Message's VariableHeader and Payload
  */
 @SuppressWarnings("unused")
-public class Publish {
+public class Publish implements Serializable {
 
     private String topicName;
     private int packetId;

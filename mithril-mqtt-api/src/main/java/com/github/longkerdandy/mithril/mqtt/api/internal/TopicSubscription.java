@@ -2,12 +2,14 @@ package com.github.longkerdandy.mithril.mqtt.api.internal;
 
 import io.netty.handler.codec.mqtt.MqttGrantedQoS;
 
+import java.io.Serializable;
+
 /**
  * Contains a topic name and granted Qos Level.
  * This is part of the {@link Subscribe}
  */
 @SuppressWarnings("unused")
-public class TopicSubscription {
+public class TopicSubscription implements Serializable {
 
     private String topic;
     private MqttGrantedQoS grantedQos;

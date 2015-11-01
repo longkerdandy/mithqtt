@@ -4,6 +4,7 @@ include 'mithril-mqtt-api'
 include 'mithril-mqtt-broker'
 include 'mithril-mqtt-processor'
 include 'mithril-mqtt-storage-redis'
+include 'mithril-mqtt-communicator-hazelcast'
 include 'mithril-mqtt-communicator-kafka'
 include 'mithril-mqtt-authenticator-dummy'
 

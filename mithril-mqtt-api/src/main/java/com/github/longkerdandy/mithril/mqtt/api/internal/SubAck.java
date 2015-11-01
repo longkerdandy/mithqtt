@@ -2,13 +2,14 @@ package com.github.longkerdandy.mithril.mqtt.api.internal;
 
 import io.netty.handler.codec.mqtt.MqttGrantedQoS;
 
+import java.io.Serializable;
 import java.util.List;
 
 /**
  * Represent MQTT SUBACK Message's VariableHeader and Payload
  */
 @SuppressWarnings("unused")
-public class SubAck {
+public class SubAck implements Serializable {
 
     private int packetId;
     private List<MqttGrantedQoS> grantedQoSLevels;

@@ -1,12 +1,13 @@
 package com.github.longkerdandy.mithril.mqtt.api.internal;
 
+import java.io.Serializable;
 import java.util.List;
 
 /**
  * Represent MQTT SUBSCRIBE Message's VariableHeader and Payload
  */
 @SuppressWarnings("unused")
-public class Subscribe {
+public class Subscribe implements Serializable {
 
     private int packetId;
     private List<TopicSubscription> subscriptions;

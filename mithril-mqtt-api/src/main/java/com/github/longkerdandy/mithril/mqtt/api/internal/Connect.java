@@ -2,11 +2,13 @@ package com.github.longkerdandy.mithril.mqtt.api.internal;
 
 import io.netty.handler.codec.mqtt.MqttQoS;
 
+import java.io.Serializable;
+
 /**
  * Represent MQTT CONNECT Message's VariableHeader and Payload
  */
 @SuppressWarnings("unused")
-public class Connect {
+public class Connect implements Serializable {
 
     private boolean cleanSession;
     private boolean willRetain;

@@ -4,6 +4,7 @@ import io.netty.buffer.Unpooled;
 import io.netty.handler.codec.mqtt.*;
 import org.apache.commons.lang3.StringUtils;
 
+import java.io.Serializable;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -11,7 +12,7 @@ import java.util.List;
  * Represent MQTT Message passed in Communicator
  */
 @SuppressWarnings("unused")
-public class InternalMessage<T> {
+public class InternalMessage<T> implements Serializable {
 
     // fixed header
     private MqttMessageType messageType;

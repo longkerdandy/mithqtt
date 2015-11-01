@@ -1,10 +1,12 @@
 package com.github.longkerdandy.mithril.mqtt.api.internal;
 
+import java.io.Serializable;
+
 /**
  * Represent MQTT Message's VariableHeader which only contains Packet Id
  */
 @SuppressWarnings("unused")
-public class PacketId {
+public class PacketId implements Serializable {
 
     private int packetId;
 

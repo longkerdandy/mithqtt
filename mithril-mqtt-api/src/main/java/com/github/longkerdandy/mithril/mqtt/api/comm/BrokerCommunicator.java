@@ -38,12 +38,4 @@ public interface BrokerCommunicator {
      * @param message Internal Message
      */
     void sendToProcessor(InternalMessage message);
-
-    /**
-     * Send internal message to given topic
-     *
-     * @param topic   Topic
-     * @param message Internal Message
-     */
-    void sendToTopic(String topic, InternalMessage message);
 }

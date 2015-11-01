@@ -1,10 +1,12 @@
 package com.github.longkerdandy.mithril.mqtt.api.internal;
 
+import java.io.Serializable;
+
 /**
  * Represent MQTT DISCONNECT Message
  */
 @SuppressWarnings("unused")
-public class Disconnect {
+public class Disconnect implements Serializable {
 
     private boolean cleanSession;
     // cleanExit exit means client sent DISCONNECT before closing the connection

@@ -2,11 +2,13 @@ package com.github.longkerdandy.mithril.mqtt.api.internal;
 
 import io.netty.handler.codec.mqtt.MqttConnectReturnCode;
 
+import java.io.Serializable;
+
 /**
  * Represent MQTT CONNACK Message's VariableHeader
  */
 @SuppressWarnings("unused")
-public class ConnAck {
+public class ConnAck implements Serializable {
 
     private MqttConnectReturnCode returnCode;
     private boolean sessionPresent;

@@ -38,12 +38,4 @@ public interface ProcessorCommunicator {
      * @param message Internal Message
      */
     void sendToApplication(InternalMessage message);
-
-    /**
-     * Send internal message to given topic
-     *
-     * @param topic   Topic
-     * @param message Internal Message
-     */
-    void sendToTopic(String topic, InternalMessage message);
 }
