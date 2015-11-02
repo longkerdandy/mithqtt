@@ -11,6 +11,7 @@ import org.slf4j.LoggerFactory;
 /**
  * Communicator implementation based on Hazelcast
  */
+@SuppressWarnings("unused")
 public class HazelcastCommunicator {
 
     private static final Logger logger = LoggerFactory.getLogger(HazelcastCommunicator.class);
@@ -60,11 +61,17 @@ public class HazelcastCommunicator {
         sendMessage(this.applicationQueue, message);
     }
 
+    /**
+     * Send internal message to hazelcast queue
+     *
+     * @param queue   Hazelcast Queue
+     * @param message Internal Message
+     */
     protected void sendMessage(IQueue<InternalMessage> queue, InternalMessage message) {
         if (queue.offer(message)) {
             logger.debug("Communicator succeed: Successful add message {} to queue {}", message.getMessageType(), queue.getName());
         } else {
-            logger.warn("Communicator failed: Failed to add message {} to queue {}: Operation timeour", message.getMessageType(), queue.getName());
+            logger.warn("Communicator failed: Failed to add message {} to queue {}: Operation timeout", message.getMessageType(), queue.getName());
         }
 
     }

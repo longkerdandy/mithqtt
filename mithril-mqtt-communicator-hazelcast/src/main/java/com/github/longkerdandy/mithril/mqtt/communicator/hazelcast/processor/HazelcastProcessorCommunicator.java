@@ -14,6 +14,7 @@ import java.util.concurrent.TimeUnit;
 /**
  * Processor Communicator implementation for Hazelcast
  */
+@SuppressWarnings("unused")
 public class HazelcastProcessorCommunicator extends HazelcastCommunicator implements ProcessorCommunicator {
 
     private static final Logger logger = LoggerFactory.getLogger(HazelcastProcessorCommunicator.class);
@@ -29,7 +30,7 @@ public class HazelcastProcessorCommunicator extends HazelcastCommunicator implem
         // consumer executor
         int threads = config.getInt("consumer.threads");
         this.executor = Executors.newFixedThreadPool(threads);
-        for (int i = 0; i < 10; i++) {
+        for (int i = 0; i < threads; i++) {
             this.executor.submit(new HazelcastProcessorWorker(this.processorQueue, factory.newListener()));
         }
     }

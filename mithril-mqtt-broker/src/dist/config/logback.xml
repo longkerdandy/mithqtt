@@ -6,36 +6,63 @@
         </encoder>
     </appender>
 
+    <appender name="File" lass="ch.qos.logback.core.rolling.RollingFileAppender">
+        <file>log/broker.log</file>
+        <rollingPolicy class="ch.qos.logback.core.rolling.TimeBasedRollingPolicy">
+            <!-- daily rollover -->
+            <fileNamePattern>log/archived/broker.%d{yyyy-MM-dd}.log</fileNamePattern>
+            <!-- keep 30 days' worth of history -->
+            <maxHistory>30</maxHistory>
+        </rollingPolicy>
+        <encoder charset="UTF-8">
+            <pattern>%d{yyyy-MM-dd HH:mm:ss.SSS} [%thread] %-5level %c{20} %M %L - %msg%n %ex{full}</pattern>
+        </encoder>
+    </appender>
+
     <!-- Commons Config -->
-    <logger name="org.apache.commons.configuration" level="WARN" additivity="false">
+    <logger name="org.apache.commons.configuration" level="INFO" additivity="false">
         <appender-ref ref="Console"/>
+        <appender-ref ref="File"/>
+    </logger>
+
+    <!-- Hazelcast -->
+    <logger name="com.hazelcast" level="INFO" additivity="false">
+        <appender-ref ref="Console"/>
+        <appender-ref ref="File"/>
     </logger>
 
     <!-- Kafka -->
-    <logger name="org.apache.zookeeper" level="WARN" additivity="false">
+    <logger name="org.apache.zookeeper" level="INFO" additivity="false">
         <appender-ref ref="Console"/>
+        <appender-ref ref="File"/>
     </logger>
-    <logger name="org.apache.kafka" level="WARN" additivity="false">
+    <logger name="org.apache.kafka" level="INFO" additivity="false">
         <appender-ref ref="Console"/>
+        <appender-ref ref="File"/>
     </logger>
-    <logger name="org.I0Itec.zkclient" level="WARN" additivity="false">
+    <logger name="org.I0Itec.zkclient" level="INFO" additivity="false">
         <appender-ref ref="Console"/>
+        <appender-ref ref="File"/>
     </logger>
-    <logger name="kafka" level="WARN" additivity="false">
+    <logger name="kafka" level="INFO" additivity="false">
         <appender-ref ref="Console"/>
+        <appender-ref ref="File"/>
     </logger>
 
     <!-- Redis Client -->
-    <logger name="com.lambdaworks.redis" level="WARN" additivity="false">
+    <logger name="com.lambdaworks.redis" level="INFO" additivity="false">
         <appender-ref ref="Console"/>
+        <appender-ref ref="File"/>
     </logger>
 
     <!-- Netty -->
-    <logger name="io.netty" level="WARN" additivity="false">
+    <logger name="io.netty" level="INFO" additivity="false">
         <appender-ref ref="Console"/>
+        <appender-ref ref="File"/>
     </logger>
 
     <root level="TRACE">
         <appender-ref ref="Console"/>
+        <appender-ref ref="File"/>
     </root>
 </configuration>

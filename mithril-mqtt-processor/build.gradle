@@ -5,7 +5,7 @@ mainClassName = "com.github.longkerdandy.mithril.mqtt.processor.MqttProcessor"
 // If your application requires a specific set of JVM settings or system properties, you can configure the applicationDefaultJvmArgs property.
 // These JVM arguments are applied to the run task and also considered in the generated start scripts of your distribution.
 // logback configuration file location
-applicationDefaultJvmArgs = ["-Dlogback.configurationFile=config/logback.xml"]
+applicationDefaultJvmArgs = ["-Dlogback.configurationFile=config/logback.xml", "-Dhazelcast.config=config/hazelcast.xml"]
 
 dependencies {
     // project

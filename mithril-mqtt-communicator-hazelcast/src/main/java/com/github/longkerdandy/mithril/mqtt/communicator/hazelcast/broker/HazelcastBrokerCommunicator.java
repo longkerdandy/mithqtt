@@ -16,6 +16,7 @@ import java.util.concurrent.TimeUnit;
 /**
  * Processor Communicator implementation for Hazelcast
  */
+@SuppressWarnings("unused")
 public class HazelcastBrokerCommunicator extends HazelcastCommunicator implements BrokerCommunicator {
 
     private static final Logger logger = LoggerFactory.getLogger(HazelcastBrokerCommunicator.class);
@@ -26,7 +27,6 @@ public class HazelcastBrokerCommunicator extends HazelcastCommunicator implement
     public void init(PropertiesConfiguration config, String brokerId, BrokerListenerFactory factory) {
         init(config);
 
-
         logger.trace("Initializing Hazelcast broker RingBuffer ...");
 
         IQueue<InternalMessage> brokerQueue = this.hazelcast.getQueue(BROKER_TOPIC_PREFIX + "." + brokerId);
@@ -36,7 +36,7 @@ public class HazelcastBrokerCommunicator extends HazelcastCommunicator implement
         // consumer executor
         int threads = config.getInt("consumer.threads");
         this.executor = Executors.newFixedThreadPool(threads);
-        for (int i = 0; i < 10; i++) {
+        for (int i = 0; i < threads; i++) {
             this.executor.submit(new HazelcastBrokerWorker(brokerQueue, factory.newListener()));
         }
     }

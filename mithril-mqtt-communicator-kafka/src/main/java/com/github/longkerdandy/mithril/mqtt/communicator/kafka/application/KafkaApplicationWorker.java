@@ -8,7 +8,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 /**
- * Processor Communicator Worker for Kafka
+ * Application Communicator Worker for Kafka
  */
 public class KafkaApplicationWorker implements Runnable {
 
@@ -29,7 +29,7 @@ public class KafkaApplicationWorker implements Runnable {
         for (MessageAndMetadata<String, InternalMessage> m : this.stream) {
             InternalMessage msg = m.message();
             if (msg != null) {
-                logger.debug("Communicator received: Received {} message from broker {} for client {} user {}", msg.getMessageType(), msg.getBrokerId(), msg.getClientId(), msg.getUserName());
+                logger.debug("Communicator received: Received {} message from processor {} for client {} user {}", msg.getMessageType(), msg.getBrokerId(), msg.getClientId(), msg.getUserName());
                 switch (msg.getMessageType()) {
                     case CONNECT:
                         this.listener.onConnect((InternalMessage<Connect>) msg);
