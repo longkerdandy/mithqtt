@@ -161,7 +161,8 @@
             <xs:element name="eviction-percentage" minOccurs="0" maxOccurs="1">
                 <xs:annotation>
                     <xs:documentation>
-                        When the map reaches maximum size, this specified percentage of the map will be evicted. Set to any integer between
+                        When the map reaches maximum size, this specified percentage of the map will be evicted. Set to
+                        any integer between
                         0 and 100.
                         For example, if 25 is set, 25% of the entries are evicted.
                     </xs:documentation>
@@ -190,17 +191,21 @@
                         merge into the bigger cluster
                         based on the policy set here. When an entry merges into the cluster, an
                         entry with the same key might already exist in the cluster.
-                        The values of these entries might be different for that same key. Which value should be set for the
+                        The values of these entries might be different for that same key. Which value should be set for
+                        the
                         key?
                         The conflict is resolved by the policy set here.
                         <p>
                             <br/>There are built-in merge policies, such as:
                             <br/>com.hazelcast.map.merge.PassThroughMergePolicy: the entry will be added if there is no
                             existing entry for the key.
-                            <br/>com.hazelcast.map.merge.PutIfAbsentMapMergePolicy: the entry will be added if the merging
+                            <br/>com.hazelcast.map.merge.PutIfAbsentMapMergePolicy: the entry will be added if the
+                            merging
                             entry doesn't exist in the cluster.
-                            <br/>com.hazelcast.map.merge.HigherHitsMapMergePolicy: the entry with the higher number of hits wins.
-                            <br/>com.hazelcast.map.merge.LatestUpdateMapMergePolicy: the entry with the latest update wins.
+                            <br/>com.hazelcast.map.merge.HigherHitsMapMergePolicy: the entry with the higher number of
+                            hits wins.
+                            <br/>com.hazelcast.map.merge.LatestUpdateMapMergePolicy: the entry with the latest update
+                            wins.
                             <br/>Default policy is 'com.hazelcast.map.merge.PutIfAbsentMapMergePolicy'
                         </p>
                     </xs:documentation>
@@ -230,11 +235,11 @@
             <xs:element name="query-caches" type="query-caches" minOccurs="0" maxOccurs="1"/>
         </xs:all>
         <xs:attribute name="name" use="required">
-        <xs:annotation>
-            <xs:documentation>
-                Name of the map.
-            </xs:documentation>
-        </xs:annotation>
+            <xs:annotation>
+                <xs:documentation>
+                    Name of the map.
+                </xs:documentation>
+            </xs:annotation>
             <xs:simpleType>
                 <xs:restriction base="xs:string"/>
             </xs:simpleType>
@@ -679,7 +684,8 @@
                     <xs:documentation>
                         Defines the number of milliseconds after a put is executed before the value is replicated
                         to other nodes. During this time, multiple puts can be operated and cached up to be sent
-                        out all at once after the delay. This highers the latency for eventually consistency but lowers IO operations.
+                        out all at once after the delay. This highers the latency for eventually consistency but lowers
+                        IO operations.
                         Default value is 100ms before a replication is operated. If set to 0, no delay is used and
                         all values are replicated one by one.
                     </xs:documentation>
@@ -812,8 +818,10 @@
                 <xs:annotation>
                     <xs:documentation>
                         True if statistics (for example, about processed entries)
-                        are transmitted to the job emitter, false otherwise. This might be used to show any kind of progress to
-                        users inside of UI systems, but this produces additional traffic. If statistics are not needed, you might
+                        are transmitted to the job emitter, false otherwise. This might be used to show any kind of
+                        progress to
+                        users inside of UI systems, but this produces additional traffic. If statistics are not needed,
+                        you might
                         want to deactivate this.
                     </xs:documentation>
                 </xs:annotation>
@@ -863,7 +871,7 @@
                         fail-safety.
                     </xs:documentation>
                 </xs:annotation>
-	        </xs:element>
+            </xs:element>
         </xs:all>
         <xs:attribute name="name" use="required">
             <xs:simpleType>
@@ -937,7 +945,8 @@
                         as its public address. But behind a network address translation (NAT), two endpoints (nodes)
                         may not be able to see/access each other. If both nodes set their public addresses to their
                         defined addresses on NAT, then they can communicate with each other. In this case, their
-                        public addresses are not an address of a local network interface but a virtual address defined by NAT.
+                        public addresses are not an address of a local network interface but a virtual address defined
+                        by NAT.
                         This is optional to set and useful when you have a private cloud.
                     </xs:documentation>
                 </xs:annotation>
@@ -945,21 +954,22 @@
             <xs:element name="port" type="port" minOccurs="0" maxOccurs="1">
                 <xs:annotation>
                     <xs:documentation>
-                        The ports which Hazelcast will use to communicate between cluster members. Its default value is 5701.
-						It has the following attributes.
-                            port-count: The default value is 100, meaning that Hazelcast will try to bind 100 ports.
-                                If you set the value of port as 5701, as members join the cluster, Hazelcast tries to find
-                                ports between 5701 and 5801. You can change the port count in cases like having large
-                                instances on a single machine or you are willing to have only a few ports assigned.
-                            auto-increment: Default value is true. If port is set to 5701, Hazelcast will try to find free
-                                ports between 5701 and 5801. Normally, you will not need to change this value, but it comes
-                                in handy when needed. You may also want to choose to use only one port. In that case, you can
-                                disable the auto-increment feature of port by setting its value as false.
+                        The ports which Hazelcast will use to communicate between cluster members. Its default value is
+                        5701.
+                        It has the following attributes.
+                        port-count: The default value is 100, meaning that Hazelcast will try to bind 100 ports.
+                        If you set the value of port as 5701, as members join the cluster, Hazelcast tries to find
+                        ports between 5701 and 5801. You can change the port count in cases like having large
+                        instances on a single machine or you are willing to have only a few ports assigned.
+                        auto-increment: Default value is true. If port is set to 5701, Hazelcast will try to find free
+                        ports between 5701 and 5801. Normally, you will not need to change this value, but it comes
+                        in handy when needed. You may also want to choose to use only one port. In that case, you can
+                        disable the auto-increment feature of port by setting its value as false.
                     </xs:documentation>
                 </xs:annotation>
             </xs:element>
             <xs:element name="reuse-address" type="xs:boolean" minOccurs="0" maxOccurs="1" default="false">
-               <xs:annotation>
+                <xs:annotation>
                     <xs:documentation>
                         When you shutdown a cluster member, the server socket port will be in the TIME_WAIT
                         state for the next couple of minutes. If you start the member right after shutting it down,
@@ -970,7 +980,7 @@
                 </xs:annotation>
             </xs:element>
             <xs:element name="outbound-ports" type="outbound-ports" minOccurs="0" maxOccurs="1">
-               <xs:annotation>
+                <xs:annotation>
                     <xs:documentation>
                         By default, Hazelcast lets the system pick up an ephemeral port during socket bind operation.
                         But security policies/firewalls may require to restrict outbound ports to be used by
@@ -1010,13 +1020,13 @@
             </xs:element>
             <xs:sequence>
                 <xs:element name="member" type="xs:string" minOccurs="0" maxOccurs="unbounded" default="127.0.0.1">
-	                <xs:annotation>
-	                    <xs:documentation>
-	                        IP address(es) of one or more well known members. Once members are connected to these
+                    <xs:annotation>
+                        <xs:documentation>
+                            IP address(es) of one or more well known members. Once members are connected to these
                             well known ones, all member addresses will be communicated with each other.
-	                    </xs:documentation>
-	                </xs:annotation>
-	            </xs:element>
+                        </xs:documentation>
+                    </xs:annotation>
+                </xs:element>
             </xs:sequence>
             <xs:element name="interface" type="xs:string" minOccurs="0" maxOccurs="1"
                         default="127.0.0.1"/>
@@ -1072,38 +1082,39 @@
     <xs:complexType name="multicast">
         <xs:all>
             <xs:element name="multicast-group" type="xs:string" minOccurs="0" maxOccurs="1" default="224.2.2.3">
-	            <xs:annotation>
-	                <xs:documentation>
-	                    The multicast group IP address. Specify it when you want to create clusters within the
-	                    same network. Values can be between 224.0.0.0 and 239.255.255.255. Default value is 224.2.2.3.
-	                </xs:documentation>
-	            </xs:annotation>
-	        </xs:element>
+                <xs:annotation>
+                    <xs:documentation>
+                        The multicast group IP address. Specify it when you want to create clusters within the
+                        same network. Values can be between 224.0.0.0 and 239.255.255.255. Default value is 224.2.2.3.
+                    </xs:documentation>
+                </xs:annotation>
+            </xs:element>
             <xs:element name="multicast-port" type="xs:unsignedShort" minOccurs="0" maxOccurs="1" default="54327">
-	            <xs:annotation>
-	                <xs:documentation>
-	                    The multicast socket port through which the Hazelcast member listens and sends discovery messages.
-	                    Default value is 54327.
-	                </xs:documentation>
-	            </xs:annotation>
-	        </xs:element>
+                <xs:annotation>
+                    <xs:documentation>
+                        The multicast socket port through which the Hazelcast member listens and sends discovery
+                        messages.
+                        Default value is 54327.
+                    </xs:documentation>
+                </xs:annotation>
+            </xs:element>
             <xs:element name="multicast-timeout-seconds" type="xs:int" minOccurs="0" maxOccurs="1" default="2">
-	            <xs:annotation>
-	                <xs:documentation>
-	                    Only when the nodes are starting up, this timeout (in seconds) specifies the period during
-	                    which a node waits for a multicast response from another node. For example, if you set it
-	                    to 60 seconds, each node will wait for 60 seconds until a leader node is selected.
-	                    Its default value is 2 seconds.
-	                </xs:documentation>
-	            </xs:annotation>
-	        </xs:element>
+                <xs:annotation>
+                    <xs:documentation>
+                        Only when the nodes are starting up, this timeout (in seconds) specifies the period during
+                        which a node waits for a multicast response from another node. For example, if you set it
+                        to 60 seconds, each node will wait for 60 seconds until a leader node is selected.
+                        Its default value is 2 seconds.
+                    </xs:documentation>
+                </xs:annotation>
+            </xs:element>
             <xs:element name="multicast-time-to-live" type="xs:int" minOccurs="0" maxOccurs="1" default="32">
-	            <xs:annotation>
-	                <xs:documentation>
-	                    Time-to-live value for multicast packets sent out to control the scope of multicasts.
-	                </xs:documentation>
-	            </xs:annotation>
-	        </xs:element>
+                <xs:annotation>
+                    <xs:documentation>
+                        Time-to-live value for multicast packets sent out to control the scope of multicasts.
+                    </xs:documentation>
+                </xs:annotation>
+            </xs:element>
             <xs:element name="trusted-interfaces" minOccurs="0" maxOccurs="1">
                 <xs:annotation>
                     <xs:documentation>
@@ -1132,19 +1143,19 @@
     <xs:complexType name="aws">
         <xs:all>
             <xs:element name="access-key" type="xs:string" minOccurs="0" maxOccurs="1">
-	            <xs:annotation>
-	                <xs:documentation>
-	                    Access key of your account on EC2.
-	                </xs:documentation>
-	            </xs:annotation>
-	        </xs:element>
+                <xs:annotation>
+                    <xs:documentation>
+                        Access key of your account on EC2.
+                    </xs:documentation>
+                </xs:annotation>
+            </xs:element>
             <xs:element name="secret-key" type="xs:string" minOccurs="0" maxOccurs="1">
-	            <xs:annotation>
-	                <xs:documentation>
-	                    Secret key of your account on EC2.
-	                </xs:documentation>
-	            </xs:annotation>
-	        </xs:element>
+                <xs:annotation>
+                    <xs:documentation>
+                        Secret key of your account on EC2.
+                    </xs:documentation>
+                </xs:annotation>
+            </xs:element>
             <xs:element name="iam-role" type="xs:string" minOccurs="0" maxOccurs="1">
                 <xs:annotation>
                     <xs:documentation>
@@ -1153,45 +1164,45 @@
                 </xs:annotation>
             </xs:element>
             <xs:element name="region" type="xs:string" minOccurs="0" maxOccurs="1">
-	            <xs:annotation>
-	                <xs:documentation>
-	                    The region where your nodes are running. Default value is us-east-1.
-	                    Needs to be specified if the region is other than the default one.
-	                </xs:documentation>
-	            </xs:annotation>
-	        </xs:element>
+                <xs:annotation>
+                    <xs:documentation>
+                        The region where your nodes are running. Default value is us-east-1.
+                        Needs to be specified if the region is other than the default one.
+                    </xs:documentation>
+                </xs:annotation>
+            </xs:element>
             <xs:element name="host-header" type="xs:string" minOccurs="0" maxOccurs="1">
-	            <xs:annotation>
-	                <xs:documentation>
-	                    The URL that is the entry point for a web service. It is optional.
-	                </xs:documentation>
-	            </xs:annotation>
-	        </xs:element>
+                <xs:annotation>
+                    <xs:documentation>
+                        The URL that is the entry point for a web service. It is optional.
+                    </xs:documentation>
+                </xs:annotation>
+            </xs:element>
             <xs:element name="security-group-name" type="xs:string" minOccurs="0" maxOccurs="1">
-	            <xs:annotation>
-	                <xs:documentation>
-	                    Name of the security group you specified at the EC2 management console.
-	                    It is used to narrow the Hazelcast nodes to be within this group.
-	                    It is optional.
-	                </xs:documentation>
-	            </xs:annotation>
-	        </xs:element>
+                <xs:annotation>
+                    <xs:documentation>
+                        Name of the security group you specified at the EC2 management console.
+                        It is used to narrow the Hazelcast nodes to be within this group.
+                        It is optional.
+                    </xs:documentation>
+                </xs:annotation>
+            </xs:element>
             <xs:element name="tag-key" type="xs:string" minOccurs="0" maxOccurs="1">
-	            <xs:annotation>
-	                <xs:documentation>
-	                    To narrow the members in the cloud down to only Hazelcast nodes, you can set
-	                    this to the one you specified in the EC2 console. It is optional.
-	                </xs:documentation>
-	            </xs:annotation>
-	        </xs:element>
+                <xs:annotation>
+                    <xs:documentation>
+                        To narrow the members in the cloud down to only Hazelcast nodes, you can set
+                        this to the one you specified in the EC2 console. It is optional.
+                    </xs:documentation>
+                </xs:annotation>
+            </xs:element>
             <xs:element name="tag-value" type="xs:string" minOccurs="0" maxOccurs="1">
-	            <xs:annotation>
-	                <xs:documentation>
-	                    To narrow the members in the cloud down to only Hazelcast nodes, you can set
-	                    this to the one you specified in the EC2 console. It is optional.
-	                </xs:documentation>
-	            </xs:annotation>
-	        </xs:element>
+                <xs:annotation>
+                    <xs:documentation>
+                        To narrow the members in the cloud down to only Hazelcast nodes, you can set
+                        this to the one you specified in the EC2 console. It is optional.
+                    </xs:documentation>
+                </xs:annotation>
+            </xs:element>
         </xs:all>
         <xs:attribute name="enabled" type="xs:boolean" use="optional" default="true">
             <xs:annotation>
@@ -1299,7 +1310,8 @@
             <xs:element name="write-coalescing" type="xs:boolean" minOccurs="0" maxOccurs="1" default="true">
                 <xs:annotation>
                     <xs:documentation>
-                        Setting this is meaningful if you are using write behind in MapStore. When write-coalescing is true,
+                        Setting this is meaningful if you are using write behind in MapStore. When write-coalescing is
+                        true,
                         only the latest store operation on a key in the write-delay-seconds time-window will be
                         reflected to MapStore. Default value is true.
                     </xs:documentation>
@@ -1318,8 +1330,8 @@
             <xs:annotation>
                 <xs:documentation>
                     Sets the initial load mode.
-		    	    LAZY: default load mode, where load is asynchronous.
-			        EAGER: load is blocked till all partitions are loaded.
+                    LAZY: default load mode, where load is asynchronous.
+                    EAGER: load is blocked till all partitions are loaded.
                 </xs:documentation>
             </xs:annotation>
             <xs:simpleType>
@@ -1339,19 +1351,19 @@
     <xs:complexType name="query-cache">
         <xs:all>
             <xs:element name="include-value" type="xs:boolean" minOccurs="0" maxOccurs="1" default="true">
-	            <xs:annotation>
-	                <xs:documentation>
-	                    True to enable value caching, false to disable.
-	                </xs:documentation>
-	            </xs:annotation>
-	        </xs:element>
+                <xs:annotation>
+                    <xs:documentation>
+                        True to enable value caching, false to disable.
+                    </xs:documentation>
+                </xs:annotation>
+            </xs:element>
             <xs:element name="predicate" type="predicate" minOccurs="1" maxOccurs="1">
-	            <xs:annotation>
-	                <xs:documentation>
-	                    The predicate to filter events which will be applied to the QueryCache.
-	                </xs:documentation>
-	            </xs:annotation>
-	        </xs:element>
+                <xs:annotation>
+                    <xs:documentation>
+                        The predicate to filter events which will be applied to the QueryCache.
+                    </xs:documentation>
+                </xs:annotation>
+            </xs:element>
             <xs:element name="entry-listeners" type="entry-listeners" minOccurs="0" maxOccurs="1"/>
             <xs:element name="in-memory-format" type="in-memory-format" minOccurs="0" maxOccurs="1" default="BINARY">
                 <xs:annotation>

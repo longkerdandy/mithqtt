@@ -79,7 +79,7 @@ public class HazelcastApplicationCommunicator implements ApplicationCommunicator
     /**
      * Send internal message to hazelcast queue
      *
-     * @param queue Hazelcast Queue
+     * @param queue   Hazelcast Queue
      * @param message Internal Message
      */
     protected void sendMessage(IQueue<InternalMessage> queue, InternalMessage message) {
