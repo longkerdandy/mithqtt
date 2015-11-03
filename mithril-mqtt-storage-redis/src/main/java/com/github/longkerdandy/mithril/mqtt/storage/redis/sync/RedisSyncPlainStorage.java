@@ -339,7 +339,7 @@ public class RedisSyncPlainStorage implements RedisSyncStorage {
     }
 
     /**
-     * Get possible topic filter tree  sub nodes matching the topic
+     * Get possible topic filter tree sub nodes matching the topic
      * Topic Levels must been sanitized
      *
      * @param topicLevels List of topic levels
