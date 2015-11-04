@@ -27,7 +27,7 @@ public class HazelcastBrokerCommunicator extends HazelcastCommunicator implement
     public void init(PropertiesConfiguration config, String brokerId, BrokerListenerFactory factory) {
         init(config);
 
-        logger.trace("Initializing Hazelcast broker RingBuffer ...");
+        logger.trace("Initializing Hazelcast broker queue ...");
 
         IQueue<InternalMessage> brokerQueue = this.hazelcast.getQueue(BROKER_TOPIC_PREFIX + "." + brokerId);
 

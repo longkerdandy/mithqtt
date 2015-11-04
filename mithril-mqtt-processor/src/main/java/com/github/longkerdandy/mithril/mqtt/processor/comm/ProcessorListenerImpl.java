@@ -236,7 +236,7 @@ public class ProcessorListenerImpl implements ProcessorListener {
 
                 // The Server is permitted to start sending PUBLISH packets matching the Subscription before the Server
                 // sends the SUBACK Packet.
-                for (InternalMessage<Publish> retain : this.redis.getAllRetainMessages(topicLevels)) {
+                for (InternalMessage<Publish> retain : this.redis.getMatchRetainMessages(topicLevels)) {
 
                     // Set recipient client id
                     retain.setClientId(msg.getClientId());

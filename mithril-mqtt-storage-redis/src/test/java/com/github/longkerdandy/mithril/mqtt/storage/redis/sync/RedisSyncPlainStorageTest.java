@@ -290,7 +290,7 @@ public class RedisSyncPlainStorageTest {
                 new Publish("menuTopic", 123456, ObjectMapper.writeValueAsBytes(jn)));
 
         redis.addRetainMessage(Topics.sanitize("a/b/c/d"), publish);
-        publish = redis.getAllRetainMessages(Topics.sanitize("a/b/c/d")).get(0);
+        publish = redis.getMatchRetainMessages(Topics.sanitize("a/b/c/d")).get(0);
 
         assert publish.getMessageType() == MqttMessageType.PUBLISH;
         assert !publish.isDup();
@@ -310,6 +310,48 @@ public class RedisSyncPlainStorageTest {
         assert jn.get("menu").get("popup").get("menuItem").get(2).get("onclick").textValue().equals("CloseDoc()");
 
         redis.removeAllRetainMessage(Topics.sanitize("a/b/c/d"));
-        assert redis.getAllRetainMessages(Topics.sanitize("a/b/c/d")).size() == 0;
+        assert redis.getMatchRetainMessages(Topics.sanitize("a/b/c/d")).size() == 0;
+    }
+
+    @Test
+    public void matchRetainTest() {
+        InternalMessage<Publish> p1 = new InternalMessage<>(
+                MqttMessageType.PUBLISH, false, MqttQoS.AT_LEAST_ONCE, false,
+                MqttVersion.MQTT_3_1_1, "client1", "user1", "broker1",
+                new Publish("foo/bar", 100, "Hello Retain 1".getBytes()));
+        InternalMessage<Publish> p2 = new InternalMessage<>(
+                MqttMessageType.PUBLISH, false, MqttQoS.AT_LEAST_ONCE, false,
+                MqttVersion.MQTT_3_1_1, "client2", "user2", "broker2",
+                new Publish("foo/bar/zoo", 200, "Hello Retain 2".getBytes()));
+        InternalMessage<Publish> p3 = new InternalMessage<>(
+                MqttMessageType.PUBLISH, false, MqttQoS.AT_LEAST_ONCE, false,
+                MqttVersion.MQTT_3_1_1, "client3", "user3", "broker3",
+                new Publish("foo/bar/zoo/rar", 300, "Hello Retain 3".getBytes()));
+        InternalMessage<Publish> p4 = new InternalMessage<>(
+                MqttMessageType.PUBLISH, false, MqttQoS.AT_LEAST_ONCE, false,
+                MqttVersion.MQTT_3_1_1, "client4", "user4", "broker4",
+                new Publish("foo/moo", 400, "Hello Retain 4".getBytes()));
+        InternalMessage<Publish> p5 = new InternalMessage<>(
+                MqttMessageType.PUBLISH, false, MqttQoS.AT_LEAST_ONCE, false,
+                MqttVersion.MQTT_3_1_1, "client5", "user5", "broker5",
+                new Publish("foo/moo/zoo", 500, "Hello Retain 5".getBytes()));
+
+        redis.addRetainMessage(Topics.sanitize("foo/bar"), p1);
+        redis.addRetainMessage(Topics.sanitize("foo/bar/zoo"), p2);
+        redis.addRetainMessage(Topics.sanitize("foo/bar/zoo/rar"), p3);
+        redis.addRetainMessage(Topics.sanitize("foo/moo"), p4);
+        redis.addRetainMessage(Topics.sanitize("foo/moo/zoo"), p5);
+
+        assert redis.getMatchRetainMessages(Topics.sanitize("foo/+")).size() == 2;
+        assert redis.getMatchRetainMessages(Topics.sanitize("foo/bar/+")).size() == 1;
+        assert redis.getMatchRetainMessages(Topics.sanitize("foo/#")).size() == 5;
+        assert redis.getMatchRetainMessages(Topics.sanitize("foo/bar/#")).size() == 3;
+        assert redis.getMatchRetainMessages(Topics.sanitize("foo/bar/zoo/#")).size() == 2;
+        assert redis.getMatchRetainMessages(Topics.sanitize("foo/bar/zoo/rar/#")).size() == 1;
+        assert redis.getMatchRetainMessages(Topics.sanitize("foo/bar/zoo/+")).size() == 1;
+        assert redis.getMatchRetainMessages(Topics.sanitize("foo/zoo/#")).size() == 0;
+        assert redis.getMatchRetainMessages(Topics.sanitize("foo/+/#")).size() == 5;
+        assert redis.getMatchRetainMessages(Topics.sanitize("foo/+/zoo/#")).size() == 3;
+        assert redis.getMatchRetainMessages(Topics.sanitize("#")).size() == 5;
     }
 }

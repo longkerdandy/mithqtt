@@ -440,43 +440,175 @@ public class RedisSyncPlainStorage implements RedisSyncStorage {
     }
 
     @Override
-    public void addRetainMessage(List<String> topicLevels, InternalMessage<Publish> msg) {
+    public int addRetainMessage(List<String> topicLevels, InternalMessage<Publish> msg) {
         int retainId = Math.toIntExact(script().eval(RedisLua.INCRLIMIT, ScriptOutputType.INTEGER, new String[]{RedisKey.nextRetainId(topicLevels)}, new String[]{"65535"}));
         Map<String, String> map = internalToMap(msg);
-        String[] keys = new String[]{RedisKey.topicRetainList(topicLevels), RedisKey.topicRemainMessage(topicLevels, retainId)};
-        String[] argv = ArrayUtils.addAll(new String[]{String.valueOf(retainId)}, mapToArray(map));
+        List<String> keys = new ArrayList<>();
+        List<String> argv = new ArrayList<>();
+        // retain's message list
+        keys.add(RedisKey.topicRetainList(topicLevels));
+        argv.add(String.valueOf(retainId));
+        // retain tree
+        for (int i = 0; i < topicLevels.size(); i++) {
+            keys.add(RedisKey.topicRetainChild(topicLevels.subList(0, i)));
+            argv.add(topicLevels.get(i));
+        }
         script().eval("redis.call('RPUSH', KEYS[1], ARGV[1])\n" +
-                        "redis.call('HMSET', KEYS[2], unpack(ARGV, 2))\n" +
+                        "local length = table.getn(KEYS)\n" +
+                        "for i = 2, length do\n" +
+                        "    redis.call('HINCRBY', KEYS[i], ARGV[i], 1)\n" +
+                        "end\n" +
                         "return redis.status_reply('OK')",
-                ScriptOutputType.STATUS, keys, argv);
+                ScriptOutputType.STATUS, keys.toArray(new String[keys.size()]), argv.toArray(new String[argv.size()]));
+
+        // retain message
+        hash().hmset(RedisKey.topicRemainMessage(topicLevels, retainId), map);
+
+        return retainId;
     }
 
-    @Override
-    @SuppressWarnings("unchecked")
-    public List<InternalMessage<Publish>> getAllRetainMessages(List<String> topicLevels) {
-        List<InternalMessage<Publish>> r = new ArrayList<>();
-        List<String> ids = list().lrange(RedisKey.topicRetainList(topicLevels), 0, -1);
-        if (ids != null) {
-            ids.forEach(retainId -> {
-                InternalMessage<Publish> m = mapToInternal(hash().hgetall(RedisKey.topicRemainMessage(topicLevels, Integer.parseInt(retainId))));
-                if (m != null) r.add(m);
-            });
+    /**
+     * Remove the specific retain message
+     *
+     * @param topicLevels Topic Levels
+     * @param retainId    Retain Id
+     */
+    protected void removeRetainMessage(List<String> topicLevels, int retainId) {
+        List<String> keys = new ArrayList<>();
+        List<String> argv = new ArrayList<>();
+        // retain's message list
+        keys.add(RedisKey.topicRetainList(topicLevels));
+        argv.add(String.valueOf(retainId));
+        // retain message
+        keys.add(RedisKey.topicRemainMessage(topicLevels, retainId));
+        // retain tree
+        for (int i = 0; i < topicLevels.size(); i++) {
+            keys.add(RedisKey.topicRetainChild(topicLevels.subList(0, i)));
+            argv.add(topicLevels.get(i));
         }
-        return r;
+        script().eval("local exist = redis.call('LREM', KEYS[1], 1, ARGV[1])\n" +
+                        "redis.call('DEL', KEYS[2])\n" +
+                        "local length = table.getn(KEYS)\n" +
+                        "if exist == 1\n" +
+                        "then\n" +
+                        "   for i = 3, length do\n" +
+                        "       redis.call('HINCRBY', KEYS[i], ARGV[i-1], -1)\n" +
+                        "   end\n" +
+                        "end\n" +
+                        "return redis.status_reply('OK')",
+                ScriptOutputType.STATUS, keys.toArray(new String[keys.size()]), argv.toArray(new String[argv.size()]));
     }
 
     @Override
     public void removeAllRetainMessage(List<String> topicLevels) {
         List<String> ids = list().lrange(RedisKey.topicRetainList(topicLevels), 0, -1);
         if (ids != null) {
-            ids.forEach(retainId -> {
-                String[] keys = new String[]{RedisKey.topicRetainList(topicLevels), RedisKey.topicRemainMessage(topicLevels, Integer.parseInt(retainId))};
-                String[] argv = new String[]{String.valueOf(retainId)};
-                script().eval("redis.call('LREM', KEYS[1], 0, ARGV[1])\n" +
-                                "redis.call('DEL', KEYS[2])\n" +
-                                "return redis.status_reply('OK')",
-                        ScriptOutputType.STATUS, keys, argv);
+            ids.forEach(retainId ->
+                    removeRetainMessage(topicLevels, Integer.parseInt(retainId)));
+        }
+    }
+
+    /**
+     * Get all retain message topics matching the specific prefix
+     * This used to match topic wildcard '#'
+     * This is a recursion method
+     * Topic Levels must been sanitized
+     *
+     * @param topicLevels Prefix of retain message
+     * @param list        RETURN VALUE! List of retain message topics
+     */
+    protected void getMatchRetainPrefix(List<String> topicLevels, List<List<String>> list) {
+        Map<String, String> nodes = hash().hgetall(RedisKey.topicRetainChild(topicLevels));
+        if (nodes != null) {
+            nodes.forEach((node, count) -> {
+                int c = Integer.parseInt(count);
+                if (c > 0) {
+                    List<String> l = new ArrayList<>(topicLevels);
+                    l.add(node);
+                    if (node.equals(Topics.END)) {
+                        list.add(l);
+                    } else {
+                        getMatchRetainPrefix(l, list);
+                    }
+                }
             });
         }
+    }
+
+    /**
+     * Get all retain message topics matching the topic filter
+     * This is a recursion method
+     * Topic Levels must been sanitized
+     *
+     * @param topicLevels Topic Filter
+     * @param index       Current match level (use 0 if you have doubt)
+     * @param list        RETURN VALUE! List of retain message topics
+     */
+    protected void getMatchRetainMessages(List<String> topicLevels, int index, List<List<String>> list) {
+        String level = topicLevels.get(index);
+
+        switch (level) {
+            case "#":
+                List<String> t1 = new ArrayList<>(topicLevels.subList(0, index));
+                getMatchRetainPrefix(t1, list);
+                break;
+            case "+":
+                Map<String, String> nodes = hash().hgetall(RedisKey.topicRetainChild(topicLevels.subList(0, index)));
+                if (nodes != null) {
+                    nodes.forEach((node, count) -> {
+                        if (!node.equals(Topics.END) && Integer.parseInt(count) > 0) {
+                            if (node.equals(Topics.END)) {
+                                List<String> t2 = new ArrayList<>(topicLevels.subList(0, index));
+                                t2.add(node);
+                                list.add(t2);
+                            } else {
+                                List<String> t2 = new ArrayList<>(topicLevels);
+                                t2.set(index, node);
+                                getMatchRetainMessages(t2, index + 1, list);
+                            }
+                        }
+                    });
+                }
+                break;
+            default:
+                String count = hash().hget(RedisKey.topicRetainChild(topicLevels.subList(0, index)), level);
+                if (count != null && Integer.parseInt(count) > 0) {
+                    if (level.equals(Topics.END) && index == topicLevels.size() - 1) {
+                        list.add(topicLevels);
+                    } else {
+                        getMatchRetainMessages(topicLevels, index + 1, list);
+                    }
+                }
+                break;
+        }
+    }
+
+    @Override
+    @SuppressWarnings("unchecked")
+    public List<InternalMessage<Publish>> getMatchRetainMessages(List<String> topicLevels) {
+        List<InternalMessage<Publish>> r = new ArrayList<>();
+        if (Topics.isTopicFilter(topicLevels)) {
+            List<List<String>> l = new ArrayList<>();
+            getMatchRetainMessages(topicLevels, 0, l);
+            l.forEach(t -> {
+                List<String> ids = list().lrange(RedisKey.topicRetainList(t), 0, -1);
+                if (ids != null) {
+                    ids.forEach(retainId -> {
+                        InternalMessage<Publish> m = mapToInternal(hash().hgetall(RedisKey.topicRemainMessage(t, Integer.parseInt(retainId))));
+                        if (m != null) r.add(m);
+                    });
+                }
+            });
+        } else {
+            List<String> ids = list().lrange(RedisKey.topicRetainList(topicLevels), 0, -1);
+            if (ids != null) {
+                ids.forEach(retainId -> {
+                    InternalMessage<Publish> m = mapToInternal(hash().hgetall(RedisKey.topicRemainMessage(topicLevels, Integer.parseInt(retainId))));
+                    if (m != null) r.add(m);
+                });
+            }
+        }
+
+        return r;
     }
 }

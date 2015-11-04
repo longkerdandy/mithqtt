@@ -233,16 +233,9 @@ public interface RedisSyncStorage {
      *
      * @param topicLevels Topic Levels
      * @param msg         Retain Message
+     * @return Retain Id
      */
-    void addRetainMessage(List<String> topicLevels, InternalMessage<Publish> msg);
-
-    /**
-     * Get all retain messages the topic name
-     *
-     * @param topicLevels Topic Levels
-     * @return List of Retain Message
-     */
-    List<InternalMessage<Publish>> getAllRetainMessages(List<String> topicLevels);
+    int addRetainMessage(List<String> topicLevels, InternalMessage<Publish> msg);
 
     /**
      * Remove all retain messages for the topic name
@@ -250,4 +243,12 @@ public interface RedisSyncStorage {
      * @param topicLevels Topic Levels
      */
     void removeAllRetainMessage(List<String> topicLevels);
+
+    /**
+     * Get all retain messages the topic name
+     *
+     * @param topicLevels Topic Levels
+     * @return List of Retain Message
+     */
+    List<InternalMessage<Publish>> getMatchRetainMessages(List<String> topicLevels);
 }

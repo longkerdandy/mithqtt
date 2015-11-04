@@ -63,9 +63,9 @@ public class RedisKey {
     // Hash of topic name's subscriptions
     // Key - Client Id (which subscribed to this topic name)
     // Value - QoS Level
-    public static String topicName(String topicName) {
-        return "topic:n:" + topicName;
-    }
+    //    public static String topicName(String topicName) {
+    //        return "topic:n:" + topicName;
+    //    }
 
     // Hash of topic filter's subscriptions
     // Key - Client Id (which subscribed to this topic filter)
@@ -77,31 +77,38 @@ public class RedisKey {
     // Hash of topic filter's subscriptions
     // Key - Client Id (which subscribed to this topic filter)
     // Value - QoS Level
-    public static String topicFilter(String topicFilter) {
-        return "topic:f:" + topicFilter;
-    }
+    //    public static String topicFilter(String topicFilter) {
+    //        return "topic:f:" + topicFilter;
+    //    }
 
-    // Hash of topic filter's children
+    // Hash of topic filter's children in trie tree
     // Key - Topic Level (child node in the topic filter tree)
     // Value - Count (how many subscriptions traverse this node, 0 means route not exist)
     public static String topicFilterChild(List<String> topicLevels) {
-        return topicLevels == null || topicLevels.isEmpty() ? "topic:tree:" : "topic:tree:" + String.join("/", topicLevels);
+        return topicLevels == null || topicLevels.isEmpty() ? "topic:f:tree" : "topic:f:tree:" + String.join("/", topicLevels);
     }
 
-    // Key indicates next retain id for the topic
+    // Key indicates next retain id for the topic name
     public static String nextRetainId(List<String> topicLevels) {
-        return "topic:n:" + String.join("/", topicLevels) + ":rid";
+        return "topic:r:rid:" + String.join("/", topicLevels);
     }
 
     // List of remain message's retain id for the topic name
     // Value MQTT Message's Packet Id
     public static String topicRetainList(List<String> topicLevels) {
-        return "topic:n:" + String.join("/", topicLevels) + ":retain";
+        return "topic:r:" + String.join("/", topicLevels);
     }
 
     // Hash of retain message for the topic name
     // MQTT Message in Hash
     public static String topicRemainMessage(List<String> topicLevels, int retainId) {
-        return "topic:n:" + String.join("/", topicLevels) + ":retain:" + retainId;
+        return "topic:r:" + String.join("/", topicLevels) + ":" + retainId;
+    }
+
+    // Hash of topic retain's children in trie tree
+    // Key - Topic Level (child node in the topic retain tree)
+    // Value - Count (how many subscriptions traverse this node, 0 means route not exist)
+    public static String topicRetainChild(List<String> topicLevels) {
+        return topicLevels == null || topicLevels.isEmpty() ? "topic:r:tree" : "topic:r:tree:" + String.join("/", topicLevels);
     }
 }

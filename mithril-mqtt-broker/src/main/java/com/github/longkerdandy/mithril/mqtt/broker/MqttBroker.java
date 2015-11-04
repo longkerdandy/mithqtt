@@ -78,7 +78,7 @@ public class MqttBroker {
         communicator.init(communicatorConfig, brokerConfig.getString("broker.id"), listenerFactory);
 
         // tcp server
-        logger.debug("Initializing MQTT broker server ...");
+        logger.debug("Initializing tcp server ...");
         InternalLoggerFactory.setDefaultFactory(new Slf4JLoggerFactory());
         EventLoopGroup bossGroup = new NioEventLoopGroup();
         EventLoopGroup workerGroup = new NioEventLoopGroup();
