@@ -6,7 +6,6 @@ import com.github.longkerdandy.mithril.mqtt.api.internal.InternalMessage;
 import com.github.longkerdandy.mithril.mqtt.api.internal.Publish;
 import com.github.longkerdandy.mithril.mqtt.broker.session.SessionRegistry;
 import io.netty.channel.ChannelHandlerContext;
-import io.netty.handler.codec.mqtt.MqttMessage;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -25,9 +24,8 @@ public class BrokerListenerImpl implements BrokerListener {
 
     @Override
     public void onPublish(InternalMessage<Publish> msg) {
-        MqttMessage m = msg.toMqttMessage();
         logger.trace("Message forward: Send PUBLISH message to client {}", msg.getClientId());
-        this.registry.sendMessage(m, msg.getClientId(), msg.getPayload().getPacketId(), true);
+        this.registry.sendMessage(msg.toMqttMessage(), msg.getClientId(), msg.getPayload().getPacketId(), true);
     }
 
     @Override

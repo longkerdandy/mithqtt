@@ -22,7 +22,7 @@ public class HazelcastProcessorWorker implements Runnable {
     }
 
     @Override
-    @SuppressWarnings("unchecked")
+    @SuppressWarnings({"unchecked", "InfiniteLoopStatement"})
     public void run() {
         try {
             while (true) {

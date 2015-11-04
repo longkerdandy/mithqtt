@@ -138,9 +138,13 @@ public class ProcessorListenerImpl implements ProcessorListener {
         // subsequent PUBLISH packet with the same Packet Identifier by sending a PUBREC. It MUST
         // NOT cause duplicate messages to be delivered to any onward recipients in this case.
         else if (msg.getQos() == MqttQoS.EXACTLY_ONCE) {
+            // Received a will message, which doesn't have a packet id
+            if (msg.getPayload().getPacketId() <= 0) {
+                onwardRecipients(msg);
+            }
             // The recipient of a Control Packet that contains the DUP flag set to 1 cannot assume that it has
             // seen an earlier copy of this packet.
-            if (this.redis.addQoS2MessageId(msg.getClientId(), msg.getPayload().getPacketId())) {
+            else if (this.redis.addQoS2MessageId(msg.getClientId(), msg.getPayload().getPacketId())) {
                 onwardRecipients(msg);
             }
         }

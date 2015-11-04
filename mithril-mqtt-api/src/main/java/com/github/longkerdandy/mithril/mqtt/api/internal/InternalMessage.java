@@ -233,7 +233,7 @@ public class InternalMessage<T> implements Serializable {
                 Subscribe subscribe = (Subscribe) payload;
                 List<MqttTopicSubscription> subscriptions = new ArrayList<>();
                 subscribe.getSubscriptions().forEach(s ->
-                                subscriptions.add(new MqttTopicSubscription(s.getTopic(), MqttQoS.valueOf(s.getGrantedQos().value())))
+                        subscriptions.add(new MqttTopicSubscription(s.getTopic(), MqttQoS.valueOf(s.getGrantedQos().value())))
                 );
                 return MqttMessageFactory.newMessage(fixedHeader,
                         MqttPacketIdVariableHeader.from(subscribe.getPacketId()),
@@ -254,7 +254,9 @@ public class InternalMessage<T> implements Serializable {
                         (qos == MqttQoS.AT_MOST_ONCE) ?
                                 MqttPublishVariableHeader.from(publish.getTopicName()) :
                                 MqttPublishVariableHeader.from(publish.getTopicName(), publish.getPacketId()),
-                        Unpooled.wrappedBuffer(publish.getPayload()));
+                        (publish.getPayload() != null && publish.getPayload().length > 0) ?
+                                Unpooled.wrappedBuffer(publish.getPayload()) :
+                                Unpooled.EMPTY_BUFFER);
             case UNSUBACK:
             case PUBACK:
             case PUBREC:

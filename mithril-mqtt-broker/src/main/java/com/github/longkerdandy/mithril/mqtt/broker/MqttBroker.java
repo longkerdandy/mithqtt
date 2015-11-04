@@ -18,6 +18,7 @@ import io.netty.handler.codec.mqtt.MqttDecoder;
 import io.netty.handler.codec.mqtt.MqttEncoder;
 import io.netty.handler.logging.LogLevel;
 import io.netty.handler.logging.LoggingHandler;
+import io.netty.handler.timeout.IdleStateHandler;
 import io.netty.util.internal.logging.InternalLoggerFactory;
 import io.netty.util.internal.logging.Slf4JLoggerFactory;
 import org.apache.commons.configuration.PropertiesConfiguration;
@@ -91,11 +92,13 @@ public class MqttBroker {
                         @Override
                         public void initChannel(SocketChannel ch) throws Exception {
                             ChannelPipeline p = ch.pipeline();
+                            // idle
+                            p.addFirst("idleHandler", new IdleStateHandler(0, 0, brokerConfig.getInt("mqtt.keepalive.default")));
                             // mqtt encoder & decoder
-                            p.addLast(new MqttEncoder());
-                            p.addLast(new MqttDecoder());
-                            // handler
-                            p.addLast(new AsyncRedisHandler(authenticator, communicator, redis, registry, brokerConfig, validator));
+                            p.addLast("encoder", new MqttEncoder());
+                            p.addLast("decoder", new MqttDecoder());
+                            // logic handler
+                            p.addLast("logicHandler", new AsyncRedisHandler(authenticator, communicator, redis, registry, brokerConfig, validator));
                         }
                     })
                     .option(ChannelOption.SO_BACKLOG, brokerConfig.getInt("netty.soBacklog"))

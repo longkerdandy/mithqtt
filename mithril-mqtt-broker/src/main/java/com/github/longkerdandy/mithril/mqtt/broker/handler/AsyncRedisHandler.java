@@ -11,6 +11,9 @@ import com.github.longkerdandy.mithril.mqtt.storage.redis.async.RedisAsyncStorag
 import io.netty.channel.ChannelHandlerContext;
 import io.netty.channel.SimpleChannelInboundHandler;
 import io.netty.handler.codec.mqtt.*;
+import io.netty.handler.timeout.IdleState;
+import io.netty.handler.timeout.IdleStateEvent;
+import io.netty.handler.timeout.IdleStateHandler;
 import org.apache.commons.configuration.PropertiesConfiguration;
 import org.apache.commons.lang3.ArrayUtils;
 import org.apache.commons.lang3.StringUtils;
@@ -283,6 +286,9 @@ public class AsyncRedisHandler extends SimpleChannelInboundHandler<MqttMessage> 
                     this.keepAlive = msg.variableHeader().keepAlive();
                     if (this.keepAlive <= 0 || this.keepAlive > this.config.getInt("mqtt.keepalive.max"))
                         this.keepAlive = this.config.getInt("mqtt.keepalive.default");
+                    if (ctx.pipeline().names().contains("idleHandler"))
+                        ctx.pipeline().remove("idleHandler");
+                    ctx.pipeline().addFirst("idleHandler", new IdleStateHandler(0, 0, Math.round(this.keepAlive * 1.5f)));
 
                     // Save connection state, add to local registry
                     this.connected = true;
@@ -679,6 +685,17 @@ public class AsyncRedisHandler extends SimpleChannelInboundHandler<MqttMessage> 
                             }
                         }
                 );
+            }
+        }
+    }
+
+    @Override
+    public void userEventTriggered(ChannelHandlerContext ctx, Object evt) throws Exception {
+        if (evt instanceof IdleStateEvent) {
+            IdleStateEvent e = (IdleStateEvent) evt;
+            if (e.state() == IdleState.ALL_IDLE) {
+                logger.debug("Protocol violation: Client {} has been idle beyond keep alive time, disconnect the client", this.clientId);
+                ctx.close();
             }
         }
     }
