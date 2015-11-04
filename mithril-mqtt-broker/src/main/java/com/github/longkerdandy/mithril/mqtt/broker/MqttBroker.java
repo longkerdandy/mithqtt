@@ -5,9 +5,11 @@ import com.github.longkerdandy.mithril.mqtt.api.comm.BrokerCommunicator;
 import com.github.longkerdandy.mithril.mqtt.api.comm.BrokerListenerFactory;
 import com.github.longkerdandy.mithril.mqtt.broker.comm.BrokerListenerFactoryImpl;
 import com.github.longkerdandy.mithril.mqtt.broker.handler.AsyncRedisHandler;
+import com.github.longkerdandy.mithril.mqtt.broker.handler.SyncRedisHandler;
 import com.github.longkerdandy.mithril.mqtt.broker.session.SessionRegistry;
 import com.github.longkerdandy.mithril.mqtt.broker.util.Validator;
 import com.github.longkerdandy.mithril.mqtt.storage.redis.async.RedisAsyncStorage;
+import com.github.longkerdandy.mithril.mqtt.storage.redis.sync.RedisSyncStorage;
 import com.lambdaworks.redis.RedisURI;
 import io.netty.bootstrap.ServerBootstrap;
 import io.netty.channel.*;
@@ -64,7 +66,9 @@ public class MqttBroker {
 
         // storage
         logger.debug("Initializing redis storage ...");
-        RedisAsyncStorage redis = (RedisAsyncStorage) Class.forName(redisConfig.getString("storage.async.class")).newInstance();
+        // RedisAsyncStorage redis = (RedisAsyncStorage) Class.forName(redisConfig.getString("storage.async.class")).newInstance();
+        // redis.init(RedisURI.create(redisConfig.getString("redis.uri")));
+        RedisSyncStorage redis = (RedisSyncStorage) Class.forName(redisConfig.getString("storage.sync.class")).newInstance();
         redis.init(RedisURI.create(redisConfig.getString("redis.uri")));
 
         // authenticator
@@ -83,6 +87,7 @@ public class MqttBroker {
         InternalLoggerFactory.setDefaultFactory(new Slf4JLoggerFactory());
         EventLoopGroup bossGroup = new NioEventLoopGroup();
         EventLoopGroup workerGroup = new NioEventLoopGroup();
+        EventLoopGroup handlerGroup = new NioEventLoopGroup();
         try {
             ServerBootstrap b = new ServerBootstrap();
             b.group(bossGroup, workerGroup)
@@ -98,7 +103,7 @@ public class MqttBroker {
                             p.addLast("encoder", new MqttEncoder());
                             p.addLast("decoder", new MqttDecoder());
                             // logic handler
-                            p.addLast("logicHandler", new AsyncRedisHandler(authenticator, communicator, redis, registry, brokerConfig, validator));
+                            p.addLast(handlerGroup, "logicHandler", new SyncRedisHandler(authenticator, communicator, redis, registry, brokerConfig, validator));
                         }
                     })
                     .option(ChannelOption.SO_BACKLOG, brokerConfig.getInt("netty.soBacklog"))

@@ -1,7 +1,5 @@
 package io.netty.handler.codec.mqtt;
 
-import org.apache.commons.lang3.StringUtils;
-
 /**
  * MQTT Utils
  */
@@ -15,8 +13,6 @@ public class Mqtts {
     public static void sanitize(MqttMessage msg) {
         switch (msg.fixedHeader().messageType()) {
             case CONNECT:
-                if (StringUtils.isEmpty(((MqttConnectPayload) msg.payload()).clientId))
-                    ((MqttConnectVariableHeader) msg.variableHeader()).cleanSession = true;
             case CONNACK:
             case PUBACK:
             case PUBREC:

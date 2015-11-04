@@ -38,4 +38,12 @@ public interface BrokerCommunicator {
      * @param message Internal Message
      */
     void sendToProcessor(InternalMessage message);
+
+    /**
+     * Send internal message to outside
+     * 3rd party application can handle the message from there
+     *
+     * @param message Internal Message
+     */
+    void sendToApplication(InternalMessage message);
 }

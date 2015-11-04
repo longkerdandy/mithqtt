@@ -14,6 +14,7 @@ import java.util.concurrent.CompletableFuture;
  * Dummy Authenticator
  * Which simply authorized everything
  */
+@SuppressWarnings("unused")
 public class DummyAuthenticator implements Authenticator {
 
     @Override
@@ -22,6 +23,24 @@ public class DummyAuthenticator implements Authenticator {
 
     @Override
     public void destroy() {
+    }
+
+    @Override
+    public AuthorizeResult authConnect(String clientId, String userName, String password) {
+        return AuthorizeResult.OK;
+    }
+
+    @Override
+    public AuthorizeResult authPublish(String clientId, String userName, String topicName, int qos, boolean retain) {
+        return AuthorizeResult.OK;
+    }
+
+    @Override
+    public List<MqttGrantedQoS> authSubscribe(String clientId, String userName, List<MqttTopicSubscription> requestSubscriptions) {
+        List<MqttGrantedQoS> r = new ArrayList<>();
+        requestSubscriptions.forEach(subscription ->
+                r.add(MqttGrantedQoS.valueOf(subscription.requestedQos().value())));
+        return r;
     }
 
     @Override
