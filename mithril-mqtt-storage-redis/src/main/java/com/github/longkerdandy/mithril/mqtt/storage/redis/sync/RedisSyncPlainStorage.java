@@ -9,7 +9,6 @@ import com.lambdaworks.redis.*;
 import com.lambdaworks.redis.api.StatefulRedisConnection;
 import com.lambdaworks.redis.api.sync.*;
 import io.netty.handler.codec.mqtt.MqttQoS;
-import org.apache.commons.lang3.ArrayUtils;
 import org.apache.commons.lang3.BooleanUtils;
 
 import java.util.ArrayList;
@@ -17,7 +16,8 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
-import static com.github.longkerdandy.mithril.mqtt.storage.redis.util.Converter.*;
+import static com.github.longkerdandy.mithril.mqtt.storage.redis.util.Converter.internalToMap;
+import static com.github.longkerdandy.mithril.mqtt.storage.redis.util.Converter.mapToInternal;
 import static com.github.longkerdandy.mithril.mqtt.util.Topics.END;
 
 /**
@@ -98,25 +98,16 @@ public class RedisSyncPlainStorage implements RedisSyncStorage {
 
     @Override
     public String updateConnectedNode(String clientId, String node) {
-        String[] keys = new String[]{RedisKey.connectedClients(node), RedisKey.connectedNode(clientId)};
-        String[] argv = new String[]{clientId, node};
-        return script().eval("redis.call('SADD', KEYS[1], ARGV[1])\n" +
-                        "return redis.call('GETSET', KEYS[2], ARGV[2])",
-                ScriptOutputType.VALUE, keys, argv);
+        set().sadd(RedisKey.connectedClients(node), clientId);
+        return string().getset(RedisKey.connectedNode(clientId), node);
     }
 
     @Override
     public boolean removeConnectedNode(String clientId, String node) {
-        String[] keys = new String[]{RedisKey.connectedClients(node), RedisKey.connectedNode(clientId)};
-        String[] argv = new String[]{clientId, node};
-        long r = script().eval("redis.call('SREM', KEYS[1], ARGV[1])\n" +
-                        "if ARGV[2] == redis.call('GET', KEYS[2])\n" +
-                        "then\n" +
-                        "   redis.call('DEL', KEYS[2])\n" +
-                        "   return 1\n" +
-                        "end\n" +
-                        "return 0",
-                ScriptOutputType.INTEGER, keys, argv);
+        set().srem(RedisKey.connectedClients(node), clientId);
+        String[] keys = new String[]{RedisKey.connectedNode(clientId)};
+        String[] argv = new String[]{node};
+        long r = script().eval(RedisLua.CHECKDEL, ScriptOutputType.INTEGER, keys, argv);
         return r == 1;
     }
 
@@ -161,22 +152,14 @@ public class RedisSyncPlainStorage implements RedisSyncStorage {
     public void addInFlightMessage(String clientId, int packetId, InternalMessage msg, boolean dup) {
         Map<String, String> map = internalToMap(msg);
         map.put("dup", BooleanUtils.toString(dup, "1", "0"));
-        String[] keys = new String[]{RedisKey.inFlightList(clientId), RedisKey.inFlightMessage(clientId, packetId)};
-        String[] argv = ArrayUtils.addAll(new String[]{String.valueOf(packetId)}, mapToArray(map));
-        script().eval("redis.call('RPUSH', KEYS[1], ARGV[1])\n" +
-                        "redis.call('HMSET', KEYS[2], unpack(ARGV, 2))\n" +
-                        "return redis.status_reply('OK')",
-                ScriptOutputType.STATUS, keys, argv);
+        list().rpush(RedisKey.inFlightList(clientId), String.valueOf(packetId));
+        hash().hmset(RedisKey.inFlightMessage(clientId, packetId), map);
     }
 
     @Override
     public void removeInFlightMessage(String clientId, int packetId) {
-        String[] keys = new String[]{RedisKey.inFlightList(clientId), RedisKey.inFlightMessage(clientId, packetId)};
-        String[] argv = new String[]{String.valueOf(packetId)};
-        script().eval("redis.call('LREM', KEYS[1], 0, ARGV[1])\n" +
-                        "redis.call('DEL', KEYS[2])\n" +
-                        "return redis.status_reply('OK')",
-                ScriptOutputType.STATUS, keys, argv);
+        list().lrem(RedisKey.inFlightList(clientId), 0, String.valueOf(packetId));
+        key().del(RedisKey.inFlightMessage(clientId, packetId));
     }
 
     @Override
