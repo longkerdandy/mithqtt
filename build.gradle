@@ -1,6 +1,7 @@
 subprojects {
 
     apply plugin: 'java'
+    apply plugin: 'maven'
 
     // Group Id
     group 'com.github.longkerdandy.mithril'
