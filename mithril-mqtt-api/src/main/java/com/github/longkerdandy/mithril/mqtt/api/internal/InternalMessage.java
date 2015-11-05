@@ -1,5 +1,6 @@
 package com.github.longkerdandy.mithril.mqtt.api.internal;
 
+import io.netty.buffer.ByteBuf;
 import io.netty.buffer.Unpooled;
 import io.netty.handler.codec.mqtt.*;
 import org.apache.commons.lang3.StringUtils;
@@ -117,8 +118,9 @@ public class InternalMessage<T> implements Serializable {
                                                            MqttPublishMessage mqtt) {
         InternalMessage<Publish> msg = fromMqttMessage(version, clientId, userName, brokerId, mqtt.fixedHeader());
         // forge bytes payload
-        byte[] bytes = new byte[mqtt.payload().readableBytes()];
-        mqtt.payload().readBytes(bytes);
+        ByteBuf buf = mqtt.payload().duplicate();
+        byte[] bytes = new byte[buf.readableBytes()];
+        buf.readBytes(bytes);
         msg.payload = new Publish(mqtt.variableHeader().topicName(), mqtt.variableHeader().packetId(), bytes);
         return msg;
     }

@@ -11,6 +11,7 @@ import com.github.longkerdandy.mithril.mqtt.broker.session.SessionRegistry;
 import com.github.longkerdandy.mithril.mqtt.broker.util.Validator;
 import com.github.longkerdandy.mithril.mqtt.storage.redis.sync.RedisSyncStorage;
 import com.github.longkerdandy.mithril.mqtt.util.Topics;
+import io.netty.buffer.ByteBuf;
 import io.netty.buffer.Unpooled;
 import io.netty.channel.ChannelHandlerContext;
 import io.netty.channel.SimpleChannelInboundHandler;
@@ -510,8 +511,9 @@ public class SyncRedisHandler extends SimpleChannelInboundHandler<MqttMessage> {
         List<String> topicLevels = Topics.sanitizeTopicName(msg.variableHeader().topicName());
 
         // forge bytes payload
-        byte[] bytes = new byte[msg.payload().readableBytes()];
-        msg.payload().readBytes(bytes);
+        ByteBuf buf = msg.payload().duplicate();
+        byte[] bytes = new byte[buf.readableBytes()];
+        buf.readBytes(bytes);
 
         // When sending a PUBLISH Packet to a Client the Server MUST set the RETAIN flag to 1 if a message is
         // sent as a result of a new subscription being made by a Client. It MUST set the RETAIN
