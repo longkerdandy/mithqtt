@@ -85,12 +85,12 @@ public class RedisKey {
     // Key - Topic Level (child node in the topic filter tree)
     // Value - Count (how many subscriptions traverse this node, 0 means route not exist)
     public static String topicFilterChild(List<String> topicLevels) {
-        return topicLevels == null || topicLevels.isEmpty() ? "topic:f:tree" : "topic:f:tree:" + String.join("/", topicLevels);
+        return topicLevels == null || topicLevels.isEmpty() ? "{topic:f:tree}" : "{topic:f:tree}:" + String.join("/", topicLevels);
     }
 
     // Key indicates next retain id for the topic name
     public static String nextRetainId(List<String> topicLevels) {
-        return "topic:r:rid:" + String.join("/", topicLevels);
+        return "topic:r:" + String.join("/", topicLevels) + ":rid";
     }
 
     // List of remain message's retain id for the topic name
@@ -109,6 +109,6 @@ public class RedisKey {
     // Key - Topic Level (child node in the topic retain tree)
     // Value - Count (how many subscriptions traverse this node, 0 means route not exist)
     public static String topicRetainChild(List<String> topicLevels) {
-        return topicLevels == null || topicLevels.isEmpty() ? "topic:r:tree" : "topic:r:tree:" + String.join("/", topicLevels);
+        return topicLevels == null || topicLevels.isEmpty() ? "{topic:r:tree}" : "{topic:r:tree}:" + String.join("/", topicLevels);
     }
 }

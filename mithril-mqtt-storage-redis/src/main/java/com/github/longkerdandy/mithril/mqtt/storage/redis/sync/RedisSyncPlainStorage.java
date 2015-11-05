@@ -228,87 +228,57 @@ public class RedisSyncPlainStorage implements RedisSyncStorage {
 
     @Override
     public void updateSubscription(String clientId, List<String> topicLevels, MqttQoS qos) {
-        List<String> keys = new ArrayList<>();
-        List<String> argv = new ArrayList<>();
         if (Topics.isTopicFilter(topicLevels)) {
-            // client's subscriptions
-            keys.add(RedisKey.subscription(clientId));
-            argv.add(String.join("/", topicLevels));
-            argv.add(String.valueOf(qos.value()));
-            // topic's subscribers
-            keys.add(RedisKey.topicFilter(topicLevels));
-            argv.add(clientId);
-            argv.add(String.valueOf(qos.value()));
-            // topic filter tree
-            for (int i = 0; i < topicLevels.size(); i++) {
-                keys.add(RedisKey.topicFilterChild(topicLevels.subList(0, i)));
-                argv.add(topicLevels.get(i));
+            boolean b1 = hash().hset(RedisKey.subscription(clientId), String.join("/", topicLevels), String.valueOf(qos.value()));
+            boolean b2 = hash().hset(RedisKey.topicFilter(topicLevels), clientId, String.valueOf(qos.value()));
+            if (b1 && b2) {
+                List<String> keys = new ArrayList<>();
+                List<String> argv = new ArrayList<>();
+                // topic filter tree
+                for (int i = 0; i < topicLevels.size(); i++) {
+                    keys.add(RedisKey.topicFilterChild(topicLevels.subList(0, i)));
+                    argv.add(topicLevels.get(i));
+                }
+                script().eval("local length = table.getn(KEYS)\n" +
+                                "for i = 1, length do\n" +
+                                "   redis.call('HINCRBY', KEYS[i], ARGV[i], 1)\n" +
+                                "end\n" +
+                                "return redis.status_reply('OK')",
+                        ScriptOutputType.STATUS, keys.toArray(new String[keys.size()]), argv.toArray(new String[argv.size()]));
             }
-            script().eval("local exist = redis.call('HSET', KEYS[1], ARGV[1], ARGV[2])\n" +
-                            "redis.call('HSET', KEYS[2], ARGV[3], ARGV[4])\n" +
-                            "if exist == 1\n" +
-                            "then\n" +
-                            "   local length = table.getn(KEYS)\n" +
-                            "   for i = 3, length do\n" +
-                            "       redis.call('HINCRBY', KEYS[i], ARGV[i+2], 1)\n" +
-                            "   end\n" +
-                            "end\n" +
-                            "return redis.status_reply('OK')",
-                    ScriptOutputType.STATUS, keys.toArray(new String[keys.size()]), argv.toArray(new String[argv.size()]));
         } else {
-            // client's subscriptions
-            keys.add(RedisKey.subscription(clientId));
-            argv.add(String.join("/", topicLevels));
-            argv.add(String.valueOf(qos.value()));
-            // topic's subscribers
-            keys.add(RedisKey.topicName(topicLevels));
-            argv.add(clientId);
-            argv.add(String.valueOf(qos.value()));
-            script().eval("redis.call('HSET', KEYS[1], ARGV[1], ARGV[2])\n" +
-                            "redis.call('HSET', KEYS[2], ARGV[3], ARGV[4])\n" +
-                            "return redis.status_reply('OK')",
-                    ScriptOutputType.STATUS, keys.toArray(new String[keys.size()]), argv.toArray(new String[argv.size()]));
+            hash().hset(RedisKey.subscription(clientId), String.join("/", topicLevels), String.valueOf(qos.value()));
+            hash().hset(RedisKey.topicName(topicLevels), clientId, String.valueOf(qos.value()));
         }
     }
 
     @Override
     public void removeSubscription(String clientId, List<String> topicLevels) {
-        List<String> keys = new ArrayList<>();
-        List<String> argv = new ArrayList<>();
         if (Topics.isTopicFilter(topicLevels)) {
-            // client's subscriptions
-            keys.add(RedisKey.subscription(clientId));
-            argv.add(String.join("/", topicLevels));
-            // topic's subscribers
-            keys.add(RedisKey.topicFilter(topicLevels));
-            argv.add(clientId);
-            // topic filter tree
-            for (int i = 0; i < topicLevels.size(); i++) {
-                keys.add(RedisKey.topicFilterChild(topicLevels.subList(0, i)));
-                argv.add(topicLevels.get(i));
+            long b1 = hash().hdel(RedisKey.subscription(clientId), String.join("/", topicLevels));
+            long b2 = hash().hdel(RedisKey.topicFilter(topicLevels), clientId);
+            if (b1 == 1 && b2 == 1) {
+                List<String> keys = new ArrayList<>();
+                List<String> argv = new ArrayList<>();
+                // topic filter tree
+                for (int i = 0; i < topicLevels.size(); i++) {
+                    keys.add(RedisKey.topicFilterChild(topicLevels.subList(0, i)));
+                    argv.add(topicLevels.get(i));
+                }
+                script().eval("local length = table.getn(KEYS)\n" +
+                                "for i = 1, length do\n" +
+                                "   local count = redis.call('HINCRBY', KEYS[i], ARGV[i], -1)\n" +
+                                "   if count == 0\n" +
+                                "   then\n" +
+                                "       redis.call('HDEL', KEYS[i], ARGV[i])\n" +
+                                "   end\n" +
+                                "end\n" +
+                                "return redis.status_reply('OK')",
+                        ScriptOutputType.STATUS, keys.toArray(new String[keys.size()]), argv.toArray(new String[argv.size()]));
             }
-            script().eval("local exist = redis.call('HDEL', KEYS[1], ARGV[1])\n" +
-                            "redis.call('HDEL', KEYS[2], ARGV[2])\n" +
-                            "local length = table.getn(KEYS)\n" +
-                            "if exist == 1\n" +
-                            "then\n" +
-                            "   for i = 3, length do\n" +
-                            "       redis.call('HINCRBY', KEYS[i], ARGV[i], -1)\n" +
-                            "   end\n" +
-                            "end\n" +
-                            "return redis.status_reply('OK')",
-                    ScriptOutputType.STATUS, keys.toArray(new String[keys.size()]), argv.toArray(new String[argv.size()]));
         } else {
-            // client's subscriptions
-            keys.add(RedisKey.subscription(clientId));
-            argv.add(String.join("/", topicLevels));
-            // topic's subscribers
-            keys.add(RedisKey.topicName(topicLevels));
-            argv.add(clientId);
-            script().eval("redis.call('HDEL', KEYS[1], ARGV[1])\n" +
-                            "redis.call('HDEL', KEYS[2], ARGV[2])\n" +
-                            "return redis.status_reply('OK')",
-                    ScriptOutputType.STATUS, keys.toArray(new String[keys.size()]), argv.toArray(new String[argv.size()]));
+            hash().hdel(RedisKey.subscription(clientId), String.join("/", topicLevels));
+            hash().hdel(RedisKey.topicName(topicLevels), clientId);
         }
     }
 
@@ -424,28 +394,28 @@ public class RedisSyncPlainStorage implements RedisSyncStorage {
 
     @Override
     public int addRetainMessage(List<String> topicLevels, InternalMessage<Publish> msg) {
+        // retainId
         int retainId = Math.toIntExact(script().eval(RedisLua.INCRLIMIT, ScriptOutputType.INTEGER, new String[]{RedisKey.nextRetainId(topicLevels)}, new String[]{"65535"}));
-        Map<String, String> map = internalToMap(msg);
+
+        // retain's message list
+        list().rpush(RedisKey.topicRetainList(topicLevels), String.valueOf(retainId));
+
+        // retain tree
         List<String> keys = new ArrayList<>();
         List<String> argv = new ArrayList<>();
-        // retain's message list
-        keys.add(RedisKey.topicRetainList(topicLevels));
-        argv.add(String.valueOf(retainId));
-        // retain tree
         for (int i = 0; i < topicLevels.size(); i++) {
             keys.add(RedisKey.topicRetainChild(topicLevels.subList(0, i)));
             argv.add(topicLevels.get(i));
         }
-        script().eval("redis.call('RPUSH', KEYS[1], ARGV[1])\n" +
-                        "local length = table.getn(KEYS)\n" +
-                        "for i = 2, length do\n" +
+        script().eval("local length = table.getn(KEYS)\n" +
+                        "for i = 1, length do\n" +
                         "    redis.call('HINCRBY', KEYS[i], ARGV[i], 1)\n" +
                         "end\n" +
                         "return redis.status_reply('OK')",
                 ScriptOutputType.STATUS, keys.toArray(new String[keys.size()]), argv.toArray(new String[argv.size()]));
 
         // retain message
-        hash().hmset(RedisKey.topicRemainMessage(topicLevels, retainId), map);
+        hash().hmset(RedisKey.topicRemainMessage(topicLevels, retainId), internalToMap(msg));
 
         return retainId;
     }
@@ -457,29 +427,31 @@ public class RedisSyncPlainStorage implements RedisSyncStorage {
      * @param retainId    Retain Id
      */
     protected void removeRetainMessage(List<String> topicLevels, int retainId) {
-        List<String> keys = new ArrayList<>();
-        List<String> argv = new ArrayList<>();
         // retain's message list
-        keys.add(RedisKey.topicRetainList(topicLevels));
-        argv.add(String.valueOf(retainId));
-        // retain message
-        keys.add(RedisKey.topicRemainMessage(topicLevels, retainId));
+        long b = list().lrem(RedisKey.topicRetainList(topicLevels), 1, String.valueOf(retainId));
+
         // retain tree
-        for (int i = 0; i < topicLevels.size(); i++) {
-            keys.add(RedisKey.topicRetainChild(topicLevels.subList(0, i)));
-            argv.add(topicLevels.get(i));
+        if (b == 1) {
+            List<String> keys = new ArrayList<>();
+            List<String> argv = new ArrayList<>();
+            for (int i = 0; i < topicLevels.size(); i++) {
+                keys.add(RedisKey.topicRetainChild(topicLevels.subList(0, i)));
+                argv.add(topicLevels.get(i));
+            }
+            script().eval("local length = table.getn(KEYS)\n" +
+                            "for i = 1, length do\n" +
+                            "   local count = redis.call('HINCRBY', KEYS[i], ARGV[i], -1)\n" +
+                            "   if count == 0\n" +
+                            "   then\n" +
+                            "       redis.call('HDEL', KEYS[i], ARGV[i])\n" +
+                            "   end\n" +
+                            "end\n" +
+                            "return redis.status_reply('OK')",
+                    ScriptOutputType.STATUS, keys.toArray(new String[keys.size()]), argv.toArray(new String[argv.size()]));
         }
-        script().eval("local exist = redis.call('LREM', KEYS[1], 1, ARGV[1])\n" +
-                        "redis.call('DEL', KEYS[2])\n" +
-                        "local length = table.getn(KEYS)\n" +
-                        "if exist == 1\n" +
-                        "then\n" +
-                        "   for i = 3, length do\n" +
-                        "       redis.call('HINCRBY', KEYS[i], ARGV[i-1], -1)\n" +
-                        "   end\n" +
-                        "end\n" +
-                        "return redis.status_reply('OK')",
-                ScriptOutputType.STATUS, keys.toArray(new String[keys.size()]), argv.toArray(new String[argv.size()]));
+
+        // retain message
+        key().del(RedisKey.topicRemainMessage(topicLevels, retainId));
     }
 
     @Override
