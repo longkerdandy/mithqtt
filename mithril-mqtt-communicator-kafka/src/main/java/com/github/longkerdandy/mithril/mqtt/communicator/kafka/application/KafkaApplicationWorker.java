@@ -29,7 +29,7 @@ public class KafkaApplicationWorker implements Runnable {
         for (MessageAndMetadata<String, InternalMessage> m : this.stream) {
             InternalMessage msg = m.message();
             if (msg != null) {
-                logger.debug("Communicator received: Received {} message from processor {} for client {} user {}", msg.getMessageType(), msg.getBrokerId(), msg.getClientId(), msg.getUserName());
+                logger.debug("Communicator received: Received {} message from broker {} for client {} user {}", msg.getMessageType(), msg.getBrokerId(), msg.getClientId(), msg.getUserName());
                 switch (msg.getMessageType()) {
                     case CONNECT:
                         this.listener.onConnect((InternalMessage<Connect>) msg);

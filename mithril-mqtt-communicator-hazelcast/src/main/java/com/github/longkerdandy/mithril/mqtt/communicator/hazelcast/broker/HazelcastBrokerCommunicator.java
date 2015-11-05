@@ -3,7 +3,8 @@ package com.github.longkerdandy.mithril.mqtt.communicator.hazelcast.broker;
 import com.github.longkerdandy.mithril.mqtt.api.comm.BrokerCommunicator;
 import com.github.longkerdandy.mithril.mqtt.api.comm.BrokerListenerFactory;
 import com.github.longkerdandy.mithril.mqtt.api.internal.InternalMessage;
-import com.github.longkerdandy.mithril.mqtt.communicator.hazelcast.HazelcastCommunicator;
+import com.hazelcast.core.Hazelcast;
+import com.hazelcast.core.HazelcastInstance;
 import com.hazelcast.core.IQueue;
 import org.apache.commons.configuration.PropertiesConfiguration;
 import org.slf4j.Logger;
@@ -17,19 +18,35 @@ import java.util.concurrent.TimeUnit;
  * Processor Communicator implementation for Hazelcast
  */
 @SuppressWarnings("unused")
-public class HazelcastBrokerCommunicator extends HazelcastCommunicator implements BrokerCommunicator {
+public class HazelcastBrokerCommunicator implements BrokerCommunicator {
 
     private static final Logger logger = LoggerFactory.getLogger(HazelcastBrokerCommunicator.class);
 
+    // hazelcast instance
+    protected HazelcastInstance hazelcast;
+
+    // broker
+    protected String BROKER_TOPIC_PREFIX;
+    protected IQueue<InternalMessage> brokerQueue;
+
+    // application
+    protected IQueue<InternalMessage> applicationQueue;
+
+    // executor
     private ExecutorService executor;
 
     @Override
     public void init(PropertiesConfiguration config, String brokerId, BrokerListenerFactory factory) {
-        init(config);
+        this.hazelcast = Hazelcast.newHazelcastInstance();
 
-        logger.trace("Initializing Hazelcast broker queue ...");
+        logger.trace("Initializing Hazelcast broker resources ...");
 
-        IQueue<InternalMessage> brokerQueue = this.hazelcast.getQueue(BROKER_TOPIC_PREFIX + "." + brokerId);
+        BROKER_TOPIC_PREFIX = config.getString("communicator.broker.topic");
+        this.brokerQueue = this.hazelcast.getQueue(BROKER_TOPIC_PREFIX + "." + brokerId);
+
+        logger.trace("Initializing Hazelcast application resources ...");
+
+        this.applicationQueue = this.hazelcast.getQueue(config.getString("communicator.application.topic"));
 
         logger.trace("Initializing Hazelcast broker consumer's workers ...");
 
@@ -37,14 +54,13 @@ public class HazelcastBrokerCommunicator extends HazelcastCommunicator implement
         int threads = config.getInt("consumer.threads");
         this.executor = Executors.newFixedThreadPool(threads);
         for (int i = 0; i < threads; i++) {
-            this.executor.submit(new HazelcastBrokerWorker(brokerQueue, factory.newListener()));
+            this.executor.submit(new HazelcastBrokerWorker(this.brokerQueue, factory.newListener()));
         }
     }
 
     @Override
     public void destroy() {
-        super.destroy();
-
+        if (this.hazelcast != null) this.hazelcast.shutdown();
         if (this.executor != null) {
             this.executor.shutdown();
             try {
@@ -55,5 +71,29 @@ public class HazelcastBrokerCommunicator extends HazelcastCommunicator implement
                 logger.warn("Communicator error: Interrupted during shutdown, exiting uncleanly");
             }
         }
+    }
+
+    public void sendToBroker(String brokerId, InternalMessage message) {
+        IQueue<InternalMessage> brokerQueue = this.hazelcast.getQueue(BROKER_TOPIC_PREFIX + "." + brokerId);
+        sendMessage(brokerQueue, message);
+    }
+
+    public void sendToApplication(InternalMessage message) {
+        sendMessage(this.applicationQueue, message);
+    }
+
+    /**
+     * Send internal message to hazelcast queue
+     *
+     * @param queue   Hazelcast Queue
+     * @param message Internal Message
+     */
+    protected void sendMessage(IQueue<InternalMessage> queue, InternalMessage message) {
+        if (queue.offer(message)) {
+            logger.debug("Communicator succeed: Successful add message {} to queue {}", message.getMessageType(), queue.getName());
+        } else {
+            logger.warn("Communicator failed: Failed to add message {} to queue {}: Operation timeout", message.getMessageType(), queue.getName());
+        }
+
     }
 }

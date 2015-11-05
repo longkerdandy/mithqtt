@@ -33,13 +33,6 @@ public interface BrokerCommunicator {
     void sendToBroker(String brokerId, InternalMessage message);
 
     /**
-     * Send internal message to processor
-     *
-     * @param message Internal Message
-     */
-    void sendToProcessor(InternalMessage message);
-
-    /**
      * Send internal message to outside
      * 3rd party application can handle the message from there
      *

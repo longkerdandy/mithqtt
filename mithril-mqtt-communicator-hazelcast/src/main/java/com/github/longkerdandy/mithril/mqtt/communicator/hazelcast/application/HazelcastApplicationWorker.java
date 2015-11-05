@@ -31,7 +31,7 @@ public class HazelcastApplicationWorker implements Runnable {
 
                 // notify listener
                 if (msg != null) {
-                    logger.debug("Communicator received: Received {} message from processor {} for client {} user {}", msg.getMessageType(), msg.getBrokerId(), msg.getClientId(), msg.getUserName());
+                    logger.debug("Communicator received: Received {} message from broker {} for client {} user {}", msg.getMessageType(), msg.getBrokerId(), msg.getClientId(), msg.getUserName());
                     switch (msg.getMessageType()) {
                         case CONNECT:
                             this.listener.onConnect((InternalMessage<Connect>) msg);

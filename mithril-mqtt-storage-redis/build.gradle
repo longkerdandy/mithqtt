@@ -2,7 +2,7 @@ dependencies {
     // project api
     compile project(':mithril-mqtt-api')
 
-    // netty
+    // redis
     compile 'biz.paluch.redis:lettuce:4.0.Final'
 
     // json

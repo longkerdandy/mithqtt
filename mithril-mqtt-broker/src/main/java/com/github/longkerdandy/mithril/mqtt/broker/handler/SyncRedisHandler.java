@@ -472,14 +472,14 @@ public class SyncRedisHandler extends SimpleChannelInboundHandler<MqttMessage> {
             // In the QoS 0 delivery protocol, the Receiver
             // Accepts ownership of the message when it receives the PUBLISH packet.
             if (qos == MqttQoS.AT_MOST_ONCE) {
-                onwardRecipients(ctx, msg);
+                onwardRecipients(msg);
             }
             // In the QoS 1 delivery protocol, the Receiver
             // After it has sent a PUBACK Packet the Receiver MUST treat any incoming PUBLISH packet that
             // contains the same Packet Identifier as being a new publication, irrespective of the setting of its
             // DUP flag.
             else if (qos == MqttQoS.AT_LEAST_ONCE) {
-                onwardRecipients(ctx, msg);
+                onwardRecipients(msg);
             }
             // In the QoS 2 delivery protocol, the Receiver
             // Until it has received the corresponding PUBREL packet, the Receiver MUST acknowledge any
@@ -489,7 +489,7 @@ public class SyncRedisHandler extends SimpleChannelInboundHandler<MqttMessage> {
                 // The recipient of a Control Packet that contains the DUP flag set to 1 cannot assume that it has
                 // seen an earlier copy of this packet.
                 if (this.redis.addQoS2MessageId(this.clientId, packetId)) {
-                    onwardRecipients(ctx, msg);
+                    onwardRecipients(msg);
                 }
             }
 
@@ -504,10 +504,9 @@ public class SyncRedisHandler extends SimpleChannelInboundHandler<MqttMessage> {
     /**
      * Forward MQTT PUBLISH message to its recipients
      *
-     * @param ctx Channel Handler Context
      * @param msg MQTT PUBLISH Message
      */
-    protected void onwardRecipients(ChannelHandlerContext ctx, MqttPublishMessage msg) {
+    protected void onwardRecipients(MqttPublishMessage msg) {
         List<String> topicLevels = Topics.sanitizeTopicName(msg.variableHeader().topicName());
 
         // forge bytes payload
@@ -954,7 +953,7 @@ public class SyncRedisHandler extends SimpleChannelInboundHandler<MqttMessage> {
                     logger.trace("Authorization succeed: WILL message to topic {} authorized for client {}", willTopic, this.clientId);
 
                     // Onward to recipients
-                    onwardRecipients(ctx, this.willMessage);
+                    onwardRecipients(this.willMessage);
                 }
                 // Authorize failed
                 else {

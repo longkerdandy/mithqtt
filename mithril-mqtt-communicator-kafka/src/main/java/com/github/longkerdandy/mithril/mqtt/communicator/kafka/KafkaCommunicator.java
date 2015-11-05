@@ -28,7 +28,6 @@ public abstract class KafkaCommunicator {
     private static final Logger logger = LoggerFactory.getLogger(KafkaCommunicator.class);
 
     protected String BROKER_TOPIC_PREFIX;
-    protected String PROCESSOR_TOPIC;
     protected String APPLICATION_TOPIC;
 
     protected KafkaProducer<String, InternalMessage> producer;
@@ -37,7 +36,6 @@ public abstract class KafkaCommunicator {
 
     protected void init(PropertiesConfiguration config) {
         BROKER_TOPIC_PREFIX = config.getString("communicator.broker.topic");
-        PROCESSOR_TOPIC = config.getString("communicator.processor.topic");
         APPLICATION_TOPIC = config.getString("communicator.application.topic");
 
         logger.trace("Initializing Kafka producer ...");
@@ -84,10 +82,6 @@ public abstract class KafkaCommunicator {
 
     public void sendToBroker(String brokerId, InternalMessage message) {
         sendToTopic(BROKER_TOPIC_PREFIX + "." + brokerId, message);
-    }
-
-    public void sendToProcessor(InternalMessage message) {
-        sendToTopic(PROCESSOR_TOPIC, message);
     }
 
     public void sendToApplication(InternalMessage message) {

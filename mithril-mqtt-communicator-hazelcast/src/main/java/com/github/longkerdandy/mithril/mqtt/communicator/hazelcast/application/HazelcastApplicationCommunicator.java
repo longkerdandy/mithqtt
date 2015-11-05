@@ -25,9 +25,6 @@ public class HazelcastApplicationCommunicator implements ApplicationCommunicator
     // hazelcast client instance
     protected HazelcastInstance hazelcast;
 
-    // processor
-    protected IQueue<InternalMessage> processorQueue;
-
     // application
     protected IQueue<InternalMessage> applicationQueue;
 
@@ -37,10 +34,6 @@ public class HazelcastApplicationCommunicator implements ApplicationCommunicator
     @Override
     public void init(PropertiesConfiguration config, ApplicationListenerFactory factory) {
         this.hazelcast = HazelcastClient.newHazelcastClient();
-
-        logger.trace("Initializing Hazelcast processor resources ...");
-
-        this.processorQueue = this.hazelcast.getQueue(config.getString("communicator.processor.topic"));
 
         logger.trace("Initializing Hazelcast application resources ...");
 
@@ -69,11 +62,6 @@ public class HazelcastApplicationCommunicator implements ApplicationCommunicator
                 logger.warn("Communicator error: Interrupted during shutdown, exiting uncleanly");
             }
         }
-    }
-
-    @Override
-    public void sendToProcessor(InternalMessage message) {
-        sendMessage(this.processorQueue, message);
     }
 
     /**

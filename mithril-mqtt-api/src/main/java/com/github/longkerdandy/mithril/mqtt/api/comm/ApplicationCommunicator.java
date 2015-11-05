@@ -1,6 +1,5 @@
 package com.github.longkerdandy.mithril.mqtt.api.comm;
 
-import com.github.longkerdandy.mithril.mqtt.api.internal.InternalMessage;
 import org.apache.commons.configuration.PropertiesConfiguration;
 
 /**
@@ -22,11 +21,4 @@ public interface ApplicationCommunicator {
      * Destroy the communicator
      */
     void destroy();
-
-    /**
-     * Send internal message to processor
-     *
-     * @param message Internal Message
-     */
-    void sendToProcessor(InternalMessage message);
 }
