@@ -26,6 +26,7 @@ import org.apache.commons.lang3.exception.ExceptionUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import java.io.IOException;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -979,7 +980,11 @@ public class SyncRedisHandler extends SimpleChannelInboundHandler<MqttMessage> {
     @Override
     public void exceptionCaught(ChannelHandlerContext ctx, Throwable cause) {
         if (this.connected) {
-            logger.debug("Exception caught: Exception caught from client {} user {}: ", this.clientId, this.userName, cause);
+            if (cause instanceof IOException) {
+                logger.debug("Exception caught: Exception caught from client {} user {}: ", this.clientId, this.userName, ExceptionUtils.getMessage(cause));
+            } else {
+                logger.debug("Exception caught: Exception caught from client {} user {}: ", this.clientId, this.userName, cause);
+            }
         }
         ctx.close();
     }
