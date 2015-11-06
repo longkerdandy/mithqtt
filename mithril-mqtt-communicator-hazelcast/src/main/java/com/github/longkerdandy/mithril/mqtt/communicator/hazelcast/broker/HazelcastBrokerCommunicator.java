@@ -6,7 +6,7 @@ import com.github.longkerdandy.mithril.mqtt.api.internal.InternalMessage;
 import com.hazelcast.core.Hazelcast;
 import com.hazelcast.core.HazelcastInstance;
 import com.hazelcast.core.IQueue;
-import org.apache.commons.configuration.PropertiesConfiguration;
+import org.apache.commons.configuration.AbstractConfiguration;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -36,7 +36,7 @@ public class HazelcastBrokerCommunicator implements BrokerCommunicator {
     private ExecutorService executor;
 
     @Override
-    public void init(PropertiesConfiguration config, String brokerId, BrokerListenerFactory factory) {
+    public void init(AbstractConfiguration config, String brokerId, BrokerListenerFactory factory) {
         this.hazelcast = Hazelcast.newHazelcastInstance();
 
         logger.trace("Initializing Hazelcast broker resources ...");

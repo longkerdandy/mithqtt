@@ -1,9 +1,10 @@
 package com.github.longkerdandy.mithril.mqtt.broker.util;
 
-import org.apache.commons.configuration.PropertiesConfiguration;
+import org.apache.commons.configuration.MapConfiguration;
 import org.junit.BeforeClass;
 import org.junit.Test;
 
+import java.util.HashMap;
 import java.util.regex.Pattern;
 
 /**
@@ -15,7 +16,7 @@ public class ValidatorTest {
 
     @BeforeClass
     public static void init() {
-        validator = new Validator(new PropertiesConfiguration());
+        validator = new Validator(new MapConfiguration(new HashMap<>()));
         validator.clientIdPattern = Pattern.compile("^[ -~]+$");
         validator.topicNamePattern = Pattern.compile("^[\\w_ /]*$");
         validator.topicFilterPattern = Pattern.compile("^[\\w_ +#/]*$");

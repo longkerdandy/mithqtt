@@ -6,7 +6,7 @@ import com.github.longkerdandy.mithril.mqtt.api.internal.InternalMessage;
 import com.hazelcast.client.HazelcastClient;
 import com.hazelcast.core.HazelcastInstance;
 import com.hazelcast.core.IQueue;
-import org.apache.commons.configuration.PropertiesConfiguration;
+import org.apache.commons.configuration.AbstractConfiguration;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -32,7 +32,7 @@ public class HazelcastApplicationCommunicator implements ApplicationCommunicator
     private ExecutorService executor;
 
     @Override
-    public void init(PropertiesConfiguration config, ApplicationListenerFactory factory) {
+    public void init(AbstractConfiguration config, ApplicationListenerFactory factory) {
         this.hazelcast = HazelcastClient.newHazelcastClient();
 
         logger.trace("Initializing Hazelcast application resources ...");

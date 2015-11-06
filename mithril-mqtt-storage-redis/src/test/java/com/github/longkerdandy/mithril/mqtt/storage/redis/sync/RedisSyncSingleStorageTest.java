@@ -6,11 +6,12 @@ import com.github.longkerdandy.mithril.mqtt.api.internal.PacketId;
 import com.github.longkerdandy.mithril.mqtt.api.internal.Publish;
 import com.github.longkerdandy.mithril.mqtt.storage.redis.RedisKey;
 import com.github.longkerdandy.mithril.mqtt.util.Topics;
-import com.lambdaworks.redis.RedisURI;
 import com.lambdaworks.redis.ValueScanCursor;
 import io.netty.handler.codec.mqtt.MqttMessageType;
 import io.netty.handler.codec.mqtt.MqttQoS;
 import io.netty.handler.codec.mqtt.MqttVersion;
+import org.apache.commons.configuration.ConfigurationException;
+import org.apache.commons.configuration.MapConfiguration;
 import org.junit.After;
 import org.junit.AfterClass;
 import org.junit.BeforeClass;
@@ -23,16 +24,21 @@ import java.util.Map;
 import static com.github.longkerdandy.mithril.mqtt.storage.redis.util.JSONs.ObjectMapper;
 
 /**
- * RedisSyncPlainStorage Test
+ * RedisSyncSingleStorage Test
  */
-public class RedisSyncPlainStorageTest {
+public class RedisSyncSingleStorageTest {
 
-    private static RedisSyncPlainStorage redis;
+    private static RedisSyncSingleStorage redis;
 
     @BeforeClass
-    public static void init() {
-        redis = new RedisSyncPlainStorage();
-        redis.init(RedisURI.create("redis://localhost"));
+    public static void init() throws ConfigurationException {
+        Map<String, Object> map = new HashMap<>();
+        map.put("redis.type", "single");
+        map.put("redis.address", "localhost");
+        MapConfiguration config = new MapConfiguration(map);
+
+        redis = new RedisSyncSingleStorage();
+        redis.init(config);
     }
 
     @AfterClass

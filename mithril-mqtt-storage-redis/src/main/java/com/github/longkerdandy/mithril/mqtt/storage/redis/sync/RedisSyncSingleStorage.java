@@ -9,81 +9,130 @@ import com.lambdaworks.redis.*;
 import com.lambdaworks.redis.api.StatefulRedisConnection;
 import com.lambdaworks.redis.api.sync.*;
 import io.netty.handler.codec.mqtt.MqttQoS;
+import org.apache.commons.configuration.AbstractConfiguration;
 import org.apache.commons.lang3.BooleanUtils;
+import org.apache.commons.lang3.StringUtils;
+import org.redisson.Config;
+import org.redisson.Redisson;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.concurrent.locks.Lock;
 
 import static com.github.longkerdandy.mithril.mqtt.storage.redis.util.Converter.internalToMap;
 import static com.github.longkerdandy.mithril.mqtt.storage.redis.util.Converter.mapToInternal;
 import static com.github.longkerdandy.mithril.mqtt.util.Topics.END;
 
 /**
- * Synchronized Storage for Plain Redis setup
- * Single, Master Salve, Sentinel
+ * Synchronized Storage for Single Redis setup
  */
-public class RedisSyncPlainStorage implements RedisSyncStorage {
+public class RedisSyncSingleStorage implements RedisSyncStorage {
 
+    private static final Logger logger = LoggerFactory.getLogger(RedisSyncSingleStorage.class);
+    // Main infrastructure class allows to get access to all Redisson objects on top of Redis server
+    protected Redisson redisson;
     // A scalable thread-safe Redis client. Multiple threads may share one connection if they avoid
     // blocking and transactional operations such as BLPOP and MULTI/EXEC.
-    private RedisClient client;
+    private RedisClient lettuce;
     // A thread-safe connection to a redis server. Multiple threads may share one StatefulRedisConnection
-    private StatefulRedisConnection<String, String> conn;
+    private StatefulRedisConnection<String, String> lettuceConn;
 
     @SuppressWarnings("unused")
     protected RedisHashCommands<String, String> hash() {
-        return this.conn.sync();
+        return this.lettuceConn.sync();
     }
 
     @SuppressWarnings("unused")
     protected RedisKeyCommands<String, String> key() {
-        return this.conn.sync();
+        return this.lettuceConn.sync();
     }
 
     @SuppressWarnings("unused")
     protected RedisStringCommands<String, String> string() {
-        return this.conn.sync();
+        return this.lettuceConn.sync();
     }
 
     @SuppressWarnings("unused")
     protected RedisListCommands<String, String> list() {
-        return this.conn.sync();
+        return this.lettuceConn.sync();
     }
 
     @SuppressWarnings("unused")
     protected RedisSetCommands<String, String> set() {
-        return this.conn.sync();
+        return this.lettuceConn.sync();
     }
 
     @SuppressWarnings("unused")
     protected RedisSortedSetCommands<String, String> sortedSet() {
-        return this.conn.sync();
+        return this.lettuceConn.sync();
     }
 
     @SuppressWarnings("unused")
     protected RedisScriptingCommands<String, String> script() {
-        return this.conn.sync();
+        return this.lettuceConn.sync();
     }
 
     @SuppressWarnings("unused")
     protected RedisServerCommands<String, String> server() {
-        return this.conn.sync();
+        return this.lettuceConn.sync();
     }
 
     @Override
-    public void init(RedisURI redisURI) {
-        // open a new connection to a Redis server that treats keys and values as UTF-8 strings
-        this.client = RedisClient.create(redisURI);
-        this.conn = this.client.connect();
+    public void init(AbstractConfiguration config) {
+        if (!config.getString("redis.type").equals("single")) {
+            logger.error("RedisSyncSingleStorage class can only be used with single redis setup, but redis.type value is {}", config.getString("redis.type"));
+        }
+
+        List<String> address = parseRedisAddress(config.getString("redis.address"), 6379);
+        int databaseNumber = config.getInt("redis.database", 0);
+        String password = StringUtils.isNotEmpty(config.getString("redis.password")) ? config.getString("redis.password") + "@" : "";
+
+        // lettuce
+        RedisURI lettuceURI = RedisURI.create("redis://" + password + address.get(0) + "/" + databaseNumber);
+        this.lettuce = RedisClient.create(lettuceURI);
+        this.lettuceConn = this.lettuce.connect();
+
+        // redisson
+        Config redissonConfig = new Config();
+        redissonConfig.useSingleServer()
+                .setAddress(address.get(0))
+                .setDatabase(databaseNumber)
+                .setPassword(StringUtils.isNotEmpty(password) ? password : null);
+        this.redisson = Redisson.create(redissonConfig);
     }
 
     @Override
     public void destroy() {
         // shutdown this client and close all open connections
-        if (this.conn != null) this.conn.close();
-        if (this.client != null) this.client.shutdown();
+        if (this.lettuceConn != null) this.lettuceConn.close();
+        if (this.lettuce != null) this.lettuce.shutdown();
+        if (this.redisson != null) this.redisson.shutdown();
+    }
+
+    /**
+     * Parse address string to a List of host:port String
+     *
+     * @param address Address String
+     * @return List of host:port String
+     */
+    protected List<String> parseRedisAddress(String address, int defaultPort) {
+        List<String> list = new ArrayList<>();
+        String[] array = address.split(",");
+        for (String s : array) {
+            if (!s.contains(":"))
+                s = s + ":" + defaultPort;
+            list.add(s);
+        }
+        return list;
+    }
+
+    @Override
+    public Lock getLock(String name) {
+        return this.redisson.getLock(name);
     }
 
     @Override

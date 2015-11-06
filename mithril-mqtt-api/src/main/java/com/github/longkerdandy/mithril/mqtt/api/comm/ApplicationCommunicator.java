@@ -1,6 +1,6 @@
 package com.github.longkerdandy.mithril.mqtt.api.comm;
 
-import org.apache.commons.configuration.PropertiesConfiguration;
+import org.apache.commons.configuration.AbstractConfiguration;
 
 /**
  * Application Communicator
@@ -15,7 +15,7 @@ public interface ApplicationCommunicator {
      * @param config  Communicator Configuration
      * @param factory Application Listener Factory
      */
-    void init(PropertiesConfiguration config, ApplicationListenerFactory factory);
+    void init(AbstractConfiguration config, ApplicationListenerFactory factory);
 
     /**
      * Destroy the communicator

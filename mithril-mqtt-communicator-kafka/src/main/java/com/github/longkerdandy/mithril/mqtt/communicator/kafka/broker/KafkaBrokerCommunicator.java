@@ -7,7 +7,7 @@ import com.github.longkerdandy.mithril.mqtt.communicator.kafka.KafkaCommunicator
 import com.github.longkerdandy.mithril.mqtt.communicator.kafka.codec.InternalMessageDecoder;
 import kafka.consumer.KafkaStream;
 import kafka.serializer.StringDecoder;
-import org.apache.commons.configuration.PropertiesConfiguration;
+import org.apache.commons.configuration.AbstractConfiguration;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -26,7 +26,7 @@ public class KafkaBrokerCommunicator extends KafkaCommunicator implements Broker
     protected static String BROKER_TOPIC;
 
     @Override
-    public void init(PropertiesConfiguration config, String brokerId, BrokerListenerFactory factory) {
+    public void init(AbstractConfiguration config, String brokerId, BrokerListenerFactory factory) {
         init(config);
 
         BROKER_TOPIC = BROKER_TOPIC_PREFIX + "." + brokerId;

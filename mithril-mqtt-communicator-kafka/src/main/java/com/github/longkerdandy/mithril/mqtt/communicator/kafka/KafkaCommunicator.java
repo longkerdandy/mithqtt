@@ -5,7 +5,7 @@ import com.github.longkerdandy.mithril.mqtt.communicator.kafka.codec.InternalMes
 import kafka.consumer.Consumer;
 import kafka.consumer.ConsumerConfig;
 import kafka.javaapi.consumer.ConsumerConnector;
-import org.apache.commons.configuration.PropertiesConfiguration;
+import org.apache.commons.configuration.AbstractConfiguration;
 import org.apache.kafka.clients.producer.KafkaProducer;
 import org.apache.kafka.clients.producer.ProducerRecord;
 import org.apache.kafka.common.serialization.StringSerializer;
@@ -34,7 +34,7 @@ public abstract class KafkaCommunicator {
     protected ConsumerConnector consumer;
     protected ExecutorService executor;
 
-    protected void init(PropertiesConfiguration config) {
+    protected void init(AbstractConfiguration config) {
         BROKER_TOPIC_PREFIX = config.getString("communicator.broker.topic");
         APPLICATION_TOPIC = config.getString("communicator.application.topic");
 

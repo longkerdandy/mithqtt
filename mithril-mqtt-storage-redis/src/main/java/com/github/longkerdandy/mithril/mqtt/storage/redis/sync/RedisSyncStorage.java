@@ -2,12 +2,13 @@ package com.github.longkerdandy.mithril.mqtt.storage.redis.sync;
 
 import com.github.longkerdandy.mithril.mqtt.api.internal.InternalMessage;
 import com.github.longkerdandy.mithril.mqtt.api.internal.Publish;
-import com.lambdaworks.redis.RedisURI;
 import com.lambdaworks.redis.ValueScanCursor;
 import io.netty.handler.codec.mqtt.MqttQoS;
+import org.apache.commons.configuration.AbstractConfiguration;
 
 import java.util.List;
 import java.util.Map;
+import java.util.concurrent.locks.Lock;
 
 /**
  * Redis Synchronized Storage
@@ -17,17 +18,25 @@ public interface RedisSyncStorage {
 
     /**
      * Init the storage
-     * Should be could before using redis storage
+     * Should be invoked before using redis storage
      *
-     * @param redisURI Redis URI
+     * @param config Redis Configuration
      */
-    void init(RedisURI redisURI);
+    void init(AbstractConfiguration config);
 
     /**
      * Destroy the storage
-     * Should be could when gracefully shutdown
+     * Should be invoked when gracefully shutdown
      */
     void destroy();
+
+    /**
+     * Returns distributed lock instance by name.
+     *
+     * @param name of the distributed lock
+     * @return distributed lock
+     */
+    Lock getLock(String name);
 
     /**
      * Iteration connected clients for the mqtt broker node (id)

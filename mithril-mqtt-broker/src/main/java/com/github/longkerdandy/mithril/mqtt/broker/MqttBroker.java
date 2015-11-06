@@ -8,7 +8,6 @@ import com.github.longkerdandy.mithril.mqtt.broker.handler.SyncRedisHandler;
 import com.github.longkerdandy.mithril.mqtt.broker.session.SessionRegistry;
 import com.github.longkerdandy.mithril.mqtt.broker.util.Validator;
 import com.github.longkerdandy.mithril.mqtt.storage.redis.sync.RedisSyncStorage;
-import com.lambdaworks.redis.RedisURI;
 import io.netty.bootstrap.ServerBootstrap;
 import io.netty.channel.*;
 import io.netty.channel.nio.NioEventLoopGroup;
@@ -67,7 +66,7 @@ public class MqttBroker {
         // RedisAsyncStorage redis = (RedisAsyncStorage) Class.forName(redisConfig.getString("storage.async.class")).newInstance();
         // redis.init(RedisURI.create(redisConfig.getString("redis.uri")));
         RedisSyncStorage redis = (RedisSyncStorage) Class.forName(redisConfig.getString("storage.sync.class")).newInstance();
-        redis.init(RedisURI.create(redisConfig.getString("redis.uri")));
+        redis.init(redisConfig);
 
         // authenticator
         logger.debug("Initializing authenticator...");

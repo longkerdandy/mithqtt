@@ -19,7 +19,7 @@ import io.netty.handler.codec.mqtt.*;
 import io.netty.handler.timeout.IdleState;
 import io.netty.handler.timeout.IdleStateEvent;
 import io.netty.handler.timeout.IdleStateHandler;
-import org.apache.commons.configuration.PropertiesConfiguration;
+import org.apache.commons.configuration.AbstractConfiguration;
 import org.apache.commons.lang3.ArrayUtils;
 import org.apache.commons.lang3.StringUtils;
 import org.apache.commons.lang3.exception.ExceptionUtils;
@@ -44,7 +44,7 @@ public class SyncRedisHandler extends SimpleChannelInboundHandler<MqttMessage> {
     protected final BrokerCommunicator communicator;
     protected final RedisSyncStorage redis;
     protected final SessionRegistry registry;
-    protected final PropertiesConfiguration config;
+    protected final AbstractConfiguration config;
     protected final Validator validator;
 
     // session state
@@ -57,7 +57,7 @@ public class SyncRedisHandler extends SimpleChannelInboundHandler<MqttMessage> {
     protected int keepAlive;
     protected MqttPublishMessage willMessage;
 
-    public SyncRedisHandler(Authenticator authenticator, BrokerCommunicator communicator, RedisSyncStorage redis, SessionRegistry registry, PropertiesConfiguration config, Validator validator) {
+    public SyncRedisHandler(Authenticator authenticator, BrokerCommunicator communicator, RedisSyncStorage redis, SessionRegistry registry, AbstractConfiguration config, Validator validator) {
         this.authenticator = authenticator;
         this.communicator = communicator;
         this.redis = redis;

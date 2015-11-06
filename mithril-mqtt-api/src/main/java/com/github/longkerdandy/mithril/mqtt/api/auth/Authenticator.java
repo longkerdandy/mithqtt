@@ -2,7 +2,7 @@ package com.github.longkerdandy.mithril.mqtt.api.auth;
 
 import io.netty.handler.codec.mqtt.MqttGrantedQoS;
 import io.netty.handler.codec.mqtt.MqttTopicSubscription;
-import org.apache.commons.configuration.PropertiesConfiguration;
+import org.apache.commons.configuration.AbstractConfiguration;
 
 import java.util.List;
 
@@ -17,7 +17,7 @@ public interface Authenticator {
      *
      * @param config Authenticator Configuration
      */
-    void init(PropertiesConfiguration config);
+    void init(AbstractConfiguration config);
 
     /**
      * Destroy the authenticator

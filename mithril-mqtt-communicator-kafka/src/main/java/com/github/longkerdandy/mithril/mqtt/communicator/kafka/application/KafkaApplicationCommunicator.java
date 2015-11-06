@@ -7,7 +7,7 @@ import com.github.longkerdandy.mithril.mqtt.communicator.kafka.KafkaCommunicator
 import com.github.longkerdandy.mithril.mqtt.communicator.kafka.codec.InternalMessageDecoder;
 import kafka.consumer.KafkaStream;
 import kafka.serializer.StringDecoder;
-import org.apache.commons.configuration.PropertiesConfiguration;
+import org.apache.commons.configuration.AbstractConfiguration;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -24,7 +24,7 @@ public class KafkaApplicationCommunicator extends KafkaCommunicator implements A
     private static final Logger logger = LoggerFactory.getLogger(KafkaApplicationCommunicator.class);
 
     @Override
-    public void init(PropertiesConfiguration config, ApplicationListenerFactory factory) {
+    public void init(AbstractConfiguration config, ApplicationListenerFactory factory) {
         init(config);
 
         logger.trace("Initializing Kafka application consumer and workers ...");

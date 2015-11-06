@@ -1,6 +1,6 @@
 package com.github.longkerdandy.mithril.mqtt.broker.util;
 
-import org.apache.commons.configuration.PropertiesConfiguration;
+import org.apache.commons.configuration.AbstractConfiguration;
 import org.apache.commons.lang3.StringUtils;
 
 import java.util.regex.Pattern;
@@ -22,7 +22,7 @@ public class Validator {
     // MQTT topic filter validate regex pattern
     protected Pattern topicFilterPattern;
 
-    public Validator(PropertiesConfiguration config) {
+    public Validator(AbstractConfiguration config) {
         if (StringUtils.isNotBlank(config.getString("mqtt.clientId.validator")))
             this.clientIdPattern = Pattern.compile(config.getString("mqtt.clientId.validator"));
         if (StringUtils.isNotBlank(config.getString("mqtt.userName.validator")))

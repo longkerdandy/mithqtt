@@ -4,7 +4,7 @@ import com.github.longkerdandy.mithril.mqtt.api.auth.Authenticator;
 import com.github.longkerdandy.mithril.mqtt.api.auth.AuthorizeResult;
 import io.netty.handler.codec.mqtt.MqttGrantedQoS;
 import io.netty.handler.codec.mqtt.MqttTopicSubscription;
-import org.apache.commons.configuration.PropertiesConfiguration;
+import org.apache.commons.configuration.AbstractConfiguration;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -20,7 +20,7 @@ public class DummyAuthenticator implements Authenticator {
     private String deniedTopic;     // topic will be rejected
 
     @Override
-    public void init(PropertiesConfiguration config) {
+    public void init(AbstractConfiguration config) {
         this.allowDollar = config.getBoolean("allowDollar", true);
         this.deniedTopic = config.getString("deniedTopic", null);
     }

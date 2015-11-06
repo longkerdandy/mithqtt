@@ -1,7 +1,7 @@
 package com.github.longkerdandy.mithril.mqtt.api.comm;
 
 import com.github.longkerdandy.mithril.mqtt.api.internal.InternalMessage;
-import org.apache.commons.configuration.PropertiesConfiguration;
+import org.apache.commons.configuration.AbstractConfiguration;
 
 /**
  * Broker Communicator
@@ -17,7 +17,7 @@ public interface BrokerCommunicator {
      * @param brokerId Broker Id
      * @param factory  Broker Listener Factory
      */
-    void init(PropertiesConfiguration config, String brokerId, BrokerListenerFactory factory);
+    void init(AbstractConfiguration config, String brokerId, BrokerListenerFactory factory);
 
     /**
      * Destroy the communicator
