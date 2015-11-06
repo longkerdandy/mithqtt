@@ -54,6 +54,10 @@
         <appender-ref ref="Console"/>
         <appender-ref ref="File"/>
     </logger>
+    <logger name="org.redisson" level="INFO" additivity="false">
+        <appender-ref ref="Console"/>
+        <appender-ref ref="File"/>
+    </logger>
 
     <!-- Netty -->
     <logger name="io.netty" level="INFO" additivity="false">

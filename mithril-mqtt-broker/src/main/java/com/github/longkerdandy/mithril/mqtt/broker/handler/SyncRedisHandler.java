@@ -30,6 +30,8 @@ import java.io.IOException;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.concurrent.TimeUnit;
+import java.util.concurrent.locks.Lock;
 
 import static com.github.longkerdandy.mithril.mqtt.util.UUIDs.shortUuid;
 
@@ -234,72 +236,108 @@ public class SyncRedisHandler extends SimpleChannelInboundHandler<MqttMessage> {
         if (result == AuthorizeResult.OK) {
             logger.trace("Authorization succeed: Connection authorized for client {} user {}", this.clientId, this.userName);
 
-            // Mark client's connected broker node
-            logger.trace("Update node: Mark client {} connected to broker {}", this.clientId, this.brokerId);
-            String previous = this.redis.updateConnectedNode(this.clientId, this.brokerId);
+            // Previous client connected broker
+            String previous = null;
 
-            // If the Server accepts a connection with CleanSession set to 1, the Server MUST set Session Present to 0
-            // in the CONNACK packet in addition to setting a zero return code in the CONNACK packet
-            // If the Server accepts a connection with CleanSession set to 0, the value set in Session Present depends
-            // on whether the Server already has stored Session state for the supplied client ID. If the Server has stored
-            // Session state, it MUST set Session Present to 1 in the CONNACK packet. If the Server
-            // does not have stored Session state, it MUST set Session Present to 0 in the CONNACK packet. This is in
-            // addition to setting a zero return code in the CONNACK packet.
-            int exist = this.redis.getSessionExist(this.clientId);
-            boolean sessionPresent = (exist >= 0) && !this.cleanSession;
+            // ============================== LOCK LOCK LOCK ==============================
 
-            // The first packet sent from the Server to the Client MUST be a CONNACK Packet
-            logger.trace("Message response: Send CONNACK back to client {}", this.clientId);
-            this.registry.sendMessage(
-                    ctx,
-                    MqttMessageFactory.newMessage(
-                            new MqttFixedHeader(MqttMessageType.CONNACK, false, MqttQoS.AT_MOST_ONCE, false, 0),
-                            new MqttConnAckVariableHeader(MqttConnectReturnCode.CONNECTION_ACCEPTED, sessionPresent),
-                            null),
-                    this.clientId,
-                    null,
-                    true);
+            Lock lock = this.redis.getLock(this.clientId);
+            try {
+                if (!lock.tryLock(5, TimeUnit.SECONDS)) {
+                    logger.warn("Lock failed: Failed to lock on client {}, send CONNACK and disconnect the client", this.clientId);
+                    this.registry.sendMessage(
+                            ctx,
+                            MqttMessageFactory.newMessage(
+                                    new MqttFixedHeader(MqttMessageType.CONNACK, false, MqttQoS.AT_MOST_ONCE, false, 0),
+                                    new MqttConnAckVariableHeader(MqttConnectReturnCode.CONNECTION_REFUSED_SERVER_UNAVAILABLE, false),
+                                    null),
+                            this.clientId,
+                            null,
+                            true);
+                    ctx.close();
+                    return;
+                } else {
+                    logger.trace("Lock succeed: Successful lock on client {}", this.clientId);
+                }
 
-            // If CleanSession is set to 0, the Server MUST resume communications with the Client based on state from
-            // the current Session (as identified by the Client identifier). If there is no Session associated with the Client
-            // identifier the Server MUST create a new Session. The Client and Server MUST store the Session after
-            // the Client and Server are disconnected. After the disconnection of a Session that had
-            // CleanSession set to 0, the Server MUST store further QoS 1 and QoS 2 messages that match any
-            // subscriptions that the client had at the time of disconnection as part of the Session state.
-            // It MAY also store QoS 0 messages that meet the same criteria.
-            // The Session state in the Server consists of:
-            // The existence of a Session, even if the rest of the Session state is empty.
-            // The Client's subscriptions.
-            // QoS 1 and QoS 2 messages which have been sent to the Client, but have not been completely acknowledged.
-            // QoS 1 and QoS 2 messages pending transmission to the Client.
-            // QoS 2 messages which have been received from the Client, but have not been completely acknowledged.
-            // Optionally, QoS 0 messages pending transmission to the Client.
-            if (!this.cleanSession) {
-                if (exist == 0) {
-                    logger.trace("Message response: Resend In-Flight messages to client {}", this.clientId);
-                    for (InternalMessage inFlight : this.redis.getAllInFlightMessages(this.clientId)) {
-                        if (inFlight.getMessageType() == MqttMessageType.PUBLISH) {
-                            this.registry.sendMessage(ctx, inFlight.toMqttMessage(), this.clientId, ((Publish) inFlight.getPayload()).getPacketId(), false);
-                        } else if (inFlight.getMessageType() == MqttMessageType.PUBREL) {
-                            this.registry.sendMessage(ctx, inFlight.toMqttMessage(), this.clientId, ((PacketId) inFlight.getPayload()).getPacketId(), false);
+                // Mark client's connected broker node
+                logger.trace("Update node: Mark client {} connected to broker {}", this.clientId, this.brokerId);
+                previous = this.redis.updateConnectedNode(this.clientId, this.brokerId);
+
+                // If the Server accepts a connection with CleanSession set to 1, the Server MUST set Session Present to 0
+                // in the CONNACK packet in addition to setting a zero return code in the CONNACK packet
+                // If the Server accepts a connection with CleanSession set to 0, the value set in Session Present depends
+                // on whether the Server already has stored Session state for the supplied client ID. If the Server has stored
+                // Session state, it MUST set Session Present to 1 in the CONNACK packet. If the Server
+                // does not have stored Session state, it MUST set Session Present to 0 in the CONNACK packet. This is in
+                // addition to setting a zero return code in the CONNACK packet.
+                int exist = this.redis.getSessionExist(this.clientId);
+                boolean sessionPresent = (exist >= 0) && !this.cleanSession;
+
+                // The first packet sent from the Server to the Client MUST be a CONNACK Packet
+                logger.trace("Message response: Send CONNACK back to client {}", this.clientId);
+                this.registry.sendMessage(
+                        ctx,
+                        MqttMessageFactory.newMessage(
+                                new MqttFixedHeader(MqttMessageType.CONNACK, false, MqttQoS.AT_MOST_ONCE, false, 0),
+                                new MqttConnAckVariableHeader(MqttConnectReturnCode.CONNECTION_ACCEPTED, sessionPresent),
+                                null),
+                        this.clientId,
+                        null,
+                        true);
+
+                // If CleanSession is set to 0, the Server MUST resume communications with the Client based on state from
+                // the current Session (as identified by the Client identifier). If there is no Session associated with the Client
+                // identifier the Server MUST create a new Session. The Client and Server MUST store the Session after
+                // the Client and Server are disconnected. After the disconnection of a Session that had
+                // CleanSession set to 0, the Server MUST store further QoS 1 and QoS 2 messages that match any
+                // subscriptions that the client had at the time of disconnection as part of the Session state.
+                // It MAY also store QoS 0 messages that meet the same criteria.
+                // The Session state in the Server consists of:
+                // The existence of a Session, even if the rest of the Session state is empty.
+                // The Client's subscriptions.
+                // QoS 1 and QoS 2 messages which have been sent to the Client, but have not been completely acknowledged.
+                // QoS 1 and QoS 2 messages pending transmission to the Client.
+                // QoS 2 messages which have been received from the Client, but have not been completely acknowledged.
+                // Optionally, QoS 0 messages pending transmission to the Client.
+                if (!this.cleanSession) {
+                    if (exist == 0) {
+                        logger.trace("Message response: Resend In-Flight messages to client {}", this.clientId);
+                        for (InternalMessage inFlight : this.redis.getAllInFlightMessages(this.clientId)) {
+                            if (inFlight.getMessageType() == MqttMessageType.PUBLISH) {
+                                this.registry.sendMessage(ctx, inFlight.toMqttMessage(), this.clientId, ((Publish) inFlight.getPayload()).getPacketId(), false);
+                            } else if (inFlight.getMessageType() == MqttMessageType.PUBREL) {
+                                this.registry.sendMessage(ctx, inFlight.toMqttMessage(), this.clientId, ((PacketId) inFlight.getPayload()).getPacketId(), false);
+                            }
                         }
+                        ctx.flush();
+                    } else if (exist == 1) {
+                        logger.trace("Clear session: Clear session state for client {} because former connection is clean session", this.clientId);
+                        this.redis.removeAllSessionState(this.clientId);
                     }
-                    ctx.flush();
-                } else if (exist == 1) {
-                    logger.trace("Clear session: Clear session state for client {} because former connection is clean session", this.clientId);
-                    this.redis.removeAllSessionState(this.clientId);
                 }
-            }
-            // If CleanSession is set to 1, the Client and Server MUST discard any previous Session and start a new
-            // one. This Session lasts as long as the Network Connection. State data associated with this Session
-            // MUST NOT be reused in any subsequent Session.
-            // When CleanSession is set to 1 the Client and Server need not process the deletion of state atomically.
-            else {
-                if (exist >= 0) {
-                    logger.trace("Clear session: Clear session state for client {} because current connection is clean session", this.clientId);
-                    this.redis.removeAllSessionState(this.clientId);
+                // If CleanSession is set to 1, the Client and Server MUST discard any previous Session and start a new
+                // one. This Session lasts as long as the Network Connection. State data associated with this Session
+                // MUST NOT be reused in any subsequent Session.
+                // When CleanSession is set to 1 the Client and Server need not process the deletion of state atomically.
+                else {
+                    if (exist >= 0) {
+                        logger.trace("Clear session: Clear session state for client {} because current connection is clean session", this.clientId);
+                        this.redis.removeAllSessionState(this.clientId);
+                    }
                 }
+
+                // Mark client's session as existed
+                this.redis.updateSessionExist(this.clientId, this.cleanSession);
+
+            } catch (InterruptedException e) {
+                logger.error("Lock error: Interrupted when trying to lock on client {}: ", this.clientId, e);
+            } finally {
+                // Always unlock
+                lock.unlock();
             }
+
+            // ============================== LOCK LOCK LOCK ==============================
 
             // If the ClientId represents a Client already connected to the Server then the Server MUST
             // disconnect the existing Client
@@ -344,9 +382,6 @@ public class SyncRedisHandler extends SimpleChannelInboundHandler<MqttMessage> {
             // Save connection state, add to local registry
             this.connected = true;
             this.registry.saveSession(this.clientId, ctx);
-
-            // Mark client's session as existed
-            this.redis.updateSessionExist(this.clientId, this.cleanSession);
 
             // Pass message to 3rd party application
             this.communicator.sendToApplication(InternalMessage.fromMqttMessage(this.version, this.clientId, this.userName, this.brokerId, msg));
@@ -879,28 +914,47 @@ public class SyncRedisHandler extends SimpleChannelInboundHandler<MqttMessage> {
         // SHOULD close the Network Connection if the Client has not already done so.
         this.connected = false;
 
-        // Test if client already reconnected to this broker
-        if (this.registry.removeSession(this.clientId, ctx)) {
+        // ============================== LOCK LOCK LOCK ==============================
 
-            // Test if client already reconnected to another broker
-            if (this.redis.removeConnectedNode(this.clientId, this.brokerId)) {
+        Lock lock = this.redis.getLock(this.clientId);
 
-                // Remove connected node
-                logger.trace("Remove node: Mark client {} disconnected from broker {}", this.clientId, this.brokerId);
+        try {
+            if (!lock.tryLock(5, TimeUnit.SECONDS)) {
+                logger.warn("Lock failed: Failed to lock on client {}, send CONNACK and disconnect the client", this.clientId);
+            } else {
+                logger.trace("Lock succeed: Successful lock on client {}", this.clientId);
 
-                // If CleanSession is set to 1, the Client and Server MUST discard any previous Session and start a new
-                // one. This Session lasts as long as the Network Connection. State data associated with this Session
-                // MUST NOT be reused in any subsequent Session.
-                // When CleanSession is set to 1 the Client and Server need not process the deletion of state atomically.
-                if (this.cleanSession) {
-                    logger.trace("Clear session: Clear session state for client {} because current connection is clean session", this.clientId);
-                    this.redis.removeAllSessionState(this.clientId);
+                // Test if client already reconnected to this broker
+                if (this.registry.removeSession(this.clientId, ctx)) {
+
+                    // Test if client already reconnected to another broker
+                    if (this.redis.removeConnectedNode(this.clientId, this.brokerId)) {
+
+                        // Remove connected node
+                        logger.trace("Remove node: Mark client {} disconnected from broker {}", this.clientId, this.brokerId);
+
+                        // If CleanSession is set to 1, the Client and Server MUST discard any previous Session and start a new
+                        // one. This Session lasts as long as the Network Connection. State data associated with this Session
+                        // MUST NOT be reused in any subsequent Session.
+                        // When CleanSession is set to 1 the Client and Server need not process the deletion of state atomically.
+                        if (this.cleanSession) {
+                            logger.trace("Clear session: Clear session state for client {} because current connection is clean session", this.clientId);
+                            this.redis.removeAllSessionState(this.clientId);
+                        }
+                    }
                 }
-
-                // Pass message to 3rd party application
-                this.communicator.sendToApplication(InternalMessage.fromMqttMessage(this.version, this.clientId, this.userName, this.brokerId, this.cleanSession, true));
             }
+        } catch (InterruptedException e) {
+            logger.error("Lock error: Interrupted when trying to lock on client {}: ", this.clientId, e);
+        } finally {
+            // Always unlock
+            lock.unlock();
         }
+
+        // ============================== LOCK LOCK LOCK ==============================
+
+        // Pass message to 3rd party application
+        this.communicator.sendToApplication(InternalMessage.fromMqttMessage(this.version, this.clientId, this.userName, this.brokerId, this.cleanSession, true));
 
         // Make sure connection is closed
         ctx.close();
@@ -912,28 +966,47 @@ public class SyncRedisHandler extends SimpleChannelInboundHandler<MqttMessage> {
 
             logger.debug("Connection closed: Connection lost from client {} user {}", this.clientId, this.userName);
 
-            // Test if client already reconnected to this broker
-            if (this.registry.removeSession(this.clientId, ctx)) {
+            // ============================== LOCK LOCK LOCK ==============================
 
-                // Test if client already reconnected to another broker
-                if (this.redis.removeConnectedNode(this.clientId, this.brokerId)) {
+            Lock lock = this.redis.getLock(this.clientId);
 
-                    // Remove connected node
-                    logger.trace("Remove node: Mark client {} disconnected from broker {}", this.clientId, this.brokerId);
+            try {
+                if (!lock.tryLock(5, TimeUnit.SECONDS)) {
+                    logger.warn("Lock failed: Failed to lock on client {}, send CONNACK and disconnect the client", this.clientId);
+                } else {
+                    logger.trace("Lock succeed: Successful lock on client {}", this.clientId);
 
-                    // If CleanSession is set to 1, the Client and Server MUST discard any previous Session and start a new
-                    // one. This Session lasts as long as the Network Connection. State data associated with this Session
-                    // MUST NOT be reused in any subsequent Session.
-                    // When CleanSession is set to 1 the Client and Server need not process the deletion of state atomically.
-                    if (this.cleanSession) {
-                        logger.trace("Clear session: Clear session state for client {} because current connection is clean session", this.clientId);
-                        this.redis.removeAllSessionState(this.clientId);
+                    // Test if client already reconnected to this broker
+                    if (this.registry.removeSession(this.clientId, ctx)) {
+
+                        // Test if client already reconnected to another broker
+                        if (this.redis.removeConnectedNode(this.clientId, this.brokerId)) {
+
+                            // Remove connected node
+                            logger.trace("Remove node: Mark client {} disconnected from broker {}", this.clientId, this.brokerId);
+
+                            // If CleanSession is set to 1, the Client and Server MUST discard any previous Session and start a new
+                            // one. This Session lasts as long as the Network Connection. State data associated with this Session
+                            // MUST NOT be reused in any subsequent Session.
+                            // When CleanSession is set to 1 the Client and Server need not process the deletion of state atomically.
+                            if (this.cleanSession) {
+                                logger.trace("Clear session: Clear session state for client {} because current connection is clean session", this.clientId);
+                                this.redis.removeAllSessionState(this.clientId);
+                            }
+                        }
                     }
-
-                    // Pass message to 3rd party application
-                    this.communicator.sendToApplication(InternalMessage.fromMqttMessage(this.version, this.clientId, this.userName, this.brokerId, this.cleanSession, false));
                 }
+            } catch (InterruptedException e) {
+                logger.error("Lock error: Interrupted when trying to lock on client {}: ", this.clientId, e);
+            } finally {
+                // Always unlock
+                lock.unlock();
             }
+
+            // ============================== LOCK LOCK LOCK ==============================
+
+            // Pass message to 3rd party application
+            this.communicator.sendToApplication(InternalMessage.fromMqttMessage(this.version, this.clientId, this.userName, this.brokerId, this.cleanSession, false));
 
             // If the Will Flag is set to 1 this indicates that, if the Connect request is accepted, a Will Message MUST be
             // stored on the Server and associated with the Network Connection. The Will Message MUST be published
