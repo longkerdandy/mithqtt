@@ -914,6 +914,8 @@ public class SyncRedisHandler extends SimpleChannelInboundHandler<MqttMessage> {
         // SHOULD close the Network Connection if the Client has not already done so.
         this.connected = false;
 
+        boolean redirect = false;
+
         // ============================== LOCK LOCK LOCK ==============================
 
         Lock lock = this.redis.getLock(this.clientId);
@@ -929,6 +931,8 @@ public class SyncRedisHandler extends SimpleChannelInboundHandler<MqttMessage> {
 
                     // Test if client already reconnected to another broker
                     if (this.redis.removeConnectedNode(this.clientId, this.brokerId)) {
+
+                        redirect = true;
 
                         // Remove connected node
                         logger.trace("Remove node: Mark client {} disconnected from broker {}", this.clientId, this.brokerId);
@@ -954,7 +958,8 @@ public class SyncRedisHandler extends SimpleChannelInboundHandler<MqttMessage> {
         // ============================== LOCK LOCK LOCK ==============================
 
         // Pass message to 3rd party application
-        this.communicator.sendToApplication(InternalMessage.fromMqttMessage(this.version, this.clientId, this.userName, this.brokerId, this.cleanSession, true));
+        if (redirect)
+            this.communicator.sendToApplication(InternalMessage.fromMqttMessage(this.version, this.clientId, this.userName, this.brokerId, this.cleanSession, true));
 
         // Make sure connection is closed
         ctx.close();
@@ -965,6 +970,8 @@ public class SyncRedisHandler extends SimpleChannelInboundHandler<MqttMessage> {
         if (this.connected) {
 
             logger.debug("Connection closed: Connection lost from client {} user {}", this.clientId, this.userName);
+
+            boolean redirect = false;
 
             // ============================== LOCK LOCK LOCK ==============================
 
@@ -981,6 +988,8 @@ public class SyncRedisHandler extends SimpleChannelInboundHandler<MqttMessage> {
 
                         // Test if client already reconnected to another broker
                         if (this.redis.removeConnectedNode(this.clientId, this.brokerId)) {
+
+                            redirect = true;
 
                             // Remove connected node
                             logger.trace("Remove node: Mark client {} disconnected from broker {}", this.clientId, this.brokerId);
@@ -1006,7 +1015,8 @@ public class SyncRedisHandler extends SimpleChannelInboundHandler<MqttMessage> {
             // ============================== LOCK LOCK LOCK ==============================
 
             // Pass message to 3rd party application
-            this.communicator.sendToApplication(InternalMessage.fromMqttMessage(this.version, this.clientId, this.userName, this.brokerId, this.cleanSession, false));
+            if (redirect)
+                this.communicator.sendToApplication(InternalMessage.fromMqttMessage(this.version, this.clientId, this.userName, this.brokerId, this.cleanSession, false));
 
             // If the Will Flag is set to 1 this indicates that, if the Connect request is accepted, a Will Message MUST be
             // stored on the Server and associated with the Network Connection. The Will Message MUST be published
