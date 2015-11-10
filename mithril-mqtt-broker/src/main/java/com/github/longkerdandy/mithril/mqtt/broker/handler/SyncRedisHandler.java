@@ -903,6 +903,12 @@ public class SyncRedisHandler extends SimpleChannelInboundHandler<MqttMessage> {
 
         logger.debug("Message received: Received DISCONNECT message from client {} user {}", this.clientId, this.userName);
 
+        boolean redirect = handleConnectLost(ctx);
+
+        // Pass message to 3rd party application
+        if (redirect)
+            this.communicator.sendToApplication(InternalMessage.fromMqttMessage(this.version, this.clientId, this.userName, this.brokerId, this.cleanSession, true));
+
         // If the Will Flag is set to 1 this indicates that, if the Connect request is accepted, a Will Message MUST be
         // stored on the Server and associated with the Network Connection. The Will Message MUST be published
         // when the Network Connection is subsequently closed unless the Will Message has been deleted by the
@@ -914,53 +920,6 @@ public class SyncRedisHandler extends SimpleChannelInboundHandler<MqttMessage> {
         // SHOULD close the Network Connection if the Client has not already done so.
         this.connected = false;
 
-        boolean redirect = false;
-
-        // ============================== LOCK LOCK LOCK ==============================
-
-        Lock lock = this.redis.getLock(this.clientId);
-
-        try {
-            if (!lock.tryLock(5, TimeUnit.SECONDS)) {
-                logger.warn("Lock failed: Failed to lock on client {}, send CONNACK and disconnect the client", this.clientId);
-            } else {
-                logger.trace("Lock succeed: Successful lock on client {}", this.clientId);
-
-                // Test if client already reconnected to this broker
-                if (this.registry.removeSession(this.clientId, ctx)) {
-
-                    // Test if client already reconnected to another broker
-                    if (this.redis.removeConnectedNode(this.clientId, this.brokerId)) {
-
-                        redirect = true;
-
-                        // Remove connected node
-                        logger.trace("Remove node: Mark client {} disconnected from broker {}", this.clientId, this.brokerId);
-
-                        // If CleanSession is set to 1, the Client and Server MUST discard any previous Session and start a new
-                        // one. This Session lasts as long as the Network Connection. State data associated with this Session
-                        // MUST NOT be reused in any subsequent Session.
-                        // When CleanSession is set to 1 the Client and Server need not process the deletion of state atomically.
-                        if (this.cleanSession) {
-                            logger.trace("Clear session: Clear session state for client {} because current connection is clean session", this.clientId);
-                            this.redis.removeAllSessionState(this.clientId);
-                        }
-                    }
-                }
-            }
-        } catch (InterruptedException e) {
-            logger.error("Lock error: Interrupted when trying to lock on client {}: ", this.clientId, e);
-        } finally {
-            // Always unlock
-            lock.unlock();
-        }
-
-        // ============================== LOCK LOCK LOCK ==============================
-
-        // Pass message to 3rd party application
-        if (redirect)
-            this.communicator.sendToApplication(InternalMessage.fromMqttMessage(this.version, this.clientId, this.userName, this.brokerId, this.cleanSession, true));
-
         // Make sure connection is closed
         ctx.close();
     }
@@ -971,48 +930,7 @@ public class SyncRedisHandler extends SimpleChannelInboundHandler<MqttMessage> {
 
             logger.debug("Connection closed: Connection lost from client {} user {}", this.clientId, this.userName);
 
-            boolean redirect = false;
-
-            // ============================== LOCK LOCK LOCK ==============================
-
-            Lock lock = this.redis.getLock(this.clientId);
-
-            try {
-                if (!lock.tryLock(5, TimeUnit.SECONDS)) {
-                    logger.warn("Lock failed: Failed to lock on client {}, send CONNACK and disconnect the client", this.clientId);
-                } else {
-                    logger.trace("Lock succeed: Successful lock on client {}", this.clientId);
-
-                    // Test if client already reconnected to this broker
-                    if (this.registry.removeSession(this.clientId, ctx)) {
-
-                        // Test if client already reconnected to another broker
-                        if (this.redis.removeConnectedNode(this.clientId, this.brokerId)) {
-
-                            redirect = true;
-
-                            // Remove connected node
-                            logger.trace("Remove node: Mark client {} disconnected from broker {}", this.clientId, this.brokerId);
-
-                            // If CleanSession is set to 1, the Client and Server MUST discard any previous Session and start a new
-                            // one. This Session lasts as long as the Network Connection. State data associated with this Session
-                            // MUST NOT be reused in any subsequent Session.
-                            // When CleanSession is set to 1 the Client and Server need not process the deletion of state atomically.
-                            if (this.cleanSession) {
-                                logger.trace("Clear session: Clear session state for client {} because current connection is clean session", this.clientId);
-                                this.redis.removeAllSessionState(this.clientId);
-                            }
-                        }
-                    }
-                }
-            } catch (InterruptedException e) {
-                logger.error("Lock error: Interrupted when trying to lock on client {}: ", this.clientId, e);
-            } finally {
-                // Always unlock
-                lock.unlock();
-            }
-
-            // ============================== LOCK LOCK LOCK ==============================
+            boolean redirect = handleConnectLost(ctx);
 
             // Pass message to 3rd party application
             if (redirect)
@@ -1047,6 +965,60 @@ public class SyncRedisHandler extends SimpleChannelInboundHandler<MqttMessage> {
                 }
             }
         }
+    }
+
+    /**
+     * Handle connection lost condition
+     * Both when received DISCONNECT message or not
+     *
+     * @param ctx Session
+     * @return True client is marked as disconnected, False client already re-connected
+     */
+    protected boolean handleConnectLost(ChannelHandlerContext ctx) {
+        boolean redirect = false;
+
+        // ============================== LOCK LOCK LOCK ==============================
+
+        Lock lock = this.redis.getLock(this.clientId);
+
+        try {
+            if (!lock.tryLock(5, TimeUnit.SECONDS)) {
+                logger.warn("Lock failed: Failed to lock on client {}", this.clientId);
+            } else {
+                logger.trace("Lock succeed: Successful lock on client {}", this.clientId);
+
+                // Test if client already reconnected to this broker
+                if (this.registry.removeSession(this.clientId, ctx)) {
+
+                    // Test if client already reconnected to another broker
+                    if (this.redis.removeConnectedNode(this.clientId, this.brokerId)) {
+
+                        redirect = true;
+
+                        // Remove connected node
+                        logger.trace("Remove node: Mark client {} disconnected from broker {}", this.clientId, this.brokerId);
+
+                        // If CleanSession is set to 1, the Client and Server MUST discard any previous Session and start a new
+                        // one. This Session lasts as long as the Network Connection. State data associated with this Session
+                        // MUST NOT be reused in any subsequent Session.
+                        // When CleanSession is set to 1 the Client and Server need not process the deletion of state atomically.
+                        if (this.cleanSession) {
+                            logger.trace("Clear session: Clear session state for client {} because current connection is clean session", this.clientId);
+                            this.redis.removeAllSessionState(this.clientId);
+                        }
+                    }
+                }
+            }
+        } catch (InterruptedException e) {
+            logger.error("Lock error: Interrupted when trying to lock on client {}: ", this.clientId, e);
+        } finally {
+            // Always unlock
+            lock.unlock();
+        }
+
+        // ============================== LOCK LOCK LOCK ==============================
+
+        return redirect;
     }
 
     @Override
