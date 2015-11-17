@@ -103,19 +103,4 @@ public class Converter {
             throw new IllegalArgumentException("Invalid in-flight MQTT message type: " + msg.getMessageType());
         }
     }
-
-    /**
-     * Convert Map to Array
-     *
-     * @param map Map
-     * @return Array of Key Value pair
-     */
-    public static String[] mapToArray(Map<String, String> map) {
-        List<String> l = new ArrayList<>();
-        map.forEach((k, v) -> {
-            l.add(k);
-            l.add(v);
-        });
-        return l.toArray(new String[l.size()]);
-    }
 }
