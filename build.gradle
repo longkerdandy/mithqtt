@@ -2,6 +2,7 @@ subprojects {
 
     apply plugin: 'java'
     apply plugin: 'maven'
+    apply plugin: "jacoco"
 
     // Group Id
     group 'com.github.longkerdandy.mithril'
@@ -18,6 +19,10 @@ subprojects {
     // Maven Repository
     repositories {
         maven { url "http://jcenter.bintray.com" }
+    }
+
+    jacoco {
+        toolVersion = "0.7.5.201505241946"
     }
 
     // Dependencies
