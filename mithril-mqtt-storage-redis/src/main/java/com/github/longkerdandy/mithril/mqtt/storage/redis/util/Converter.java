@@ -9,9 +9,7 @@ import io.netty.handler.codec.mqtt.MqttVersion;
 import org.apache.commons.lang3.BooleanUtils;
 
 import java.io.UnsupportedEncodingException;
-import java.util.ArrayList;
 import java.util.HashMap;
-import java.util.List;
 import java.util.Map;
 
 /**
