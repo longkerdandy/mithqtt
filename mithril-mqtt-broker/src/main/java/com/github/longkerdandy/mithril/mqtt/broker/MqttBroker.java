@@ -79,6 +79,10 @@ public class MqttBroker {
         BrokerListenerFactory listenerFactory = new BrokerListenerFactoryImpl(registry);
         communicator.init(communicatorConfig, brokerConfig.getString("broker.id"), listenerFactory);
 
+        String brokerId = brokerConfig.getString("broker.id");
+        int keepAlive = brokerConfig.getInt("mqtt.keepalive.default");
+        int keepAliveMax = brokerConfig.getInt("mqtt.keepalive.max");
+
         // tcp server
         logger.debug("Initializing tcp server ...");
         InternalLoggerFactory.setDefaultFactory(new Slf4JLoggerFactory());
@@ -100,7 +104,7 @@ public class MqttBroker {
                             p.addLast("encoder", new MqttEncoder());
                             p.addLast("decoder", new MqttDecoder());
                             // logic handler
-                            p.addLast(handlerGroup, "logicHandler", new SyncRedisHandler(authenticator, communicator, redis, registry, brokerConfig, validator));
+                            p.addLast(handlerGroup, "logicHandler", new SyncRedisHandler(authenticator, communicator, redis, registry, validator, brokerId, keepAlive, keepAliveMax));
                         }
                     })
                     .option(ChannelOption.SO_BACKLOG, brokerConfig.getInt("netty.soBacklog"))

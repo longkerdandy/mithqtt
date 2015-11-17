@@ -19,7 +19,6 @@ import io.netty.handler.codec.mqtt.*;
 import io.netty.handler.timeout.IdleState;
 import io.netty.handler.timeout.IdleStateEvent;
 import io.netty.handler.timeout.IdleStateHandler;
-import org.apache.commons.configuration.AbstractConfiguration;
 import org.apache.commons.lang3.ArrayUtils;
 import org.apache.commons.lang3.StringUtils;
 import org.apache.commons.lang3.exception.ExceptionUtils;
@@ -46,7 +45,6 @@ public class SyncRedisHandler extends SimpleChannelInboundHandler<MqttMessage> {
     protected final BrokerCommunicator communicator;
     protected final RedisSyncStorage redis;
     protected final SessionRegistry registry;
-    protected final AbstractConfiguration config;
     protected final Validator validator;
 
     // session state
@@ -57,17 +55,19 @@ public class SyncRedisHandler extends SimpleChannelInboundHandler<MqttMessage> {
     protected boolean connected;
     protected boolean cleanSession;
     protected int keepAlive;
+    protected int keepAliveMax;
     protected MqttPublishMessage willMessage;
 
-    public SyncRedisHandler(Authenticator authenticator, BrokerCommunicator communicator, RedisSyncStorage redis, SessionRegistry registry, AbstractConfiguration config, Validator validator) {
+    public SyncRedisHandler(Authenticator authenticator, BrokerCommunicator communicator, RedisSyncStorage redis, SessionRegistry registry, Validator validator, String brokerId, int keepAlive, int keepAliveMax) {
         this.authenticator = authenticator;
         this.communicator = communicator;
         this.redis = redis;
         this.registry = registry;
-        this.config = config;
         this.validator = validator;
 
-        this.brokerId = config.getString("broker.id");
+        this.brokerId = brokerId;
+        this.keepAlive = keepAlive;
+        this.keepAliveMax = keepAliveMax;
     }
 
     @Override
@@ -372,9 +372,8 @@ public class SyncRedisHandler extends SimpleChannelInboundHandler<MqttMessage> {
             // If the Keep Alive value is non-zero and the Server does not receive a Control Packet from the Client
             // within one and a half times the Keep Alive time period, it MUST disconnect the Network Connection to the
             // Client as if the network had failed
-            this.keepAlive = msg.variableHeader().keepAlive();
-            if (this.keepAlive <= 0 || this.keepAlive > this.config.getInt("mqtt.keepalive.max"))
-                this.keepAlive = this.config.getInt("mqtt.keepalive.default");
+            if (msg.variableHeader().keepAlive() > 0 && msg.variableHeader().keepAlive() <= this.keepAliveMax)
+                this.keepAlive = msg.variableHeader().keepAlive();
             if (ctx.pipeline().names().contains("idleHandler"))
                 ctx.pipeline().remove("idleHandler");
             ctx.pipeline().addFirst("idleHandler", new IdleStateHandler(0, 0, Math.round(this.keepAlive * 1.5f)));
