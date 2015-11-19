@@ -17,12 +17,16 @@ import io.netty.handler.codec.mqtt.MqttDecoder;
 import io.netty.handler.codec.mqtt.MqttEncoder;
 import io.netty.handler.logging.LogLevel;
 import io.netty.handler.logging.LoggingHandler;
+import io.netty.handler.ssl.SslContext;
+import io.netty.handler.ssl.SslContextBuilder;
 import io.netty.handler.timeout.IdleStateHandler;
 import io.netty.util.internal.logging.InternalLoggerFactory;
 import io.netty.util.internal.logging.Slf4JLoggerFactory;
 import org.apache.commons.configuration.PropertiesConfiguration;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+
+import java.io.File;
 
 /**
  * MQTT Bridge
@@ -79,9 +83,13 @@ public class MqttBroker {
         BrokerListenerFactory listenerFactory = new BrokerListenerFactoryImpl(registry);
         communicator.init(communicatorConfig, brokerConfig.getString("broker.id"), listenerFactory);
 
-        String brokerId = brokerConfig.getString("broker.id");
-        int keepAlive = brokerConfig.getInt("mqtt.keepalive.default");
-        int keepAliveMax = brokerConfig.getInt("mqtt.keepalive.max");
+        final String brokerId = brokerConfig.getString("broker.id");
+        final int keepAlive = brokerConfig.getInt("mqtt.keepalive.default");
+        final int keepAliveMax = brokerConfig.getInt("mqtt.keepalive.max");
+        final boolean ssl = brokerConfig.getBoolean("mqtt.ssl.enabled");
+        final SslContext sslContext = ssl ? SslContextBuilder.forServer(new File(brokerConfig.getString("mqtt.ssl.certPath")), new File(brokerConfig.getString("mqtt.ssl.keyPath")), brokerConfig.getString("mqtt.ssl.keyPassword")).build() : null;
+        final String host = brokerConfig.getString("mqtt.host");
+        final int port = ssl ? brokerConfig.getInt("mqtt.ssl.port") : brokerConfig.getInt("mqtt.port");
 
         // tcp server
         logger.debug("Initializing tcp server ...");
@@ -98,8 +106,12 @@ public class MqttBroker {
                         @Override
                         public void initChannel(SocketChannel ch) throws Exception {
                             ChannelPipeline p = ch.pipeline();
+                            // ssl
+                            if (ssl) {
+                                p.addLast("ssl", sslContext.newHandler(ch.alloc()));
+                            }
                             // idle
-                            p.addFirst("idleHandler", new IdleStateHandler(0, 0, brokerConfig.getInt("mqtt.keepalive.default")));
+                            p.addFirst("idleHandler", new IdleStateHandler(0, 0, keepAlive));
                             // mqtt encoder & decoder
                             p.addLast("encoder", new MqttEncoder());
                             p.addLast("decoder", new MqttDecoder());
@@ -111,7 +123,7 @@ public class MqttBroker {
                     .childOption(ChannelOption.SO_KEEPALIVE, brokerConfig.getBoolean("netty.soKeepAlive"));
 
             // Bind and start to accept incoming connections.
-            ChannelFuture f = b.bind(brokerConfig.getString("mqtt.host"), brokerConfig.getInt("mqtt.port")).sync();
+            ChannelFuture f = b.bind(host, port).sync();
 
             logger.info("MQTT broker is up and running.");
 
