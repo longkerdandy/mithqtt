@@ -9,8 +9,6 @@ import org.apache.commons.lang3.StringUtils;
 import org.redisson.Config;
 import org.redisson.Redisson;
 import org.redisson.connection.RoundRobinLoadBalancer;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 
 import java.util.List;
 
@@ -18,8 +16,6 @@ import java.util.List;
  * Synchronized Storage for Master Slave Redis setup
  */
 public class RedisSyncMasterSlaveStorage extends RedisSyncSingleStorage {
-
-    private static final Logger logger = LoggerFactory.getLogger(RedisSyncMasterSlaveStorage.class);
 
     // A scalable thread-safe Redis client. Multiple threads may share one connection if they avoid
     // blocking and transactional operations such as BLPOP and MULTI/EXEC.
@@ -70,7 +66,7 @@ public class RedisSyncMasterSlaveStorage extends RedisSyncSingleStorage {
     @Override
     public void init(AbstractConfiguration config) {
         if (!config.getString("redis.type").equals("master_slave")) {
-            logger.error("RedisSyncSingleStorage class can only be used with master slave redis setup, but redis.type value is {}", config.getString("redis.type"));
+            throw new IllegalStateException("RedisSyncSingleStorage class can only be used with master slave redis setup, but redis.type value is " + config.getString("redis.type"));
         }
 
         List<String> address = parseRedisAddress(config.getString("redis.address"), 6379);

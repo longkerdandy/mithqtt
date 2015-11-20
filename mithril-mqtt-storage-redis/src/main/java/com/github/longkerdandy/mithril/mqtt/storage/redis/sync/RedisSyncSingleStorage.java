@@ -14,8 +14,6 @@ import org.apache.commons.lang3.BooleanUtils;
 import org.apache.commons.lang3.StringUtils;
 import org.redisson.Config;
 import org.redisson.Redisson;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -32,17 +30,17 @@ import static com.github.longkerdandy.mithril.mqtt.util.Topics.END;
  */
 public class RedisSyncSingleStorage implements RedisSyncStorage {
 
-    private static final Logger logger = LoggerFactory.getLogger(RedisSyncSingleStorage.class);
     // Main infrastructure class allows to get access to all Redisson objects on top of Redis server
     protected Redisson redisson;
+    // Max in-flight queue size per client
+    protected int inFlightQueueSize;
+    // Max QoS2 ids queue size per client
+    protected int qos2QueueSize;
     // A scalable thread-safe Redis client. Multiple threads may share one connection if they avoid
     // blocking and transactional operations such as BLPOP and MULTI/EXEC.
     private RedisClient lettuce;
     // A thread-safe connection to a redis server. Multiple threads may share one StatefulRedisConnection
     private StatefulRedisConnection<String, String> lettuceConn;
-
-    // Max in-flight queue size per client
-    protected int inFlightQueueSize;
 
     @SuppressWarnings("unused")
     protected RedisHashCommands<String, String> hash() {
@@ -143,6 +141,7 @@ public class RedisSyncSingleStorage implements RedisSyncStorage {
      */
     protected void initParams(AbstractConfiguration config) {
         this.inFlightQueueSize = config.getInt("mqtt.inflight.queue.size", 0);
+        this.qos2QueueSize = config.getInt("mqtt.qos2.queue.size", 0);
     }
 
     @Override
@@ -250,12 +249,17 @@ public class RedisSyncSingleStorage implements RedisSyncStorage {
 
     @Override
     public boolean addQoS2MessageId(String clientId, int packetId) {
-        return set().sadd(RedisKey.qos2Set(clientId), String.valueOf(packetId)) == 1;
+        long r = script().eval(RedisLua.ZADDLIMIT, ScriptOutputType.INTEGER,
+                new String[]{RedisKey.qos2Set(clientId)},
+                String.valueOf(System.currentTimeMillis()),
+                String.valueOf(packetId),
+                String.valueOf(this.qos2QueueSize));
+        return r == 1;
     }
 
     @Override
     public boolean removeQoS2MessageId(String clientId, int packetId) {
-        return set().srem(RedisKey.qos2Set(clientId), String.valueOf(packetId)) == 1;
+        return sortedSet().zrem(RedisKey.qos2Set(clientId), String.valueOf(packetId)) == 1;
     }
 
     @Override

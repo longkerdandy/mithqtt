@@ -9,8 +9,6 @@ import org.apache.commons.configuration.AbstractConfiguration;
 import org.apache.commons.lang3.StringUtils;
 import org.redisson.Config;
 import org.redisson.Redisson;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 
 import java.util.List;
 import java.util.concurrent.TimeUnit;
@@ -19,8 +17,6 @@ import java.util.concurrent.TimeUnit;
  * Synchronized Storage for Cluster Redis setup
  */
 public class RedisSyncClusterStorage extends RedisSyncSingleStorage {
-
-    private static final Logger logger = LoggerFactory.getLogger(RedisSyncClusterStorage.class);
 
     // A scalable thread-safe Redis cluster client. Multiple threads may share one connection. The
     // cluster client handles command routing based on the first key of the command and maintains a view on the cluster that is
@@ -73,7 +69,7 @@ public class RedisSyncClusterStorage extends RedisSyncSingleStorage {
     @Override
     public void init(AbstractConfiguration config) {
         if (!config.getString("redis.type").equals("cluster")) {
-            logger.error("RedisSyncSingleStorage class can only be used with cluster redis setup, but redis.type value is {}", config.getString("redis.type"));
+            throw new IllegalStateException("RedisSyncSingleStorage class can only be used with cluster redis setup, but redis.type value is " + config.getString("redis.type"));
         }
 
         List<String> address = parseRedisAddress(config.getString("redis.address"), 6379);

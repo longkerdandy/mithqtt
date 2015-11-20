@@ -13,14 +13,14 @@ public class RedisLua {
     // Returns Number stored at key after increment
     public static final String INCRLIMIT =
             "local cnt = redis.call('INCR', KEYS[1])\n" +
-                    "if cnt >= tonumber(ARGV[1])\n" +
+                    "if tonumber(ARGV[1]) > 0 and cnt >= tonumber(ARGV[1])\n" +
                     "then\n" +
                     "   redis.call('SET', KEYS[1], '0')\n" +
                     "end\n" +
                     "return cnt";
 
     // Insert the specified value at the tail of the list with length limit
-    // Removes the elements at the head of the list if limit reached (exceeded)
+    // Removes the element at the head of the list if limit reached (exceeded)
     //
     // Keys 1. List pushed into
     // Args 1. Value to be pushed
@@ -33,6 +33,23 @@ public class RedisLua {
                     "   return redis.call('LPOP', KEYS[1])\n" +
                     "end\n" +
                     "return nil";
+
+    // Insert the specified value to the sorted set with length limit
+    // Removes the element at the head of the sorted set if limit reached (exceeded)
+    //
+    // Keys 1. Sorted Set added into
+    // Args 1. Value to be added
+    // Args 2. Maximum length of the sorted set
+    // Returns The number of elements added to the sorted sets,
+    // not including elements already existing for which the score was updated
+    public static final String ZADDLIMIT =
+            "local r = redis.call('ZADD', KEYS[1], ARGV[1], ARGV[2])\n" +
+                    "local cnt = redis.call('ZCARD', KEYS[1])\n" +
+                    "if tonumber(ARGV[3]) > 0 and cnt > tonumber(ARGV[3])\n" +
+                    "then\n" +
+                    "   redis.call('ZREMRANGEBYRANK', KEYS[1], 0, 0)\n" +
+                    "end\n" +
+                    "return r";
 
     // Removes the specified key only if its current value is equal to the given value
     //

@@ -36,6 +36,7 @@ public class RedisSyncSingleStorageTest {
         map.put("redis.type", "single");
         map.put("redis.address", "localhost");
         map.put("mqtt.inflight.queue.size", 3);
+        map.put("mqtt.qos2.queue.size", 3);
         MapConfiguration config = new MapConfiguration(map);
 
         redis = new RedisSyncSingleStorage();
@@ -222,11 +223,16 @@ public class RedisSyncSingleStorageTest {
 
         assert redis.addQoS2MessageId("client1", 10003);
         assert redis.addQoS2MessageId("client1", 10004);
+        assert redis.addQoS2MessageId("client1", 10005);
+        assert redis.addQoS2MessageId("client1", 10006);
+
+        assert !redis.removeQoS2MessageId("client1", 10003);
 
         redis.removeAllQoS2MessageId("client1");
 
-        assert !redis.removeQoS2MessageId("client1", 10003);
         assert !redis.removeQoS2MessageId("client1", 10004);
+        assert !redis.removeQoS2MessageId("client1", 10005);
+        assert !redis.removeQoS2MessageId("client1", 10006);
     }
 
     @Test
