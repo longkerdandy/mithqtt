@@ -32,10 +32,14 @@ public class RedisSyncSingleStorage implements RedisSyncStorage {
 
     // Main infrastructure class allows to get access to all Redisson objects on top of Redis server
     protected Redisson redisson;
+
     // Max in-flight queue size per client
     protected int inFlightQueueSize;
-    // Max QoS2 ids queue size per client
+    // Max QoS 2 ids queue size per client
     protected int qos2QueueSize;
+    // Max retain queue size per topic
+    protected int retainQueueSize;
+
     // A scalable thread-safe Redis client. Multiple threads may share one connection if they avoid
     // blocking and transactional operations such as BLPOP and MULTI/EXEC.
     private RedisClient lettuce;
@@ -142,6 +146,7 @@ public class RedisSyncSingleStorage implements RedisSyncStorage {
     protected void initParams(AbstractConfiguration config) {
         this.inFlightQueueSize = config.getInt("mqtt.inflight.queue.size", 0);
         this.qos2QueueSize = config.getInt("mqtt.qos2.queue.size", 0);
+        this.retainQueueSize = config.getInt("mqtt.retain.queue.size", 0);
     }
 
     @Override
@@ -466,7 +471,27 @@ public class RedisSyncSingleStorage implements RedisSyncStorage {
         int retainId = Math.toIntExact(script().eval(RedisLua.INCRLIMIT, ScriptOutputType.INTEGER, new String[]{RedisKey.nextRetainId(topicLevels)}, new String[]{"65535"}));
 
         // retain's message list
-        list().rpush(RedisKey.topicRetainList(topicLevels), String.valueOf(retainId));
+        String r = script().eval(RedisLua.RPUSHLIMIT, ScriptOutputType.VALUE, new String[]{RedisKey.topicRetainList(topicLevels)}, String.valueOf(retainId), String.valueOf(this.retainQueueSize));
+        if (r != null) {
+            List<String> keys = new ArrayList<>();
+            List<String> argv = new ArrayList<>();
+            for (int i = 0; i < topicLevels.size(); i++) {
+                keys.add(RedisKey.topicRetainChild(topicLevels.subList(0, i)));
+                argv.add(topicLevels.get(i));
+            }
+            script().eval("local length = table.getn(KEYS)\n" +
+                            "for i = 1, length do\n" +
+                            "   local count = redis.call('HINCRBY', KEYS[i], ARGV[i], -1)\n" +
+                            "   if count == 0\n" +
+                            "   then\n" +
+                            "       redis.call('HDEL', KEYS[i], ARGV[i])\n" +
+                            "   end\n" +
+                            "end\n" +
+                            "return redis.status_reply('OK')",
+                    ScriptOutputType.STATUS, keys.toArray(new String[keys.size()]), argv.toArray(new String[argv.size()]));
+
+            key().del(RedisKey.topicRemainMessage(topicLevels, retainId));
+        }
 
         // retain tree
         List<String> keys = new ArrayList<>();

@@ -37,6 +37,7 @@ public class RedisSyncSingleStorageTest {
         map.put("redis.address", "localhost");
         map.put("mqtt.inflight.queue.size", 3);
         map.put("mqtt.qos2.queue.size", 3);
+        map.put("mqtt.retain.queue.size", 3);
         MapConfiguration config = new MapConfiguration(map);
 
         redis = new RedisSyncSingleStorage();
@@ -334,6 +335,16 @@ public class RedisSyncSingleStorageTest {
 
         redis.removeAllRetainMessage(Topics.sanitize("a/b/c/d"));
         assert redis.getMatchRetainMessages(Topics.sanitize("a/b/c/d")).size() == 0;
+
+        redis.addRetainMessage(Topics.sanitize("a/b/c/d"), publish);
+        redis.addRetainMessage(Topics.sanitize("a/b/c/d"), publish);
+
+        assert redis.getMatchRetainMessages(Topics.sanitize("a/b/c/d")).size() == 2;
+
+        redis.addRetainMessage(Topics.sanitize("a/b/c/d"), publish);
+        redis.addRetainMessage(Topics.sanitize("a/b/c/d"), publish);
+
+        assert redis.getMatchRetainMessages(Topics.sanitize("a/b/c/d")).size() == 3;
     }
 
     @Test
