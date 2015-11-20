@@ -19,6 +19,20 @@ public class RedisLua {
                     "end\n" +
                     "return cnt";
 
+    // Insert the specified value at the tail of the list with length limit
+    // Removes the elements at the head of the list if limit reached (exceeded)
+    //
+    // Keys 1. List pushed into
+    // Args 1. Value to be pushed
+    // Args 2. Maximum length of the list
+    // Returns The value popped from the list, or nil
+    public static final String RPUSHLIMIT =
+            "local cnt = redis.call('RPUSH', KEYS[1], ARGV[1])\n" +
+                    "if tonumber(ARGV[2]) > 0 and cnt > tonumber(ARGV[2])\n" +
+                    "then\n" +
+                    "   return redis.call('LPOP', KEYS[1])\n" +
+                    "end\n" +
+                    "return nil";
 
     // Removes the specified key only if its current value is equal to the given value
     //

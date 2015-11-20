@@ -41,6 +41,9 @@ public class RedisSyncSingleStorage implements RedisSyncStorage {
     // A thread-safe connection to a redis server. Multiple threads may share one StatefulRedisConnection
     private StatefulRedisConnection<String, String> lettuceConn;
 
+    // Max in-flight queue size per client
+    protected int inFlightQueueSize;
+
     @SuppressWarnings("unused")
     protected RedisHashCommands<String, String> hash() {
         return this.lettuceConn.sync();
@@ -84,7 +87,7 @@ public class RedisSyncSingleStorage implements RedisSyncStorage {
     @Override
     public void init(AbstractConfiguration config) {
         if (!config.getString("redis.type").equals("single")) {
-            logger.error("RedisSyncSingleStorage class can only be used with single redis setup, but redis.type value is {}", config.getString("redis.type"));
+            throw new IllegalStateException("RedisSyncSingleStorage class can only be used with single redis setup, but redis.type value is " + config.getString("redis.type"));
         }
 
         List<String> address = parseRedisAddress(config.getString("redis.address"), 6379);
@@ -103,6 +106,9 @@ public class RedisSyncSingleStorage implements RedisSyncStorage {
                 .setDatabase(databaseNumber)
                 .setPassword(StringUtils.isNotEmpty(password) ? password : null);
         this.redisson = Redisson.create(redissonConfig);
+
+        // params
+        initParams(config);
     }
 
     @Override
@@ -130,6 +136,15 @@ public class RedisSyncSingleStorage implements RedisSyncStorage {
         return list;
     }
 
+    /**
+     * Initialize MQTT parameters
+     *
+     * @param config Redis Configuration
+     */
+    protected void initParams(AbstractConfiguration config) {
+        this.inFlightQueueSize = config.getInt("mqtt.inflight.queue.size", 0);
+    }
+
     @Override
     public Lock getLock(String name) {
         return this.redisson.getLock(name);
@@ -154,9 +169,7 @@ public class RedisSyncSingleStorage implements RedisSyncStorage {
     @Override
     public boolean removeConnectedNode(String clientId, String node) {
         set().srem(RedisKey.connectedClients(node), clientId);
-        String[] keys = new String[]{RedisKey.connectedNode(clientId)};
-        String[] argv = new String[]{node};
-        long r = script().eval(RedisLua.CHECKDEL, ScriptOutputType.INTEGER, keys, argv);
+        long r = script().eval(RedisLua.CHECKDEL, ScriptOutputType.INTEGER, new String[]{RedisKey.connectedNode(clientId)}, node);
         return r == 1;
     }
 
@@ -187,21 +200,22 @@ public class RedisSyncSingleStorage implements RedisSyncStorage {
 
     @Override
     public int getNextPacketId(String clientId) {
-        String[] keys = new String[]{RedisKey.nextPacketId(clientId)};
-        String[] values = new String[]{"65535"};
-        return Math.toIntExact(script().eval(RedisLua.INCRLIMIT, ScriptOutputType.INTEGER, keys, values));
+        return Math.toIntExact(script().eval(RedisLua.INCRLIMIT, ScriptOutputType.INTEGER, new String[]{RedisKey.nextPacketId(clientId)}, "65535"));
     }
 
     @Override
     public InternalMessage getInFlightMessage(String clientId, int packetId) {
-        return mapToInternal(hash().hgetall(RedisKey.inFlightMessage(clientId, packetId)));
+        InternalMessage m = mapToInternal(hash().hgetall(RedisKey.inFlightMessage(clientId, packetId)));
+        if (m == null) removeInFlightMessage(clientId, packetId);
+        return m;
     }
 
     @Override
     public void addInFlightMessage(String clientId, int packetId, InternalMessage msg, boolean dup) {
         Map<String, String> map = internalToMap(msg);
         map.put("dup", BooleanUtils.toString(dup, "1", "0"));
-        list().rpush(RedisKey.inFlightList(clientId), String.valueOf(packetId));
+        String r = script().eval(RedisLua.RPUSHLIMIT, ScriptOutputType.VALUE, new String[]{RedisKey.inFlightList(clientId)}, String.valueOf(packetId), String.valueOf(this.inFlightQueueSize));
+        if (r != null) key().del(RedisKey.inFlightMessage(clientId, Integer.parseInt(r)));
         hash().hmset(RedisKey.inFlightMessage(clientId, packetId), map);
     }
 
@@ -219,6 +233,7 @@ public class RedisSyncSingleStorage implements RedisSyncStorage {
             ids.forEach(packetId -> {
                 InternalMessage m = getInFlightMessage(clientId, Integer.parseInt(packetId));
                 if (m != null) r.add(m);
+                else removeInFlightMessage(clientId, Integer.parseInt(packetId));
             });
         }
         return r;

@@ -93,6 +93,9 @@ public class RedisSyncMasterSlaveStorage extends RedisSyncSingleStorage {
                 .setDatabase(databaseNumber)
                 .setPassword(StringUtils.isNotEmpty(password) ? password : null);
         this.redisson = Redisson.create(redissonConfig);
+
+        // params
+        initParams(config);
     }
 
     @Override

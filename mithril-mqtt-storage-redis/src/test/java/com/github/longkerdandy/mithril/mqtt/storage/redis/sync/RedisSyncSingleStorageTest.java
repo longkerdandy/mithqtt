@@ -35,6 +35,7 @@ public class RedisSyncSingleStorageTest {
         Map<String, Object> map = new HashMap<>();
         map.put("redis.type", "single");
         map.put("redis.address", "localhost");
+        map.put("mqtt.inflight.queue.size", 3);
         MapConfiguration config = new MapConfiguration(map);
 
         redis = new RedisSyncSingleStorage();
@@ -190,10 +191,20 @@ public class RedisSyncSingleStorageTest {
         assert pubrel.getUserName().equals("user1");
         assert pubrel.getPayload().getPacketId() == 10001;
 
-        redis.removeAllInFlightMessage("client1");
+        pubrel = new InternalMessage<>(
+                MqttMessageType.PUBREL, false, MqttQoS.AT_LEAST_ONCE, false,
+                MqttVersion.MQTT_3_1_1, "client1", "user1", "broker1",
+                new PacketId(10003));
+        redis.addInFlightMessage("client1", 10003, pubrel, false);
+
+        assert redis.getAllInFlightMessages("client1").size() == 3;
         assert redis.getInFlightMessage("client1", 10000) == null;
+
+        redis.removeAllInFlightMessage("client1");
+
         assert redis.getInFlightMessage("client1", 10001) == null;
         assert redis.getInFlightMessage("client1", 10002) == null;
+        assert redis.getInFlightMessage("client1", 10003) == null;
         assert redis.getAllInFlightMessages("client1").size() == 0;
     }
 
