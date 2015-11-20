@@ -133,6 +133,17 @@ public interface RedisSyncStorage {
     void addInFlightMessage(String clientId, int packetId, InternalMessage msg, boolean dup);
 
     /**
+     * Add in-flight message for the client but expires in certain duration
+     *
+     * @param clientId Client Id
+     * @param packetId Packet Id
+     * @param msg      In-Flight Message
+     * @param dup      Duplicated
+     * @param ttl      Time To Live in seconds
+     */
+    void addInFlightMessage(String clientId, int packetId, InternalMessage msg, boolean dup, long ttl);
+
+    /**
      * Remove specific in-flight message for the client
      *
      * @param clientId Client Id

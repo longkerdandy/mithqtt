@@ -224,6 +224,12 @@ public class RedisSyncSingleStorage implements RedisSyncStorage {
     }
 
     @Override
+    public void addInFlightMessage(String clientId, int packetId, InternalMessage msg, boolean dup, long ttl) {
+        addInFlightMessage(clientId, packetId, msg, dup);
+        key().expire(RedisKey.inFlightMessage(clientId, packetId), ttl);
+    }
+
+    @Override
     public void removeInFlightMessage(String clientId, int packetId) {
         list().lrem(RedisKey.inFlightList(clientId), 0, String.valueOf(packetId));
         key().del(RedisKey.inFlightMessage(clientId, packetId));
