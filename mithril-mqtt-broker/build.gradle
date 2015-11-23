@@ -22,3 +22,10 @@ dependencies {
     // netty
     compile 'io.netty:netty-transport:4.1.0.Beta7'
 }
+
+startScripts {
+    doLast {
+        unixScript.text = unixScript.text.replace('$CLASSPATH', '$APP_HOME/lib/*')
+        windowsScript.text = windowsScript.text.replace('%CLASSPATH%', '%APP_HOME%\\lib\\*')
+    }
+}
