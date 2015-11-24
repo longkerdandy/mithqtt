@@ -21,6 +21,9 @@ dependencies {
 
     // netty
     compile 'io.netty:netty-transport:4.1.0.Beta7'
+
+    // metrics
+    compile 'io.dropwizard.metrics:metrics-core:3.1.0'
 }
 
 startScripts {
