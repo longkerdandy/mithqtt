@@ -32,8 +32,6 @@ import java.util.Map;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.locks.Lock;
 
-import static com.github.longkerdandy.mithril.mqtt.util.UUIDs.shortUuid;
-
 /**
  * Synchronous MQTT Handler using Redis
  */
@@ -164,7 +162,6 @@ public class SyncRedisHandler extends SimpleChannelInboundHandler<MqttMessage> {
                 ctx.close();
                 return;
             }
-            this.clientId = shortUuid();
         }
 
         // Validate clientId based on configuration

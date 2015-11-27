@@ -1,5 +1,9 @@
 package io.netty.handler.codec.mqtt;
 
+import org.apache.commons.lang3.StringUtils;
+
+import static com.github.longkerdandy.mithril.mqtt.util.UUIDs.shortUuid;
+
 /**
  * MQTT Utils
  */
@@ -13,6 +17,9 @@ public class Mqtts {
     public static void sanitize(MqttMessage msg) {
         switch (msg.fixedHeader().messageType()) {
             case CONNECT:
+                if (StringUtils.isBlank(((MqttConnectMessage) msg).payload().clientId())
+                        && ((MqttConnectMessage) msg).variableHeader().cleanSession())
+                    ((MqttConnectMessage) msg).payload().clientId = shortUuid();
             case CONNACK:
             case PUBACK:
             case PUBREC:
