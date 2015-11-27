@@ -4,6 +4,7 @@ import com.github.longkerdandy.mithril.mqtt.api.auth.Authenticator;
 import com.github.longkerdandy.mithril.mqtt.api.comm.BrokerCommunicator;
 import com.github.longkerdandy.mithril.mqtt.api.comm.BrokerListenerFactory;
 import com.github.longkerdandy.mithril.mqtt.broker.comm.BrokerListenerFactoryImpl;
+import com.github.longkerdandy.mithril.mqtt.broker.handler.MessageMetricsHandler;
 import com.github.longkerdandy.mithril.mqtt.broker.handler.SyncRedisHandler;
 import com.github.longkerdandy.mithril.mqtt.broker.session.SessionRegistry;
 import com.github.longkerdandy.mithril.mqtt.broker.util.Validator;
@@ -23,10 +24,13 @@ import io.netty.handler.timeout.IdleStateHandler;
 import io.netty.util.internal.logging.InternalLoggerFactory;
 import io.netty.util.internal.logging.Slf4JLoggerFactory;
 import org.apache.commons.configuration.PropertiesConfiguration;
+import org.influxdb.InfluxDB;
+import org.influxdb.InfluxDBFactory;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.io.File;
+import java.util.concurrent.TimeUnit;
 
 /**
  * MQTT Bridge
@@ -83,6 +87,17 @@ public class MqttBroker {
         BrokerListenerFactory listenerFactory = new BrokerListenerFactoryImpl(registry);
         communicator.init(communicatorConfig, brokerConfig.getString("broker.id"), listenerFactory);
 
+        // metrcis
+        final boolean metrics = brokerConfig.getBoolean("mqtt.metrics.enabled");
+        final String dbName = metrics ? brokerConfig.getString("influxdb.dbname") : null;
+        final InfluxDB influxDB = metrics ? InfluxDBFactory.connect(brokerConfig.getString("influxdb.url"), brokerConfig.getString("influxdb.username"), brokerConfig.getString("influxdb.password")) : null;
+        if (metrics) {
+            logger.debug("Initializing metrics ...");
+            influxDB.createDatabase(dbName);
+            influxDB.enableBatch(brokerConfig.getInt("influxdb.actions"), brokerConfig.getInt("influxdb.durations"), TimeUnit.MILLISECONDS);
+        }
+
+        // broker
         final String brokerId = brokerConfig.getString("broker.id");
         final int keepAlive = brokerConfig.getInt("mqtt.keepalive.default");
         final int keepAliveMax = brokerConfig.getInt("mqtt.keepalive.max");
@@ -115,6 +130,10 @@ public class MqttBroker {
                             // mqtt encoder & decoder
                             p.addLast("encoder", new MqttEncoder());
                             p.addLast("decoder", new MqttDecoder());
+                            // metrics
+                            if (metrics) {
+                                p.addLast("msg-metrics", new MessageMetricsHandler(brokerId, influxDB, dbName));
+                            }
                             // logic handler
                             p.addLast(handlerGroup, "logicHandler", new SyncRedisHandler(authenticator, communicator, redis, registry, validator, brokerId, keepAlive, keepAliveMax));
                         }
