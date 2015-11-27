@@ -73,8 +73,14 @@ public class MessageMetricsHandler extends ChannelDuplexHandler {
                         builder = builder.tag("type", "disconnect");
                         break;
                 }
-                this.influxDB.write(dbName, "default", builder.build());
+                this.influxDB.write(this.dbName, "default", builder.build());
             }
+            Point point = Point.measurement("mqtt_broker_" + this.brokerId)
+                    .time(System.currentTimeMillis(), TimeUnit.MILLISECONDS)
+                    .tag("direction", "in")
+                    .field("count", 1L)
+                    .build();
+            this.influxDB.write(this.dbName, "default", point);
         }
         ctx.fireChannelRead(msg);
     }
@@ -118,8 +124,14 @@ public class MessageMetricsHandler extends ChannelDuplexHandler {
                         builder = builder.tag("type", "pingresp");
                         break;
                 }
-                this.influxDB.write(dbName, "default", builder.build());
+                this.influxDB.write(this.dbName, "default", builder.build());
             }
+            Point point = Point.measurement("mqtt_broker_" + this.brokerId)
+                    .time(System.currentTimeMillis(), TimeUnit.MILLISECONDS)
+                    .tag("direction", "out")
+                    .field("count", 1L)
+                    .build();
+            this.influxDB.write(this.dbName, "default", point);
         }
         ctx.write(msg, promise);
     }
