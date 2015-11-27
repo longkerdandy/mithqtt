@@ -4,7 +4,7 @@ subprojects {
     apply plugin: 'maven'
 
     // Group Id
-    group 'com.github.longkerdandy.mithril'
+    group 'com.github.longkerdandy'
 
     // Version
     version '1.0.0.Alpha1'
@@ -17,7 +17,7 @@ subprojects {
 
     // Maven Repository
     repositories {
-        maven { url "http://jcenter.bintray.com" }
+        mavenCentral();
     }
 
     // Dependencies
