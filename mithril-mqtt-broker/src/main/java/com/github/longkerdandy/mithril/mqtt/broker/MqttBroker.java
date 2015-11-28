@@ -9,6 +9,7 @@ import com.github.longkerdandy.mithril.mqtt.broker.handler.SyncRedisHandler;
 import com.github.longkerdandy.mithril.mqtt.broker.session.SessionRegistry;
 import com.github.longkerdandy.mithril.mqtt.broker.util.Validator;
 import com.github.longkerdandy.mithril.mqtt.storage.redis.sync.RedisSyncStorage;
+import com.lambdaworks.redis.ValueScanCursor;
 import io.netty.bootstrap.ServerBootstrap;
 import io.netty.channel.*;
 import io.netty.channel.nio.NioEventLoopGroup;
@@ -61,6 +62,8 @@ public class MqttBroker {
             authenticatorConfig = new PropertiesConfiguration("config/authenticator.properties");
         }
 
+        final String brokerId = brokerConfig.getString("broker.id");
+
         // validator
         logger.debug("Initializing validator ...");
         Validator validator = new Validator(brokerConfig);
@@ -71,10 +74,11 @@ public class MqttBroker {
 
         // storage
         logger.debug("Initializing redis storage ...");
-        // RedisAsyncStorage redis = (RedisAsyncStorage) Class.forName(redisConfig.getString("storage.async.class")).newInstance();
-        // redis.init(RedisURI.create(redisConfig.getString("redis.uri")));
         RedisSyncStorage redis = (RedisSyncStorage) Class.forName(redisConfig.getString("storage.sync.class")).newInstance();
         redis.init(redisConfig);
+
+        logger.debug("Clearing broker connection state in storage ...");
+        clearBrokerConnectionState(brokerId, redis);
 
         // authenticator
         logger.debug("Initializing authenticator...");
@@ -85,9 +89,12 @@ public class MqttBroker {
         logger.debug("Initializing communicator ...");
         BrokerCommunicator communicator = (BrokerCommunicator) Class.forName(communicatorConfig.getString("communicator.class")).newInstance();
         BrokerListenerFactory listenerFactory = new BrokerListenerFactoryImpl(registry);
-        communicator.init(communicatorConfig, brokerConfig.getString("broker.id"), listenerFactory);
+        communicator.init(communicatorConfig, brokerId, listenerFactory);
 
-        // metrcis
+        logger.debug("Clearing broker communicator message ...");
+        communicator.clear();
+
+        // metrics
         final boolean metrics = brokerConfig.getBoolean("mqtt.metrics.enabled");
         final String dbName = metrics ? brokerConfig.getString("influxdb.dbname") : null;
         final InfluxDB influxDB = metrics ? InfluxDBFactory.connect(brokerConfig.getString("influxdb.url"), brokerConfig.getString("influxdb.username"), brokerConfig.getString("influxdb.password")) : null;
@@ -98,7 +105,6 @@ public class MqttBroker {
         }
 
         // broker
-        final String brokerId = brokerConfig.getString("broker.id");
         final int keepAlive = brokerConfig.getInt("mqtt.keepalive.default");
         final int keepAliveMax = brokerConfig.getInt("mqtt.keepalive.max");
         final boolean ssl = brokerConfig.getBoolean("mqtt.ssl.enabled");
@@ -150,9 +156,23 @@ public class MqttBroker {
             // Do this to gracefully shut down the server.
             f.channel().closeFuture().sync();
         } finally {
+            redis.destroy();
             communicator.destroy();
             workerGroup.shutdownGracefully();
             bossGroup.shutdownGracefully();
+        }
+    }
+
+    protected static void clearBrokerConnectionState(String brokerId, RedisSyncStorage redis) {
+        ValueScanCursor<String> r = redis.getConnectedClients(brokerId, "0", 100);
+        if (r.getValues() != null) {
+            r.getValues().forEach(client -> redis.removeConnectedNode(client, brokerId));
+        }
+        while (!r.getCursor().equals("0")) {
+            r = redis.getConnectedClients(brokerId, r.getCursor(), 100);
+            if (r.getValues() != null) {
+                r.getValues().forEach(client -> redis.removeConnectedNode(client, brokerId));
+            }
         }
     }
 }

@@ -2,8 +2,6 @@ package com.github.longkerdandy.mithril.mqtt.communicator.kafka;
 
 import com.github.longkerdandy.mithril.mqtt.api.internal.InternalMessage;
 import com.github.longkerdandy.mithril.mqtt.communicator.kafka.codec.InternalMessageSerializer;
-import kafka.consumer.Consumer;
-import kafka.consumer.ConsumerConfig;
 import kafka.javaapi.consumer.ConsumerConnector;
 import org.apache.commons.configuration.AbstractConfiguration;
 import org.apache.kafka.clients.producer.KafkaProducer;
@@ -14,9 +12,7 @@ import org.slf4j.LoggerFactory;
 
 import java.util.HashMap;
 import java.util.Map;
-import java.util.Properties;
 import java.util.concurrent.ExecutorService;
-import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
 
 /**
@@ -49,20 +45,6 @@ public abstract class KafkaCommunicator {
 
         // producer
         this.producer = new KafkaProducer<>(map);
-
-        logger.trace("Initializing Kafka consumer ...");
-
-        // consumer config
-        Properties props = new Properties();
-        props.put("zookeeper.connect", config.getString("zookeeper.connect"));
-        props.put("group.id", config.getString("group.id"));
-        ConsumerConfig consumerConfig = new ConsumerConfig(props);
-
-        // consumer
-        this.consumer = Consumer.createJavaConsumerConnector(consumerConfig);
-
-        // consumer executor
-        this.executor = Executors.newFixedThreadPool(config.getInt("consumer.threads"));
     }
 
     public void destroy() {

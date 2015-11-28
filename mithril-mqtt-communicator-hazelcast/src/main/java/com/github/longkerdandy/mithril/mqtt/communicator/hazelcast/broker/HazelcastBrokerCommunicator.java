@@ -73,6 +73,11 @@ public class HazelcastBrokerCommunicator implements BrokerCommunicator {
         }
     }
 
+    @Override
+    public void clear() {
+        this.brokerQueue.clear();
+    }
+
     public void sendToBroker(String brokerId, InternalMessage message) {
         IQueue<InternalMessage> brokerQueue = this.hazelcast.getQueue(BROKER_TOPIC_PREFIX + "." + brokerId);
         sendMessage(brokerQueue, message);

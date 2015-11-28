@@ -5,6 +5,8 @@ import com.github.longkerdandy.mithril.mqtt.api.comm.BrokerListenerFactory;
 import com.github.longkerdandy.mithril.mqtt.api.internal.InternalMessage;
 import com.github.longkerdandy.mithril.mqtt.communicator.kafka.KafkaCommunicator;
 import com.github.longkerdandy.mithril.mqtt.communicator.kafka.codec.InternalMessageDecoder;
+import kafka.consumer.Consumer;
+import kafka.consumer.ConsumerConfig;
 import kafka.consumer.KafkaStream;
 import kafka.serializer.StringDecoder;
 import org.apache.commons.configuration.AbstractConfiguration;
@@ -14,6 +16,10 @@ import org.slf4j.LoggerFactory;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Properties;
+import java.util.concurrent.Executors;
+
+import static com.github.longkerdandy.mithril.mqtt.util.UUIDs.shortUuid;
 
 /**
  * Broker Communicator implementation for Kafka
@@ -31,7 +37,19 @@ public class KafkaBrokerCommunicator extends KafkaCommunicator implements Broker
 
         BROKER_TOPIC = BROKER_TOPIC_PREFIX + "." + brokerId;
 
-        logger.trace("Initializing Kafka broker consumer and workers ...");
+        logger.trace("Initializing Kafka consumer ...");
+
+        // consumer config
+        Properties props = new Properties();
+        props.put("zookeeper.connect", config.getString("zookeeper.connect"));
+        props.put("group.id", shortUuid());
+        ConsumerConfig consumerConfig = new ConsumerConfig(props);
+
+        // consumer
+        this.consumer = Consumer.createJavaConsumerConnector(consumerConfig);
+
+        // consumer executor
+        this.executor = Executors.newFixedThreadPool(config.getInt("consumer.threads"));
 
         // consumer connect to kafka
         Map<String, Integer> topicCountMap = new HashMap<>();
@@ -43,5 +61,9 @@ public class KafkaBrokerCommunicator extends KafkaCommunicator implements Broker
         for (final KafkaStream<String, InternalMessage> stream : streams) {
             this.executor.submit(new KafkaBrokerWorker(stream, factory.newListener()));
         }
+    }
+
+    @Override
+    public void clear() {
     }
 }
