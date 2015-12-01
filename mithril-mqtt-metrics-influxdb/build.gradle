@@ -1,0 +1,7 @@
+dependencies {
+    // project
+    compile project(':mithril-mqtt-api')
+
+    // influxdb
+    compile 'org.influxdb:influxdb-java:2.0'
+}

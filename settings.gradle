@@ -6,4 +6,5 @@ include 'mithril-mqtt-storage-redis'
 include 'mithril-mqtt-communicator-hazelcast'
 include 'mithril-mqtt-communicator-kafka'
 include 'mithril-mqtt-authenticator-dummy'
+include 'mithril-mqtt-metrics-influxdb'
 

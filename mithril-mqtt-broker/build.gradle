@@ -19,11 +19,11 @@ dependencies {
     runtime project(':mithril-mqtt-communicator-hazelcast')
     runtime project(':mithril-mqtt-communicator-kafka')
 
+    // metrics
+    runtime project(':mithril-mqtt-metrics-influxdb')
+
     // netty
     compile 'io.netty:netty-transport:4.1.0.Beta7'
-
-    // metrics
-    compile 'org.influxdb:influxdb-java:2.0'
 }
 
 startScripts {

@@ -3,7 +3,9 @@ package com.github.longkerdandy.mithril.mqtt.broker;
 import com.github.longkerdandy.mithril.mqtt.api.auth.Authenticator;
 import com.github.longkerdandy.mithril.mqtt.api.comm.BrokerCommunicator;
 import com.github.longkerdandy.mithril.mqtt.api.comm.BrokerListenerFactory;
+import com.github.longkerdandy.mithril.mqtt.api.metrics.MetricsService;
 import com.github.longkerdandy.mithril.mqtt.broker.comm.BrokerListenerFactoryImpl;
+import com.github.longkerdandy.mithril.mqtt.broker.handler.BytesMetricsHandler;
 import com.github.longkerdandy.mithril.mqtt.broker.handler.MessageMetricsHandler;
 import com.github.longkerdandy.mithril.mqtt.broker.handler.SyncRedisHandler;
 import com.github.longkerdandy.mithril.mqtt.broker.session.SessionRegistry;
@@ -25,13 +27,10 @@ import io.netty.handler.timeout.IdleStateHandler;
 import io.netty.util.internal.logging.InternalLoggerFactory;
 import io.netty.util.internal.logging.Slf4JLoggerFactory;
 import org.apache.commons.configuration.PropertiesConfiguration;
-import org.influxdb.InfluxDB;
-import org.influxdb.InfluxDBFactory;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.io.File;
-import java.util.concurrent.TimeUnit;
 
 /**
  * MQTT Bridge
@@ -50,16 +49,19 @@ public class MqttBroker {
         PropertiesConfiguration redisConfig;
         PropertiesConfiguration communicatorConfig;
         PropertiesConfiguration authenticatorConfig;
-        if (args.length >= 4) {
+        PropertiesConfiguration metricsConfig;
+        if (args.length >= 5) {
             brokerConfig = new PropertiesConfiguration(args[0]);
             redisConfig = new PropertiesConfiguration(args[1]);
             communicatorConfig = new PropertiesConfiguration(args[2]);
             authenticatorConfig = new PropertiesConfiguration(args[3]);
+            metricsConfig = new PropertiesConfiguration(args[4]);
         } else {
             brokerConfig = new PropertiesConfiguration("config/broker.properties");
             redisConfig = new PropertiesConfiguration("config/redis.properties");
             communicatorConfig = new PropertiesConfiguration("config/communicator.properties");
             authenticatorConfig = new PropertiesConfiguration("config/authenticator.properties");
+            metricsConfig = new PropertiesConfiguration("config/metrics.properties");
         }
 
         final String brokerId = brokerConfig.getString("broker.id");
@@ -95,14 +97,10 @@ public class MqttBroker {
         communicator.clear();
 
         // metrics
-        final boolean metrics = brokerConfig.getBoolean("mqtt.metrics.enabled");
-        final String dbName = metrics ? brokerConfig.getString("influxdb.dbname") : null;
-        final InfluxDB influxDB = metrics ? InfluxDBFactory.connect(brokerConfig.getString("influxdb.url"), brokerConfig.getString("influxdb.username"), brokerConfig.getString("influxdb.password")) : null;
-        if (metrics) {
-            logger.debug("Initializing metrics ...");
-            influxDB.createDatabase(dbName);
-            influxDB.enableBatch(brokerConfig.getInt("influxdb.actions"), brokerConfig.getInt("influxdb.durations"), TimeUnit.MILLISECONDS);
-        }
+        logger.debug("Initializing metrics ...");
+        final boolean metricsEnabled = metricsConfig.getBoolean("metrics.enabled");
+        MetricsService metrics = metricsEnabled ? (MetricsService) Class.forName(metricsConfig.getString("metrics.class")).newInstance() : null;
+        if (metricsEnabled) metrics.init(metricsConfig);
 
         // broker
         final int keepAlive = brokerConfig.getInt("mqtt.keepalive.default");
@@ -133,12 +131,16 @@ public class MqttBroker {
                             }
                             // idle
                             p.addFirst("idleHandler", new IdleStateHandler(0, 0, keepAlive));
+                            // metrics
+                            if (metricsEnabled) {
+                                p.addLast("bytesMetrics", new BytesMetricsHandler(metrics, brokerId));
+                            }
                             // mqtt encoder & decoder
                             p.addLast("encoder", new MqttEncoder());
                             p.addLast("decoder", new MqttDecoder());
                             // metrics
-                            if (metrics) {
-                                p.addLast("msg-metrics", new MessageMetricsHandler(brokerId, influxDB, dbName));
+                            if (metricsEnabled) {
+                                p.addLast("msgMetrics", new MessageMetricsHandler(metrics, brokerId));
                             }
                             // logic handler
                             p.addLast(handlerGroup, "logicHandler", new SyncRedisHandler(authenticator, communicator, redis, registry, validator, brokerId, keepAlive, keepAliveMax));
@@ -156,13 +158,21 @@ public class MqttBroker {
             // Do this to gracefully shut down the server.
             f.channel().closeFuture().sync();
         } finally {
-            redis.destroy();
-            communicator.destroy();
             workerGroup.shutdownGracefully();
             bossGroup.shutdownGracefully();
+            if (metricsEnabled) metrics.destroy();
+            communicator.destroy();
+            authenticator.destroy();
+            redis.destroy();
         }
     }
 
+    /**
+     * Loop and mark every clients currently connect to the broker as disconnect
+     *
+     * @param brokerId Broker Id
+     * @param redis    Redis Storage
+     */
     protected static void clearBrokerConnectionState(String brokerId, RedisSyncStorage redis) {
         ValueScanCursor<String> r = redis.getConnectedClients(brokerId, "0", 100);
         if (r.getValues() != null) {
