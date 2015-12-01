@@ -2,7 +2,7 @@ package com.github.longkerdandy.mithril.mqtt.communicator.hazelcast.application;
 
 import com.github.longkerdandy.mithril.mqtt.api.comm.ApplicationListener;
 import com.github.longkerdandy.mithril.mqtt.api.internal.*;
-import com.hazelcast.core.IQueue;
+import com.hazelcast.ringbuffer.Ringbuffer;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -13,11 +13,11 @@ public class HazelcastApplicationWorker implements Runnable {
 
     private static final Logger logger = LoggerFactory.getLogger(HazelcastApplicationWorker.class);
 
-    private final IQueue<InternalMessage> applicationQueue;
+    private final Ringbuffer<InternalMessage> applicationRing;
     private final ApplicationListener listener;
 
-    public HazelcastApplicationWorker(IQueue<InternalMessage> applicationQueue, ApplicationListener listener) {
-        this.applicationQueue = applicationQueue;
+    public HazelcastApplicationWorker(Ringbuffer<InternalMessage> applicationRing, ApplicationListener listener) {
+        this.applicationRing = applicationRing;
         this.listener = listener;
     }
 
@@ -25,9 +25,11 @@ public class HazelcastApplicationWorker implements Runnable {
     @SuppressWarnings({"unchecked", "InfiniteLoopStatement"})
     public void run() {
         try {
+            long sequence = this.applicationRing.headSequence();
+
             while (true) {
                 // read message, blocking if no new message
-                InternalMessage msg = this.applicationQueue.take();
+                InternalMessage msg = this.applicationRing.readOne(sequence);
 
                 // notify listener
                 if (msg != null) {
@@ -52,9 +54,11 @@ public class HazelcastApplicationWorker implements Runnable {
                             logger.warn("Communicator error: Communicator received unexpected message type {}", msg.getMessageType());
                     }
                 }
+
+                sequence++;
             }
         } catch (InterruptedException e) {
-            logger.warn("Communicator error: Interrupted while reading from application queue", e);
+            logger.warn("Communicator error: Interrupted while reading from application ring buffer", e);
         }
     }
 }

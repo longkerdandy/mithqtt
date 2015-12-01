@@ -3,6 +3,6 @@ dependencies {
     compile project(':mithril-mqtt-api')
 
     // hazelcast
-    compile 'com.hazelcast:hazelcast:3.5.3'
-    compile 'com.hazelcast:hazelcast-client:3.5.3'
+    compile 'com.hazelcast:hazelcast:3.5.4'
+    compile 'com.hazelcast:hazelcast-client:3.5.4'
 }

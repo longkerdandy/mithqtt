@@ -4,7 +4,7 @@ import com.github.longkerdandy.mithril.mqtt.api.comm.BrokerListener;
 import com.github.longkerdandy.mithril.mqtt.api.internal.Disconnect;
 import com.github.longkerdandy.mithril.mqtt.api.internal.InternalMessage;
 import com.github.longkerdandy.mithril.mqtt.api.internal.Publish;
-import com.hazelcast.core.IQueue;
+import com.hazelcast.ringbuffer.Ringbuffer;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -15,11 +15,11 @@ public class HazelcastBrokerWorker implements Runnable {
 
     private static final Logger logger = LoggerFactory.getLogger(HazelcastBrokerWorker.class);
 
-    private final IQueue<InternalMessage> brokerQueue;
+    private final Ringbuffer<InternalMessage> brokerRing;
     private final BrokerListener listener;
 
-    public HazelcastBrokerWorker(IQueue<InternalMessage> brokerQueue, BrokerListener listener) {
-        this.brokerQueue = brokerQueue;
+    public HazelcastBrokerWorker(Ringbuffer<InternalMessage> brokerRing, BrokerListener listener) {
+        this.brokerRing = brokerRing;
         this.listener = listener;
     }
 
@@ -27,9 +27,11 @@ public class HazelcastBrokerWorker implements Runnable {
     @SuppressWarnings({"unchecked", "InfiniteLoopStatement"})
     public void run() {
         try {
+            long sequence = this.brokerRing.headSequence();
+
             while (true) {
                 // read message, blocking if no new message
-                InternalMessage msg = this.brokerQueue.take();
+                InternalMessage msg = this.brokerRing.readOne(sequence);
 
                 // notify listener
                 if (msg != null) {
@@ -45,9 +47,11 @@ public class HazelcastBrokerWorker implements Runnable {
                             logger.warn("Communicator error: Communicator received unexpected message type {}", msg.getMessageType());
                     }
                 }
+
+                sequence++;
             }
         } catch (InterruptedException e) {
-            logger.warn("Communicator error: Interrupted while reading from broker queue", e);
+            logger.warn("Communicator error: Interrupted while reading from broker ring buffer", e);
         }
     }
 }
