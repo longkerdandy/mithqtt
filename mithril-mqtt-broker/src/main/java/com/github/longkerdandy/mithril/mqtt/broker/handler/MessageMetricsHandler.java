@@ -8,6 +8,7 @@ import io.netty.channel.ChannelPromise;
 import io.netty.handler.codec.mqtt.MqttConnectPayload;
 import io.netty.handler.codec.mqtt.MqttMessage;
 import io.netty.handler.codec.mqtt.MqttMessageType;
+import org.apache.commons.lang3.StringUtils;
 
 /**
  * Metrics Handler based on Message
@@ -27,10 +28,10 @@ public class MessageMetricsHandler extends ChannelDuplexHandler {
     public void channelRead(ChannelHandlerContext ctx, Object msg) throws Exception {
         if (msg instanceof MqttMessage) {
             MqttMessage mqtt = (MqttMessage) msg;
-            if (this.clientId == null && mqtt.fixedHeader().messageType() == MqttMessageType.CONNECT) {
+            if (StringUtils.isBlank(this.clientId) && mqtt.fixedHeader().messageType() == MqttMessageType.CONNECT) {
                 this.clientId = ((MqttConnectPayload) mqtt.payload()).clientId();
             }
-            if (this.clientId != null) {
+            if (StringUtils.isNotBlank(this.clientId)) {
                 this.metrics.measurement(this.clientId, this.brokerId, MessageDirection.IN, mqtt.fixedHeader().messageType());
             }
             this.metrics.measurement(this.brokerId, MessageDirection.IN, mqtt.fixedHeader().messageType());
@@ -42,7 +43,7 @@ public class MessageMetricsHandler extends ChannelDuplexHandler {
     public void write(ChannelHandlerContext ctx, Object msg, ChannelPromise promise) throws Exception {
         if (msg instanceof MqttMessage) {
             MqttMessage mqtt = (MqttMessage) msg;
-            if (this.clientId != null) {
+            if (StringUtils.isNotBlank(this.clientId)) {
                 this.metrics.measurement(this.clientId, this.brokerId, MessageDirection.OUT, mqtt.fixedHeader().messageType());
             }
             this.metrics.measurement(this.brokerId, MessageDirection.OUT, mqtt.fixedHeader().messageType());
