@@ -35,7 +35,7 @@ public class InfluxDBMetricsService implements MetricsService {
         Point point = Point.measurement("mqtt_client_" + clientId)
                 .time(System.currentTimeMillis(), TimeUnit.MILLISECONDS)
                 .tag("broker", brokerId)
-                .tag("direction", "in")
+                .tag("direction", direction.toString())
                 .tag("type", getMessageTypeName(type))
                 .field("count", 1L)
                 .build();
@@ -46,7 +46,7 @@ public class InfluxDBMetricsService implements MetricsService {
     public void measurement(String brokerId, MessageDirection direction, MqttMessageType type) {
         Point point = Point.measurement("mqtt_broker_" + brokerId)
                 .time(System.currentTimeMillis(), TimeUnit.MILLISECONDS)
-                .tag("direction", "in")
+                .tag("direction", direction.toString())
                 .tag("type", getMessageTypeName(type))
                 .field("count", 1L)
                 .build();
@@ -57,7 +57,7 @@ public class InfluxDBMetricsService implements MetricsService {
     public void measurement(String brokerId, MessageDirection direction, long length) {
         Point point = Point.measurement("mqtt_broker_" + brokerId)
                 .time(System.currentTimeMillis(), TimeUnit.MILLISECONDS)
-                .tag("direction", "in")
+                .tag("direction", direction.toString())
                 .field("length", length)
                 .build();
         this.influxDB.write(this.dbName, "default", point);
