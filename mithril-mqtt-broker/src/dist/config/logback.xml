@@ -32,19 +32,7 @@
     </logger>
 
     <!-- Kafka -->
-    <logger name="org.apache.zookeeper" level="INFO" additivity="false">
-        <appender-ref ref="Console"/>
-        <appender-ref ref="File"/>
-    </logger>
     <logger name="org.apache.kafka" level="INFO" additivity="false">
-        <appender-ref ref="Console"/>
-        <appender-ref ref="File"/>
-    </logger>
-    <logger name="org.I0Itec.zkclient" level="INFO" additivity="false">
-        <appender-ref ref="Console"/>
-        <appender-ref ref="File"/>
-    </logger>
-    <logger name="kafka" level="INFO" additivity="false">
         <appender-ref ref="Console"/>
         <appender-ref ref="File"/>
     </logger>
