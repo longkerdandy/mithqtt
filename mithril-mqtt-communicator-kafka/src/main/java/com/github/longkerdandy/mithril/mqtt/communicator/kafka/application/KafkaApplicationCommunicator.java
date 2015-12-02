@@ -2,22 +2,15 @@ package com.github.longkerdandy.mithril.mqtt.communicator.kafka.application;
 
 import com.github.longkerdandy.mithril.mqtt.api.comm.ApplicationCommunicator;
 import com.github.longkerdandy.mithril.mqtt.api.comm.ApplicationListenerFactory;
-import com.github.longkerdandy.mithril.mqtt.api.internal.InternalMessage;
 import com.github.longkerdandy.mithril.mqtt.communicator.kafka.KafkaCommunicator;
-import com.github.longkerdandy.mithril.mqtt.communicator.kafka.codec.InternalMessageDecoder;
-import kafka.consumer.Consumer;
-import kafka.consumer.ConsumerConfig;
-import kafka.consumer.KafkaStream;
-import kafka.serializer.StringDecoder;
+import com.github.longkerdandy.mithril.mqtt.communicator.kafka.codec.InternalMessageSerializer;
 import org.apache.commons.configuration.AbstractConfiguration;
+import org.apache.kafka.clients.consumer.KafkaConsumer;
+import org.apache.kafka.common.serialization.StringSerializer;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
 import java.util.Properties;
-import java.util.concurrent.Executors;
 
 /**
  * Application Communicator implementation for Kafka
@@ -27,6 +20,8 @@ public class KafkaApplicationCommunicator extends KafkaCommunicator implements A
 
     private static final Logger logger = LoggerFactory.getLogger(KafkaApplicationCommunicator.class);
 
+    private KafkaApplicationWorker worker;
+
     @Override
     public void init(AbstractConfiguration config, ApplicationListenerFactory factory) {
         init(config);
@@ -35,25 +30,26 @@ public class KafkaApplicationCommunicator extends KafkaCommunicator implements A
 
         // consumer config
         Properties props = new Properties();
-        props.put("zookeeper.connect", config.getString("zookeeper.connect"));
+        props.put("bootstrap.servers", config.getString("bootstrap.servers"));
         props.put("group.id", config.getString("group.id"));
-        ConsumerConfig consumerConfig = new ConsumerConfig(props);
+        props.put("enable.auto.commit", "true");
+        props.put("key.serializer", StringSerializer.class.getName());
+        props.put("value.serializer", InternalMessageSerializer.class.getName());
 
         // consumer
-        this.consumer = Consumer.createJavaConsumerConnector(consumerConfig);
+        this.consumer = new KafkaConsumer<>(props);
 
-        // consumer executor
-        this.executor = Executors.newFixedThreadPool(config.getInt("consumer.threads"));
+        // consumer worker
+        this.worker = new KafkaApplicationWorker(this.consumer, APPLICATION_TOPIC, factory.newListener());
+        this.executor.submit(this.worker);
+    }
 
-        // consumer connect to kafka
-        Map<String, Integer> topicCountMap = new HashMap<>();
-        topicCountMap.put(APPLICATION_TOPIC, config.getInt("consumer.threads"));
-        Map<String, List<KafkaStream<String, InternalMessage>>> consumerMap = this.consumer.createMessageStreams(topicCountMap, new StringDecoder(null), new InternalMessageDecoder());
-        List<KafkaStream<String, InternalMessage>> streams = consumerMap.get(APPLICATION_TOPIC);
+    @Override
+    public void destroy() {
+        // shutdown worker
+        this.worker.closed.set(true);
+        this.consumer.wakeup();
 
-        // launch all consumer workers
-        for (final KafkaStream<String, InternalMessage> stream : streams) {
-            this.executor.submit(new KafkaApplicationWorker(stream, factory.newListener()));
-        }
+        super.destroy();
     }
 }

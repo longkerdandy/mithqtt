@@ -73,10 +73,6 @@ public class HazelcastBrokerCommunicator implements BrokerCommunicator {
         }
     }
 
-    @Override
-    public void clear() {
-    }
-
     public void sendToBroker(String brokerId, InternalMessage message) {
         Ringbuffer<InternalMessage> ring = this.hazelcast.getRingbuffer(BROKER_TOPIC_PREFIX + "." + brokerId);
         sendMessage(ring, message);

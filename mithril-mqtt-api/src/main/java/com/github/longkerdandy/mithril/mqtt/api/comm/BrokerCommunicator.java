@@ -25,12 +25,6 @@ public interface BrokerCommunicator {
     void destroy();
 
     /**
-     * Clear communicator saved messages (if any)
-     * This method will be called when Broker start
-     */
-    void clear();
-
-    /**
      * Send internal message to broker
      *
      * @param brokerId Broker Id

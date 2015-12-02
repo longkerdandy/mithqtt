@@ -2,22 +2,15 @@ package com.github.longkerdandy.mithril.mqtt.communicator.kafka.broker;
 
 import com.github.longkerdandy.mithril.mqtt.api.comm.BrokerCommunicator;
 import com.github.longkerdandy.mithril.mqtt.api.comm.BrokerListenerFactory;
-import com.github.longkerdandy.mithril.mqtt.api.internal.InternalMessage;
 import com.github.longkerdandy.mithril.mqtt.communicator.kafka.KafkaCommunicator;
-import com.github.longkerdandy.mithril.mqtt.communicator.kafka.codec.InternalMessageDecoder;
-import kafka.consumer.Consumer;
-import kafka.consumer.ConsumerConfig;
-import kafka.consumer.KafkaStream;
-import kafka.serializer.StringDecoder;
+import com.github.longkerdandy.mithril.mqtt.communicator.kafka.codec.InternalMessageSerializer;
 import org.apache.commons.configuration.AbstractConfiguration;
+import org.apache.kafka.clients.consumer.KafkaConsumer;
+import org.apache.kafka.common.serialization.StringSerializer;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
 import java.util.Properties;
-import java.util.concurrent.Executors;
 
 import static com.github.longkerdandy.mithril.mqtt.util.UUIDs.shortUuid;
 
@@ -31,6 +24,8 @@ public class KafkaBrokerCommunicator extends KafkaCommunicator implements Broker
 
     protected static String BROKER_TOPIC;
 
+    private KafkaBrokerWorker worker;
+
     @Override
     public void init(AbstractConfiguration config, String brokerId, BrokerListenerFactory factory) {
         init(config);
@@ -41,29 +36,26 @@ public class KafkaBrokerCommunicator extends KafkaCommunicator implements Broker
 
         // consumer config
         Properties props = new Properties();
-        props.put("zookeeper.connect", config.getString("zookeeper.connect"));
+        props.put("bootstrap.servers", config.getString("bootstrap.servers"));
         props.put("group.id", shortUuid());
-        ConsumerConfig consumerConfig = new ConsumerConfig(props);
+        props.put("enable.auto.commit", "true");
+        props.put("key.serializer", StringSerializer.class.getName());
+        props.put("value.serializer", InternalMessageSerializer.class.getName());
 
         // consumer
-        this.consumer = Consumer.createJavaConsumerConnector(consumerConfig);
+        this.consumer = new KafkaConsumer<>(props);
 
-        // consumer executor
-        this.executor = Executors.newFixedThreadPool(config.getInt("consumer.threads"));
-
-        // consumer connect to kafka
-        Map<String, Integer> topicCountMap = new HashMap<>();
-        topicCountMap.put(BROKER_TOPIC, config.getInt("consumer.threads"));
-        Map<String, List<KafkaStream<String, InternalMessage>>> consumerMap = this.consumer.createMessageStreams(topicCountMap, new StringDecoder(null), new InternalMessageDecoder());
-        List<KafkaStream<String, InternalMessage>> streams = consumerMap.get(BROKER_TOPIC);
-
-        // launch all consumer workers
-        for (final KafkaStream<String, InternalMessage> stream : streams) {
-            this.executor.submit(new KafkaBrokerWorker(stream, factory.newListener()));
-        }
+        // consumer worker
+        this.worker = new KafkaBrokerWorker(this.consumer, BROKER_TOPIC, factory.newListener());
+        this.executor.submit(this.worker);
     }
 
     @Override
-    public void clear() {
+    public void destroy() {
+        // shutdown worker
+        this.worker.closed.set(true);
+        this.consumer.wakeup();
+
+        super.destroy();
     }
 }

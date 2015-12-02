@@ -27,15 +27,15 @@ public class InternalMessageCodecTest {
         InternalMessage<SubAck> msg = new InternalMessage<>(MqttMessageType.SUBACK, false, MqttQoS.AT_LEAST_ONCE, false,
                 MqttVersion.MQTT_3_1_1, "Client_A", "User_A", "Broker_A", subAck);
 
-        InternalMessageDecoder decoder = new InternalMessageDecoder();
-        InternalMessageEncoder encoder = new InternalMessageEncoder();
+        InternalMessageDeserializer decoder = new InternalMessageDeserializer();
+        InternalMessageSerializer encoder = new InternalMessageSerializer();
 
         // encode
-        byte[] bytes = encoder.toBytes(msg);
+        byte[] bytes = encoder.serialize("topic", msg);
         assert bytes != null && bytes.length > 0;
 
         // decode
-        msg = decoder.fromBytes(bytes);
+        msg = decoder.deserialize("topic", bytes);
         assert msg.getMessageType() == MqttMessageType.SUBACK;
         assert !msg.isDup();
         assert msg.getQos() == MqttQoS.AT_LEAST_ONCE;

@@ -93,9 +93,6 @@ public class MqttBroker {
         BrokerListenerFactory listenerFactory = new BrokerListenerFactoryImpl(registry);
         communicator.init(communicatorConfig, brokerId, listenerFactory);
 
-        logger.debug("Clearing broker communicator message ...");
-        communicator.clear();
-
         // metrics
         logger.debug("Initializing metrics ...");
         final boolean metricsEnabled = metricsConfig.getBoolean("metrics.enabled");

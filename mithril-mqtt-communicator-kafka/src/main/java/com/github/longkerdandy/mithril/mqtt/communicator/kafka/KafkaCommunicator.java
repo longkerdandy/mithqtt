@@ -2,17 +2,17 @@ package com.github.longkerdandy.mithril.mqtt.communicator.kafka;
 
 import com.github.longkerdandy.mithril.mqtt.api.internal.InternalMessage;
 import com.github.longkerdandy.mithril.mqtt.communicator.kafka.codec.InternalMessageSerializer;
-import kafka.javaapi.consumer.ConsumerConnector;
 import org.apache.commons.configuration.AbstractConfiguration;
+import org.apache.kafka.clients.consumer.KafkaConsumer;
 import org.apache.kafka.clients.producer.KafkaProducer;
 import org.apache.kafka.clients.producer.ProducerRecord;
 import org.apache.kafka.common.serialization.StringSerializer;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import java.util.HashMap;
-import java.util.Map;
+import java.util.Properties;
 import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
 
 /**
@@ -27,7 +27,7 @@ public abstract class KafkaCommunicator {
     protected String APPLICATION_TOPIC;
 
     protected KafkaProducer<String, InternalMessage> producer;
-    protected ConsumerConnector consumer;
+    protected KafkaConsumer<String, InternalMessage> consumer;
     protected ExecutorService executor;
 
     protected void init(AbstractConfiguration config) {
@@ -37,19 +37,22 @@ public abstract class KafkaCommunicator {
         logger.trace("Initializing Kafka producer ...");
 
         // producer config
-        Map<String, Object> map = new HashMap<>();
-        map.put("bootstrap.servers", config.getString("bootstrap.servers"));
-        map.put("acks", config.getString("acks"));
-        map.put("key.serializer", StringSerializer.class.getName());
-        map.put("value.serializer", InternalMessageSerializer.class.getName());
+        Properties props = new Properties();
+        props.put("bootstrap.servers", config.getString("bootstrap.servers"));
+        props.put("acks", config.getString("acks"));
+        props.put("key.serializer", StringSerializer.class.getName());
+        props.put("value.serializer", InternalMessageSerializer.class.getName());
 
         // producer
-        this.producer = new KafkaProducer<>(map);
+        this.producer = new KafkaProducer<>(props);
+
+        // consumer executor
+        this.executor = Executors.newSingleThreadExecutor();
     }
 
     public void destroy() {
         if (this.producer != null) this.producer.close();
-        if (this.consumer != null) this.consumer.shutdown();
+        if (this.consumer != null) this.consumer.close();
         if (this.executor != null) {
             this.executor.shutdown();
             try {
