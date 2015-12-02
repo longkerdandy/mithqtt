@@ -27,7 +27,8 @@ public class HazelcastBrokerWorker implements Runnable {
     @SuppressWarnings({"unchecked", "InfiniteLoopStatement"})
     public void run() {
         try {
-            long sequence = this.brokerRing.headSequence();
+            // always read new messages only
+            long sequence = this.brokerRing.tailSequence() + 1;
 
             while (true) {
                 // read message, blocking if no new message

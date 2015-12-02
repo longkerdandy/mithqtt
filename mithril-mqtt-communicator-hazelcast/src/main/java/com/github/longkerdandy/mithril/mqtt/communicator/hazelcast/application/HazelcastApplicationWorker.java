@@ -25,7 +25,8 @@ public class HazelcastApplicationWorker implements Runnable {
     @SuppressWarnings({"unchecked", "InfiniteLoopStatement"})
     public void run() {
         try {
-            long sequence = this.applicationRing.headSequence();
+            // always read new messages only
+            long sequence = this.applicationRing.tailSequence() + 1;
 
             while (true) {
                 // read message, blocking if no new message
