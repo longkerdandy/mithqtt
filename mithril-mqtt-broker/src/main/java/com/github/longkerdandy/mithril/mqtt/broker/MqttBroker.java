@@ -79,7 +79,7 @@ public class MqttBroker {
         RedisSyncStorage redis = (RedisSyncStorage) Class.forName(redisConfig.getString("storage.sync.class")).newInstance();
         redis.init(redisConfig);
 
-        logger.debug("Clearing broker connection state in storage ...");
+        logger.debug("Clearing broker connection state in storage, this may take some time ...");
         clearBrokerConnectionState(brokerId, redis);
 
         // authenticator
@@ -113,55 +113,67 @@ public class MqttBroker {
         EventLoopGroup bossGroup = new NioEventLoopGroup();
         EventLoopGroup workerGroup = new NioEventLoopGroup();
         EventLoopGroup handlerGroup = new NioEventLoopGroup();
-        try {
-            ServerBootstrap b = new ServerBootstrap();
-            b.group(bossGroup, workerGroup)
-                    .channel(NioServerSocketChannel.class)
-                    .handler(new LoggingHandler(LogLevel.INFO))
-                    .childHandler(new ChannelInitializer<SocketChannel>() {
-                        @Override
-                        public void initChannel(SocketChannel ch) throws Exception {
-                            ChannelPipeline p = ch.pipeline();
-                            // ssl
-                            if (ssl) {
-                                p.addLast("ssl", sslContext.newHandler(ch.alloc()));
-                            }
-                            // idle
-                            p.addFirst("idleHandler", new IdleStateHandler(0, 0, keepAlive));
-                            // metrics
-                            if (metricsEnabled) {
-                                p.addLast("bytesMetrics", new BytesMetricsHandler(metrics, brokerId));
-                            }
-                            // mqtt encoder & decoder
-                            p.addLast("encoder", new MqttEncoder());
-                            p.addLast("decoder", new MqttDecoder());
-                            // metrics
-                            if (metricsEnabled) {
-                                p.addLast("msgMetrics", new MessageMetricsHandler(metrics, brokerId));
-                            }
-                            // logic handler
-                            p.addLast(handlerGroup, "logicHandler", new SyncRedisHandler(authenticator, communicator, redis, registry, validator, brokerId, keepAlive, keepAliveMax));
+
+        // shutdown hook
+        Runtime.getRuntime().addShutdownHook(new Thread() {
+            public void run() {
+                logger.debug("MQTT broker is shutting down ...");
+
+                workerGroup.shutdownGracefully();
+                bossGroup.shutdownGracefully();
+                if (metricsEnabled) metrics.destroy();
+                communicator.destroy();
+                authenticator.destroy();
+
+                logger.debug("Clearing broker connection state in storage, this may take some time ...");
+                clearBrokerConnectionState(brokerId, redis);
+
+                redis.destroy();
+
+                logger.info("MQTT broker has been shut down.");
+            }
+        });
+
+        ServerBootstrap b = new ServerBootstrap();
+        b.group(bossGroup, workerGroup)
+                .channel(NioServerSocketChannel.class)
+                .handler(new LoggingHandler(LogLevel.INFO))
+                .childHandler(new ChannelInitializer<SocketChannel>() {
+                    @Override
+                    public void initChannel(SocketChannel ch) throws Exception {
+                        ChannelPipeline p = ch.pipeline();
+                        // ssl
+                        if (ssl) {
+                            p.addLast("ssl", sslContext.newHandler(ch.alloc()));
                         }
-                    })
-                    .option(ChannelOption.SO_BACKLOG, brokerConfig.getInt("netty.soBacklog"))
-                    .childOption(ChannelOption.SO_KEEPALIVE, brokerConfig.getBoolean("netty.soKeepAlive"));
+                        // idle
+                        p.addFirst("idleHandler", new IdleStateHandler(0, 0, keepAlive));
+                        // metrics
+                        if (metricsEnabled) {
+                            p.addLast("bytesMetrics", new BytesMetricsHandler(metrics, brokerId));
+                        }
+                        // mqtt encoder & decoder
+                        p.addLast("encoder", new MqttEncoder());
+                        p.addLast("decoder", new MqttDecoder());
+                        // metrics
+                        if (metricsEnabled) {
+                            p.addLast("msgMetrics", new MessageMetricsHandler(metrics, brokerId));
+                        }
+                        // logic handler
+                        p.addLast(handlerGroup, "logicHandler", new SyncRedisHandler(authenticator, communicator, redis, registry, validator, brokerId, keepAlive, keepAliveMax));
+                    }
+                })
+                .option(ChannelOption.SO_BACKLOG, brokerConfig.getInt("netty.soBacklog"))
+                .childOption(ChannelOption.SO_KEEPALIVE, brokerConfig.getBoolean("netty.soKeepAlive"));
 
-            // Bind and start to accept incoming connections.
-            ChannelFuture f = b.bind(host, port).sync();
+        // Bind and start to accept incoming connections.
+        ChannelFuture f = b.bind(host, port).sync();
 
-            logger.info("MQTT broker is up and running.");
+        logger.info("MQTT broker is up and running.");
 
-            // Wait until the server socket is closed.
-            // Do this to gracefully shut down the server.
-            f.channel().closeFuture().sync();
-        } finally {
-            workerGroup.shutdownGracefully();
-            bossGroup.shutdownGracefully();
-            if (metricsEnabled) metrics.destroy();
-            communicator.destroy();
-            authenticator.destroy();
-            redis.destroy();
-        }
+        // Wait until the server socket is closed.
+        // Do this to gracefully shut down the server.
+        f.channel().closeFuture().sync();
     }
 
     /**
