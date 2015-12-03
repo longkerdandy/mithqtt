@@ -13,6 +13,7 @@ import java.util.concurrent.TimeUnit;
 /**
  * InfluxDB based Metrics Service
  */
+@SuppressWarnings("unused")
 public class InfluxDBMetricsService implements MetricsService {
 
     protected InfluxDB influxDB;

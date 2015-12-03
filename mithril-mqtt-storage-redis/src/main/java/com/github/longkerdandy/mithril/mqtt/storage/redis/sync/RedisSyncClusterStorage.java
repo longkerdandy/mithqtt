@@ -16,6 +16,7 @@ import java.util.concurrent.TimeUnit;
 /**
  * Synchronized Storage for Cluster Redis setup
  */
+@SuppressWarnings("unused")
 public class RedisSyncClusterStorage extends RedisSyncSingleStorage {
 
     // A scalable thread-safe Redis cluster client. Multiple threads may share one connection. The

@@ -25,7 +25,7 @@ import io.netty.util.CharsetUtil;
 import java.util.List;
 
 /**
- * Encodes Mqtt messages into bytes following the protocl specification v3.1
+ * Encodes Mqtt messages into bytes following the protocol specification v3.1
  * as described here <a href="http://public.dhe.ibm.com/software/dw/webservices/ws-mqtt/mqtt-v3r1.html">MQTTV3.1</a>
  */
 public class MqttEncoder extends MessageToMessageEncoder<MqttMessage> {

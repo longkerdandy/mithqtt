@@ -29,7 +29,7 @@ import java.util.List;
 /**
  * Decodes Mqtt messages from bytes, following
  * <a href="http://public.dhe.ibm.com/software/dw/webservices/ws-mqtt/mqtt-v3r1.html">
- * the MQTT protocl specification v3.1</a>
+ * the MQTT protocol specification v3.1</a>
  */
 public class MqttDecoder extends ReplayingDecoder<DecoderState> {
 

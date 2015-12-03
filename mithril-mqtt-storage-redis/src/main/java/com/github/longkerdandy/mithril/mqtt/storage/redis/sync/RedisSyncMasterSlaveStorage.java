@@ -8,13 +8,14 @@ import org.apache.commons.configuration.AbstractConfiguration;
 import org.apache.commons.lang3.StringUtils;
 import org.redisson.Config;
 import org.redisson.Redisson;
-import org.redisson.connection.RoundRobinLoadBalancer;
+import org.redisson.connection.balancer.RoundRobinLoadBalancer;
 
 import java.util.List;
 
 /**
  * Synchronized Storage for Master Slave Redis setup
  */
+@SuppressWarnings("unused")
 public class RedisSyncMasterSlaveStorage extends RedisSyncSingleStorage {
 
     // A scalable thread-safe Redis client. Multiple threads may share one connection if they avoid

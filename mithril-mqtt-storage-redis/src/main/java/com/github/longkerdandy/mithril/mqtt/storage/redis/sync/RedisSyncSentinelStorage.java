@@ -14,6 +14,7 @@ import java.util.List;
 /**
  * Synchronized Storage for Master Slave Redis setup
  */
+@SuppressWarnings("unused")
 public class RedisSyncSentinelStorage extends RedisSyncSingleStorage {
 
     // A scalable thread-safe Redis client. Multiple threads may share one connection if they avoid

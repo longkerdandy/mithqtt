@@ -10,7 +10,6 @@ import io.netty.channel.ChannelPromise;
 /**
  * Metrics Handler based on Bytes
  */
-@SuppressWarnings("unused")
 public class BytesMetricsHandler extends ChannelDuplexHandler {
 
     protected final MetricsService metrics;
