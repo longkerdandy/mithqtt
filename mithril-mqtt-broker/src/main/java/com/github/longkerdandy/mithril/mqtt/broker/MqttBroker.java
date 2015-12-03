@@ -82,16 +82,16 @@ public class MqttBroker {
         logger.debug("Clearing broker connection state in storage, this may take some time ...");
         clearBrokerConnectionState(brokerId, redis);
 
-        // authenticator
-        logger.debug("Initializing authenticator...");
-        Authenticator authenticator = (Authenticator) Class.forName(authenticatorConfig.getString("authenticator.class")).newInstance();
-        authenticator.init(authenticatorConfig);
-
         // communicator
         logger.debug("Initializing communicator ...");
         BrokerCommunicator communicator = (BrokerCommunicator) Class.forName(communicatorConfig.getString("communicator.class")).newInstance();
         BrokerListenerFactory listenerFactory = new BrokerListenerFactoryImpl(registry);
         communicator.init(communicatorConfig, brokerId, listenerFactory);
+
+        // authenticator
+        logger.debug("Initializing authenticator...");
+        Authenticator authenticator = (Authenticator) Class.forName(authenticatorConfig.getString("authenticator.class")).newInstance();
+        authenticator.init(authenticatorConfig);
 
         // metrics
         logger.debug("Initializing metrics ...");

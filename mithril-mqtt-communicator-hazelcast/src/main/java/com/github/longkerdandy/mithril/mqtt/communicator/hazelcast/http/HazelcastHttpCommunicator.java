@@ -1,7 +1,6 @@
-package com.github.longkerdandy.mithril.mqtt.communicator.hazelcast.broker;
+package com.github.longkerdandy.mithril.mqtt.communicator.hazelcast.http;
 
-import com.github.longkerdandy.mithril.mqtt.api.comm.BrokerCommunicator;
-import com.github.longkerdandy.mithril.mqtt.api.comm.BrokerListenerFactory;
+import com.github.longkerdandy.mithril.mqtt.api.comm.HttpCommunicator;
 import com.github.longkerdandy.mithril.mqtt.api.internal.InternalMessage;
 import com.hazelcast.core.ExecutionCallback;
 import com.hazelcast.core.Hazelcast;
@@ -12,74 +11,46 @@ import org.apache.commons.configuration.AbstractConfiguration;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import java.util.concurrent.ExecutorService;
-import java.util.concurrent.Executors;
-import java.util.concurrent.TimeUnit;
-
 /**
- * Broker Communicator implementation for Hazelcast
+ * Http Communicator implementation for Hazelcast
  */
 @SuppressWarnings("unused")
-public class HazelcastBrokerCommunicator implements BrokerCommunicator {
+public class HazelcastHttpCommunicator implements HttpCommunicator {
 
-    private static final Logger logger = LoggerFactory.getLogger(HazelcastBrokerCommunicator.class);
+    private static final Logger logger = LoggerFactory.getLogger(HazelcastHttpCommunicator.class);
 
     // hazelcast instance
     protected HazelcastInstance hazelcast;
 
-    // broker
+    // topics
     protected String BROKER_TOPIC_PREFIX;
-    protected Ringbuffer<InternalMessage> brokerRing;
-
-    // application
-    protected Ringbuffer<InternalMessage> applicationRing;
-
-    // executor
-    private ExecutorService executor;
+    protected String APPLICATION_TOPIC;
 
     @Override
-    public void init(AbstractConfiguration config, String brokerId, BrokerListenerFactory factory) {
+    public void init(AbstractConfiguration config, String serverId) {
         this.hazelcast = Hazelcast.newHazelcastInstance();
 
         logger.trace("Initializing Hazelcast broker resources ...");
 
         BROKER_TOPIC_PREFIX = config.getString("communicator.broker.topic");
-        this.brokerRing = this.hazelcast.getRingbuffer(BROKER_TOPIC_PREFIX + "." + brokerId);
-
-        logger.trace("Initializing Hazelcast application resources ...");
-
-        this.applicationRing = this.hazelcast.getRingbuffer(config.getString("communicator.application.topic"));
-
-        logger.trace("Initializing Hazelcast broker consumer's workers ...");
-
-        // consumer executor
-        this.executor = Executors.newSingleThreadExecutor();
-        this.executor.submit(new HazelcastBrokerWorker(this.brokerRing, factory.newListener()));
+        APPLICATION_TOPIC = config.getString("communicator.application.topic");
     }
 
     @Override
     public void destroy() {
-        if (this.brokerRing != null) this.brokerRing.destroy();
         if (this.hazelcast != null) this.hazelcast.shutdown();
-        if (this.executor != null) {
-            this.executor.shutdown();
-            try {
-                if (!this.executor.awaitTermination(5000, TimeUnit.MILLISECONDS)) {
-                    logger.warn("Communicator error: Timed out waiting for consumer threads to shut down, exiting uncleanly");
-                }
-            } catch (InterruptedException e) {
-                logger.warn("Communicator error: Interrupted during shutdown, exiting uncleanly");
-            }
-        }
     }
 
+    @Override
     public void sendToBroker(String brokerId, InternalMessage message) {
         Ringbuffer<InternalMessage> ring = this.hazelcast.getRingbuffer(BROKER_TOPIC_PREFIX + "." + brokerId);
         sendMessage(ring, message);
     }
 
+    @Override
     public void sendToApplication(InternalMessage message) {
-        sendMessage(this.applicationRing, message);
+        Ringbuffer<InternalMessage> ring = this.hazelcast.getRingbuffer(APPLICATION_TOPIC);
+        sendMessage(ring, message);
     }
 
     /**

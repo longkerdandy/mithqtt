@@ -2,6 +2,7 @@ rootProject.name = 'mithril-mqtt'
 
 include 'mithril-mqtt-api'
 include 'mithril-mqtt-broker'
+include 'mithril-mqtt-http'
 include 'mithril-mqtt-storage-redis'
 include 'mithril-mqtt-communicator-hazelcast'
 include 'mithril-mqtt-communicator-kafka'
