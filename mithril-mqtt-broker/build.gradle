@@ -23,7 +23,7 @@ dependencies {
     runtime project(':mithril-mqtt-metrics-influxdb')
 
     // netty
-    compile 'io.netty:netty-transport:4.1.0.Beta7'
+    compile 'io.netty:netty-transport:4.1.0.Beta8'
 }
 
 startScripts {

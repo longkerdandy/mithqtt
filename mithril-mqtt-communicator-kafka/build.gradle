@@ -3,10 +3,10 @@ dependencies {
     compile project(':mithril-mqtt-api')
 
     // jackson
-    compile 'com.fasterxml.jackson.core:jackson-core:2.6.1'
-    compile 'com.fasterxml.jackson.core:jackson-databind:2.6.1'
+    compile 'com.fasterxml.jackson.core:jackson-core:2.6.3'
+    compile 'com.fasterxml.jackson.core:jackson-databind:2.6.3'
 
     // kafka
     compile 'org.apache.kafka:kafka-clients:0.9.0.0'
-    compile 'org.slf4j:log4j-over-slf4j:1.7.12'
+    compile 'org.slf4j:log4j-over-slf4j:1.7.13'
 }
