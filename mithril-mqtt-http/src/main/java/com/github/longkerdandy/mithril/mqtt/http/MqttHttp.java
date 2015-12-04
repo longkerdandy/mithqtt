@@ -1,5 +1,8 @@
 package com.github.longkerdandy.mithril.mqtt.http;
 
+import com.fasterxml.jackson.annotation.JsonInclude;
+import com.fasterxml.jackson.databind.DeserializationFeature;
+import com.fasterxml.jackson.databind.SerializationFeature;
 import com.github.longkerdandy.mithril.mqtt.api.auth.Authenticator;
 import com.github.longkerdandy.mithril.mqtt.api.comm.HttpCommunicator;
 import com.github.longkerdandy.mithril.mqtt.api.metrics.MetricsService;
@@ -114,5 +117,11 @@ public class MqttHttp extends Application<MqttHttpConfiguration> {
                 }
             });
         }
+
+        // config jackson
+        environment.getObjectMapper().configure(DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES, false);
+        environment.getObjectMapper().configure(SerializationFeature.FAIL_ON_EMPTY_BEANS, false);
+        environment.getObjectMapper().configure(SerializationFeature.WRITE_NULL_MAP_VALUES, false);
+        environment.getObjectMapper().setSerializationInclusion(JsonInclude.Include.NON_NULL);
     }
 }

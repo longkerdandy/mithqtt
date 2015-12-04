@@ -1,0 +1,9 @@
+# MQTT Http Interface configuration
+
+# Http
+
+# This is the server id, please make sure each server instance used a different id
+serverId: 1
+
+
+

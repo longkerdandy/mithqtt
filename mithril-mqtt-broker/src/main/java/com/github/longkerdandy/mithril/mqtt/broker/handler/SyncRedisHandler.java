@@ -581,7 +581,7 @@ public class SyncRedisHandler extends SimpleChannelInboundHandler<MqttMessage> {
             }
 
             Publish p = new Publish(msg.variableHeader().topicName(), pid, bytes);
-            InternalMessage<Publish> publish = new InternalMessage<>(MqttMessageType.PUBLISH, false, fQos, false,
+            InternalMessage<Publish> m = new InternalMessage<>(MqttMessageType.PUBLISH, false, fQos, false,
                     MqttVersion.MQTT_3_1_1, cid, null, null, p);
 
             // Forward to recipient
@@ -591,11 +591,11 @@ public class SyncRedisHandler extends SimpleChannelInboundHandler<MqttMessage> {
                 if (bid.equals(this.brokerId)) {
                     logger.trace("Message forward: Send PUBLISH message to client {}", cid);
                     dup = true;
-                    this.registry.sendMessage(publish.toMqttMessage(), cid, pid, true);
+                    this.registry.sendMessage(m.toMqttMessage(), cid, pid, true);
                 } else {
                     logger.trace("Communicator sending: Send PUBLISH message to broker {} for client {} subscription", bid, cid);
                     dup = true;
-                    this.communicator.sendToBroker(bid, publish);
+                    this.communicator.sendToBroker(bid, m);
                 }
             }
 
@@ -607,7 +607,7 @@ public class SyncRedisHandler extends SimpleChannelInboundHandler<MqttMessage> {
             // PUBREC packet from the receiver.
             if (fQos == MqttQoS.AT_LEAST_ONCE || fQos == MqttQoS.EXACTLY_ONCE) {
                 logger.trace("Add in-flight: Add in-flight PUBLISH message {} with QoS {} for client {}", pid, fQos, cid);
-                this.redis.addInFlightMessage(cid, pid, publish, dup);
+                this.redis.addInFlightMessage(cid, pid, m, dup);
             }
         });
     }

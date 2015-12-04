@@ -46,6 +46,15 @@ public enum MqttVersion {
         throw new MqttUnacceptableProtocolVersionException(protocolName + "is unknown protocol name");
     }
 
+    public static MqttVersion fromProtocolLevel(byte protocolLevel) {
+        for (MqttVersion mv : values()) {
+            if (mv.level == protocolLevel) {
+                return mv;
+            }
+        }
+        throw new MqttUnacceptableProtocolVersionException(protocolLevel + "is unknown protocol level");
+    }
+
     public String protocolName() {
         return name;
     }
