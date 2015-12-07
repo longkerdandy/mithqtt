@@ -59,7 +59,9 @@ public class HazelcastApplicationWorker implements Runnable {
                 sequence++;
             }
         } catch (InterruptedException e) {
-            logger.warn("Communicator error: Interrupted while reading from application ring buffer", e);
+            logger.error("Communicator error: Interrupted while reading from application ring buffer", e);
+        } catch (Exception e) {
+            logger.error("Communicator error: Unknown error while reading from application ring buffer", e);
         }
     }
 }

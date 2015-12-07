@@ -69,6 +69,8 @@ public class KafkaApplicationWorker implements Runnable {
             // ignore exception if closing
             if (!this.closed.get())
                 logger.error("Communicator error: Consumer has been wakeup unexpectedly: ", e);
+        } catch (Exception e) {
+            logger.error("Communicator error: Unknown error while consuming from kafka", e);
         } finally {
             this.consumer.close();
         }
