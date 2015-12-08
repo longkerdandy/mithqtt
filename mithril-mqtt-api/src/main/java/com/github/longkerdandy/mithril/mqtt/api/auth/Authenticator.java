@@ -55,4 +55,12 @@ public interface Authenticator {
      * @return List of granted QoS
      */
     List<MqttGrantedQoS> authSubscribe(String clientId, String userName, List<MqttTopicSubscription> requestSubscriptions);
+
+    /**
+     * OAuth in HTTP request
+     *
+     * @param credentials OAuth2 bearer-token
+     * @return User Name
+     */
+    String oauth(String credentials);
 }

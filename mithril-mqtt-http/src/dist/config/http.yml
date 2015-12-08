@@ -5,5 +5,20 @@
 # This is the server id, please make sure each server instance used a different id
 serverId: 1
 
+# These are regexp validator for MQTT packet field
+# Fields will validate against the regexp whenever a related request is received
+# Leave empty to skip the validation
+clientIdValidator = ^[ -~]+$
+topicNameValidator = ^[ -~]+$
+topicFilterValidator = ^[ -~]+$
 
 
+# DropWizard
+
+server:
+  type: simple
+  applicationContextPath: /mqtt
+  adminContextPath: /admin
+  connector:
+    type: http
+    port: 8080

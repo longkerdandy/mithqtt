@@ -410,7 +410,6 @@ public class SyncRedisHandler extends SimpleChannelInboundHandler<MqttMessage> {
         MqttQoS qos = msg.fixedHeader().qos();
         boolean retain = msg.fixedHeader().retain();
         String topicName = msg.variableHeader().topicName();
-        List<String> topicLevels = Topics.sanitizeTopicName(topicName);
         int packetId = msg.variableHeader().packetId();
 
         // The Topic Name in the PUBLISH Packet MUST NOT contain wildcard characters
@@ -427,6 +426,8 @@ public class SyncRedisHandler extends SimpleChannelInboundHandler<MqttMessage> {
             ctx.close();
             return;
         }
+
+        List<String> topicLevels = Topics.sanitizeTopicName(topicName);
 
         logger.debug("Message received: Received PUBLISH message from client {} user {} topic {}", this.clientId, this.userName, topicName);
 

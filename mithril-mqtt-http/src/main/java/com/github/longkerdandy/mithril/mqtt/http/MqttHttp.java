@@ -6,12 +6,21 @@ import com.fasterxml.jackson.databind.SerializationFeature;
 import com.github.longkerdandy.mithril.mqtt.api.auth.Authenticator;
 import com.github.longkerdandy.mithril.mqtt.api.comm.HttpCommunicator;
 import com.github.longkerdandy.mithril.mqtt.api.metrics.MetricsService;
+import com.github.longkerdandy.mithril.mqtt.http.oauth.OAuthAuthenticator;
+import com.github.longkerdandy.mithril.mqtt.http.resources.MqttPublishResource;
+import com.github.longkerdandy.mithril.mqtt.http.util.Validator;
 import com.github.longkerdandy.mithril.mqtt.storage.redis.sync.RedisSyncStorage;
+import com.sun.security.auth.UserPrincipal;
 import io.dropwizard.Application;
+import io.dropwizard.auth.AuthDynamicFeature;
+import io.dropwizard.auth.AuthValueFactoryProvider;
+import io.dropwizard.auth.PermitAllAuthorizer;
+import io.dropwizard.auth.oauth.OAuthCredentialAuthFilter;
 import io.dropwizard.lifecycle.Managed;
 import io.dropwizard.setup.Environment;
 import org.apache.commons.configuration.PropertiesConfiguration;
 import org.apache.commons.lang3.ArrayUtils;
+import org.glassfish.jersey.server.filter.RolesAllowedDynamicFeature;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -29,10 +38,10 @@ public class MqttHttp extends Application<MqttHttpConfiguration> {
 
     public static void main(String[] args) throws Exception {
         if (args.length >= 4) {
-            redisConfig = new PropertiesConfiguration(args[1]);
-            communicatorConfig = new PropertiesConfiguration(args[2]);
-            authenticatorConfig = new PropertiesConfiguration(args[3]);
-            metricsConfig = new PropertiesConfiguration(args[4]);
+            redisConfig = new PropertiesConfiguration(args[0]);
+            communicatorConfig = new PropertiesConfiguration(args[1]);
+            authenticatorConfig = new PropertiesConfiguration(args[2]);
+            metricsConfig = new PropertiesConfiguration(args[3]);
 
             if (args.length >= 5) {
                 args = ArrayUtils.subarray(args, 4, args.length);
@@ -51,6 +60,9 @@ public class MqttHttp extends Application<MqttHttpConfiguration> {
 
     @Override
     public void run(MqttHttpConfiguration configuration, Environment environment) throws Exception {
+        // validator
+        Validator validator = new Validator(configuration);
+
         // storage
         RedisSyncStorage redis = (RedisSyncStorage) Class.forName(redisConfig.getString("storage.sync.class")).newInstance();
         environment.lifecycle().manage(new Managed() {
@@ -101,8 +113,8 @@ public class MqttHttp extends Application<MqttHttpConfiguration> {
 
         // metrics
         final boolean metricsEnabled = metricsConfig.getBoolean("metrics.enabled");
+        final MetricsService metrics = metricsEnabled ? (MetricsService) Class.forName(metricsConfig.getString("metrics.class")).newInstance() : null;
         if (metricsEnabled) {
-            MetricsService metrics = (MetricsService) Class.forName(metricsConfig.getString("metrics.class")).newInstance();
             environment.lifecycle().manage(new Managed() {
                 @Override
                 public void start() throws Exception {
@@ -117,6 +129,19 @@ public class MqttHttp extends Application<MqttHttpConfiguration> {
                 }
             });
         }
+
+        // OAuth
+        environment.jersey().register(new AuthDynamicFeature(
+                new OAuthCredentialAuthFilter.Builder<UserPrincipal>()
+                        .setAuthenticator(new OAuthAuthenticator(authenticator))
+                        .setAuthorizer(new PermitAllAuthorizer<>())
+                        .setPrefix("Bearer")
+                        .buildAuthFilter()));
+        environment.jersey().register(RolesAllowedDynamicFeature.class);
+        environment.jersey().register(new AuthValueFactoryProvider.Binder<>(UserPrincipal.class));
+
+        // register resources
+        environment.jersey().register(new MqttPublishResource(configuration.getServerId(), validator, redis, communicator, authenticator, metrics));
 
         // config jackson
         environment.getObjectMapper().configure(DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES, false);
