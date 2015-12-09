@@ -8,6 +8,7 @@ import com.github.longkerdandy.mithril.mqtt.api.comm.HttpCommunicator;
 import com.github.longkerdandy.mithril.mqtt.api.metrics.MetricsService;
 import com.github.longkerdandy.mithril.mqtt.http.oauth.OAuthAuthenticator;
 import com.github.longkerdandy.mithril.mqtt.http.resources.MqttPublishResource;
+import com.github.longkerdandy.mithril.mqtt.http.resources.MqttSubscribeResource;
 import com.github.longkerdandy.mithril.mqtt.http.util.Validator;
 import com.github.longkerdandy.mithril.mqtt.storage.redis.sync.RedisSyncStorage;
 import com.sun.security.auth.UserPrincipal;
@@ -142,6 +143,7 @@ public class MqttHttp extends Application<MqttHttpConfiguration> {
 
         // register resources
         environment.jersey().register(new MqttPublishResource(configuration.getServerId(), validator, redis, communicator, authenticator, metrics));
+        environment.jersey().register(new MqttSubscribeResource(configuration.getServerId(), validator, redis, communicator, authenticator, metrics));
 
         // config jackson
         environment.getObjectMapper().configure(DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES, false);

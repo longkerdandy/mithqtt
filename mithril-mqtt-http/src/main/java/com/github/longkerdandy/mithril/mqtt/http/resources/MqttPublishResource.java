@@ -49,7 +49,7 @@ public class MqttPublishResource extends AbstractResource {
     @PermitAll
     @POST
     public ResultEntity<Boolean> publish(@PathParam("clientId") String clientId, @Auth UserPrincipal user, @QueryParam("protocol") @DefaultValue("4") byte protocol,
-                                         @QueryParam("dup") @DefaultValue("false") boolean dup, @QueryParam("qos") @DefaultValue("0") int qos, @QueryParam("retain") @DefaultValue("false") boolean retain,
+                                         @QueryParam("dup") @DefaultValue("false") boolean dup, @QueryParam("qos") @DefaultValue("0") int qos,
                                          @QueryParam("topicName") String topicName, @QueryParam("packetId") @DefaultValue("0") int packetId,
                                          String body) throws UnsupportedEncodingException {
         String userName = user.getName();
@@ -71,55 +71,16 @@ public class MqttPublishResource extends AbstractResource {
 
         List<String> topicLevels = Topics.sanitizeTopicName(topicName);
 
-        AuthorizeResult result = this.authenticator.authPublish(clientId, userName, topicName, qos, retain);
+        logger.debug("Message received: Received PUBLISH message from client {} user {} topic {}", clientId, user.getName(), topicName);
+
+        AuthorizeResult result = this.authenticator.authPublish(clientId, userName, topicName, qos, false);
         // Authorize successful
         if (result == AuthorizeResult.OK) {
             logger.trace("Authorization succeed: Publish to topic {} authorized for client {}", topicName, clientId);
 
             // Construct Internal Message
             Publish publish = new Publish(topicName, packetId, payload);
-            InternalMessage<Publish> msg = new InternalMessage<>(MqttMessageType.PUBLISH, dup, MqttQoS.valueOf(qos), retain, version, clientId, userName, this.serverId, publish);
-
-            // If the RETAIN flag is set to 1, in a PUBLISH Packet sent by a Client to a Server, the Server MUST store
-            // the Application Message and its QoS, so that it can be delivered to future subscribers whose
-            // subscriptions match its topic name. When a new subscription is established, the last
-            // retained message, if any, on each matching topic name MUST be sent to the subscriber.
-            if (retain) {
-                // If the Server receives a QoS 0 message with the RETAIN flag set to 1 it MUST discard any message
-                // previously retained for that topic. It SHOULD store the new QoS 0 message as the new retained
-                // message for that topic, but MAY choose to discard it at any time - if this happens there will be no retained
-                // message for that topic.
-                if (qos == MqttQoS.AT_MOST_ONCE.value() || payload == null || payload.length == 0) {
-                    logger.trace("Clear retain: Clear retain messages for topic {} by client {}", topicName, clientId);
-                    this.redis.removeAllRetainMessage(topicLevels);
-                }
-
-                // A PUBLISH Packet with a RETAIN flag set to 1 and a payload containing zero bytes will be processed as
-                // normal by the Server and sent to Clients with a subscription matching the topic name. Additionally any
-                // existing retained message with the same topic name MUST be removed and any future subscribers for
-                // the topic will not receive a retained message. “As normal” means that the RETAIN flag is
-                // not set in the message received by existing Clients. A zero byte retained message MUST NOT be stored
-                // as a retained message on the Server
-                if (payload != null && payload.length > 0) {
-                    logger.trace("Add retain: Add retain messages for topic {} by client {}", topicName, clientId);
-                    this.redis.addRetainMessage(topicLevels, msg);
-                }
-            }
-
-            // In the QoS 0 delivery protocol, the Receiver
-            // Accepts ownership of the message when it receives the PUBLISH packet.
-            // In the QoS 1 delivery protocol, the Receiver
-            // After it has sent a PUBACK Packet the Receiver MUST treat any incoming PUBLISH packet that
-            // contains the same Packet Identifier as being a new publication, irrespective of the setting of its
-            // DUP flag.
-            // if (qos == MqttQoS.AT_MOST_ONCE.value() || qos == MqttQoS.AT_LEAST_ONCE.value()
-            // In the QoS 2 delivery protocol, the Receiver
-            // Until it has received the corresponding PUBREL packet, the Receiver MUST acknowledge any
-            // subsequent PUBLISH packet with the same Packet Identifier by sending a PUBREC. It MUST
-            // NOT cause duplicate messages to be delivered to any onward recipients in this case.
-            // The recipient of a Control Packet that contains the DUP flag set to 1 cannot assume that it has
-            // seen an earlier copy of this packet.
-            // || (qos == MqttQoS.EXACTLY_ONCE.value() && this.redis.addQoS2MessageId(clientId, packetId))) {
+            InternalMessage<Publish> msg = new InternalMessage<>(MqttMessageType.PUBLISH, dup, MqttQoS.valueOf(qos), false, version, clientId, userName, this.serverId, publish);
 
             // When sending a PUBLISH Packet to a Client the Server MUST set the RETAIN flag to 1 if a message is
             // sent as a result of a new subscription being made by a Client. It MUST set the RETAIN
@@ -178,7 +139,9 @@ public class MqttPublishResource extends AbstractResource {
                     this.redis.addInFlightMessage(cid, pid, m, d);
                 }
             });
-            // }
+
+            // Pass message to 3rd party application
+            this.communicator.sendToApplication(msg);
 
             return new ResultEntity<>(true);
         } else {
