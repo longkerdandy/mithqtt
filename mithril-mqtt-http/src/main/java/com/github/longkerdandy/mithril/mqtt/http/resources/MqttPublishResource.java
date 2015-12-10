@@ -37,7 +37,6 @@ import java.util.Map;
 @Path("/clients/{clientId}/publish")
 @Produces(MediaType.APPLICATION_JSON)
 @Consumes(MediaType.TEXT_PLAIN)
-@SuppressWarnings("unused")
 public class MqttPublishResource extends AbstractResource {
 
     private static final Logger logger = LoggerFactory.getLogger(MqttPublishResource.class);

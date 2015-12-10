@@ -34,7 +34,6 @@ import java.util.Map;
 @Path("/clients/{clientId}/subscribe")
 @Produces(MediaType.APPLICATION_JSON)
 @Consumes(MediaType.APPLICATION_JSON)
-@SuppressWarnings("unused")
 public class MqttSubscribeResource extends AbstractResource {
 
     private static final Logger logger = LoggerFactory.getLogger(MqttSubscribeResource.class);
@@ -107,7 +106,7 @@ public class MqttSubscribeResource extends AbstractResource {
 
         // Pass message to 3rd party application
         Subscribe s = new Subscribe(packetId, grantedSubscriptions);
-        InternalMessage<Subscribe> m = new InternalMessage<>(MqttMessageType.SUBSCRIBE, false, MqttQoS.AT_LEAST_ONCE, false, MqttVersion.MQTT_3_1_1, clientId, null, null, s);
+        InternalMessage<Subscribe> m = new InternalMessage<>(MqttMessageType.SUBSCRIBE, false, MqttQoS.AT_LEAST_ONCE, false, version, clientId, null, null, s);
         this.communicator.sendToApplication(m);
 
         return new ResultEntity<>(grantedQosLevels);
