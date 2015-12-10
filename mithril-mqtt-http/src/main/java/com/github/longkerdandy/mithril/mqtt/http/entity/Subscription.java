@@ -8,6 +8,14 @@ public class Subscription {
     private String topic;
     private int qos;
 
+    public Subscription() {
+    }
+
+    public Subscription(String topic, int qos) {
+        this.topic = topic;
+        this.qos = qos;
+    }
+
     public String getTopic() {
         return topic;
     }

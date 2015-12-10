@@ -26,6 +26,7 @@ import javax.ws.rs.*;
 import javax.ws.rs.core.MediaType;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
 
 /**
  * MQTT Subscribe related resource
@@ -110,5 +111,28 @@ public class MqttSubscribeResource extends AbstractResource {
         this.communicator.sendToApplication(m);
 
         return new ResultEntity<>(grantedQosLevels);
+    }
+
+    @PermitAll
+    @GET
+    /**
+     * Handle MQTT Subscribe Request in RESTful style
+     * Granted QoS Levels will send back to client.
+     * Retain Messages matched the subscriptions will NOT send back to client.
+     */
+    public ResultEntity<List<Subscription>> subscribe(@PathParam("clientId") String clientId, @Auth UserPrincipal user) {
+        List<Subscription> subscriptions = new ArrayList<>();
+
+        // HTTP interface require valid Client Id
+        if (!this.validator.isClientIdValid(clientId)) {
+            logger.debug("Protocol violation: Client id {} not valid based on configuration", clientId);
+            throw new ValidateException(new ErrorEntity(ErrorCode.INVALID));
+        }
+
+        // Read client's subscriptions from storage
+        Map<String, MqttQoS> map = this.redis.getClientSubscriptions(clientId);
+        map.forEach((topic, qos) -> subscriptions.add(new Subscription(topic, qos.value())));
+
+        return new ResultEntity<>(subscriptions);
     }
 }
