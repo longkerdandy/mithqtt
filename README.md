@@ -6,7 +6,11 @@ MQTT Message Broker with Scalability.
 [![Join the chat at https://gitter.im/longkerdandy/mithril-mqtt](https://badges.gitter.im/Join%20Chat.svg)](https://gitter.im/longkerdandy/mithril-mqtt?utm_source=badge&utm_medium=badge&utm_campaign=pr-badge&utm_content=badge)
 
 ### About Mithril-Mqtt
+Mithril-Mqtt is an open source, distributed MQTT message broker for real world. It embraces the [Microservices Architecture](http://microservices.io), and designed to fit into complex server-side application.
 
+As a MQTT message broker, Mithril-Mqtt scales both horizontally and vertically on commodity hardware to support a large number of concurrent MQTT clients while maintaing low latency and fault tolerence.
+
+As a microservice, Mithril-Mqtt is small self contained with little external dependencies, using pluggable Communicator to coexist with other microservices.
 
 ### Interoperability Test
 Mithril-Mqtt broker is tested against Eclipse Paho's [MQTT Conformance/Interoperability Testing](http://www.eclipse.org/paho/clients/testing/).
