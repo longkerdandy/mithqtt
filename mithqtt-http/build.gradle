@@ -8,21 +8,23 @@ applicationDefaultJvmArgs = ["-Dlogback.configurationFile=config/logback.xml", "
 
 dependencies {
     // project
-    compile project(':mithril-mqtt-api')
-    compile project(':mithril-mqtt-storage-redis')
+    compile project(':mithqtt-api')
+    compile project(':mithqtt-storage-redis')
 
     // authenticator
-    runtime project(':mithril-mqtt-authenticator-dummy')
+    runtime project(':mithqtt-authenticator-dummy')
 
     // communicator
-    runtime project(':mithril-mqtt-communicator-hazelcast')
-    runtime project(':mithril-mqtt-communicator-kafka')
+    runtime project(':mithqtt-communicator-hazelcast')
+    runtime project(':mithqtt-communicator-kafka')
 
     // metrics
-    runtime project(':mithril-mqtt-metrics-influxdb')
+    runtime project(':mithqtt-metrics-influxdb')
 
-    // netty
-    compile 'io.netty:netty-transport:4.1.0.Beta8'
+    // dropwizard
+    compile 'io.dropwizard:dropwizard-core:0.9.1'
+    compile 'io.dropwizard:dropwizard-auth:0.9.1'
+    compile 'commons-validator:commons-validator:1.5.0'
 }
 
 startScripts {

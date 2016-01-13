@@ -1,6 +1,6 @@
 dependencies {
     // project api
-    compile project(':mithril-mqtt-api')
+    compile project(':mithqtt-api')
 
     // redis
     compile 'biz.paluch.redis:lettuce:4.0.1.Final'

@@ -1,6 +1,6 @@
 dependencies {
     // project api
-    compile project(':mithril-mqtt-api')
+    compile project(':mithqtt-api')
 
     // jackson
     compile 'com.fasterxml.jackson.core:jackson-core:2.6.3'

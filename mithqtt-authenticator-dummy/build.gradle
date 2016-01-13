@@ -1,0 +1,4 @@
+dependencies {
+    // project api
+    compile project(':mithqtt-api')
+}
