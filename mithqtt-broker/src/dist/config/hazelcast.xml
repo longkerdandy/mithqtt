@@ -25,8 +25,8 @@
            xsi:schemaLocation="http://www.hazelcast.com/schema/config hazelcast-config-3.5.xsd"
            xmlns="http://www.hazelcast.com/schema/config">
     <group>
-        <name>mithril-mqtt</name>
-        <password>mithril-mqtt</password>
+        <name>mithqtt</name>
+        <password>mithqtt</password>
     </group>
     <management-center enabled="false">http://localhost:8080/mancenter</management-center>
     <network>

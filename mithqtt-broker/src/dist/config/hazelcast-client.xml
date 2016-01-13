@@ -20,8 +20,8 @@
                   xmlns="http://www.hazelcast.com/schema/client-config">
 
     <group>
-        <name>mithril-mqtt</name>
-        <password>mithril-mqtt</password>
+        <name>mithqtt</name>
+        <password>mithqtt</password>
     </group>
     <properties>
         <property name="hazelcast.client.connection.timeout">10000</property>

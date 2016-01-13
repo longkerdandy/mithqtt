@@ -2,7 +2,7 @@ package io.netty.handler.codec.mqtt;
 
 import org.apache.commons.lang3.StringUtils;
 
-import static com.github.longkerdandy.mithril.mqtt.util.UUIDs.shortUuid;
+import static com.github.longkerdandy.mithqtt.util.UUIDs.shortUuid;
 
 /**
  * MQTT Utils

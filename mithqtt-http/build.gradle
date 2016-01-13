@@ -1,6 +1,6 @@
 apply plugin: 'application'
 
-mainClassName = "com.github.longkerdandy.mithril.mqtt.broker.MqttBroker"
+mainClassName = "com.github.longkerdandy.mithqtt.http.MqttHttp"
 
 // If your application requires a specific set of JVM settings or system properties, you can configure the applicationDefaultJvmArgs property.
 // These JVM arguments are applied to the run task and also considered in the generated start scripts of your distribution.
