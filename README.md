@@ -1,4 +1,4 @@
-### Mithril-Mqtt
+### Mithqtt
 MQTT Message Broker with Scalability written in Java.
 
 [![Build Status](https://travis-ci.org/longkerdandy/mithril-mqtt.svg?branch=master)](https://travis-ci.org/longkerdandy/mithril-mqtt)
