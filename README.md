@@ -8,15 +8,15 @@ MQTT Message Broker with Scalability written in Java.
 ### What is MQTT
 [MQTT](http://mqtt.org) is an open industry standard, specifying a light weight publish-subscribe messaging protocol. It is well suited for constrained devices on unreliable networks.
 
-### What is Mithril-Mqtt
-Mithril-Mqtt is an open source, distributed MQTT message broker for real world. It embraces the [Microservices Architecture](http://microservices.io), and designed to fit into complex server-side application.
+### What is Mithqtt
+Mithqtt is an open source, distributed MQTT message broker for real world. It embraces the [Microservices Architecture](http://microservices.io), and designed to fit into complex server-side application.
 
-As a MQTT message broker, Mithril-Mqtt scales both horizontally and vertically on commodity hardware to support a large number of concurrent MQTT clients while maintaing low latency and fault tolerence.
+As a MQTT message broker, Mithqtt scales both horizontally and vertically on commodity hardware to support a large number of concurrent MQTT clients while maintaing low latency and fault tolerence.
 
-As a Microservice, Mithril-Mqtt is small self contained with little external dependencies, using pluggable Communicator to coexist with other microservices.
+As a Microservice, Mithqtt is small self contained with little external dependencies, using pluggable Communicator to coexist with other microservices.
 
 ### Interoperability Test
-Mithril-Mqtt broker is tested against Eclipse Paho's [MQTT Conformance/Interoperability Testing](http://www.eclipse.org/paho/clients/testing/).
+Mithqtt broker is tested against Eclipse Paho's [MQTT Conformance/Interoperability Testing](http://www.eclipse.org/paho/clients/testing/).
 
 1. Basic Test
 ~~~
