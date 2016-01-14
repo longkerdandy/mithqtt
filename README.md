@@ -24,7 +24,10 @@ As a Microservice, Mithqtt is small self contained with little external dependen
   - Support retain message.
   - Support topic name and topic filter (with wildcards).
   - Strong message ordering for each session.
-- Extensible authorization structure. User can control operations like Connect Publish Subscribe Unsubscribe by providing authorization plugin.
+- Extensible authorization structure. Mithqtt can control operations like Connect Publish Subscribe Unsubscribe by providing authorization plugin.
+- Distributed by design. Mithqtt is decentralized, can easily scale up and out. Nodes talking to each other via communicator.
+- Redis storage. The only required external dependency is the Redis database, which Mithqtt used to store session state. Redis 2.8 and above is supported (include 3.x cluster).
+- Communicator and $SYS topic. Communicator is a switchable internal implementation based on message queue or rpc. Normally MQTT brokers provide the $SYS topic for server side integration, Mithqtt uses communicator to pass messages to other microservices, which is more flexible and tied into your exist application. Communicator support [Hazelcast](http://hazelcast.org), [Kafka](http://kafka.apache.org) based implementation at the moment.
 
 ### Interoperability Test
 Mithqtt broker is tested against Eclipse Paho's [MQTT Conformance/Interoperability Testing](http://www.eclipse.org/paho/clients/testing/).
