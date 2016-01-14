@@ -32,7 +32,7 @@ As a Microservice, Mithqtt is small self contained with little external dependen
 - Optinal [InfluxDB](http://influxdb.com) based metrics. Mithqtt broker can gather MQTT related metrics and push into influxDB.
 
 ### Architecture
-[[https://github.com/longkerdandy/mithqtt/blob/master/architecture.jpg|alt=Mithqtt Architecture]]
+![Mithqtt Architecture](https://github.com/longkerdandy/mithqtt/blob/master/architecture.jpg)
 
 ### Interoperability Test
 Mithqtt broker is tested against Eclipse Paho's [MQTT Conformance/Interoperability Testing](http://www.eclipse.org/paho/clients/testing/).
