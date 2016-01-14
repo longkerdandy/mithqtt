@@ -31,6 +31,9 @@ As a Microservice, Mithqtt is small self contained with little external dependen
 - RESTful HTTP interface. Although MQTT is a stateful protocol, Mithqtt provided a HTTP wrapper to MQTT operations. The HTTP server is also scalabe, and can be used both internally and publicly.
 - Optinal [InfluxDB](http://influxdb.com) based metrics. Mithqtt broker can gather MQTT related metrics and push into influxDB.
 
+### Architecture
+[[https://github.com/longkerdandy/mithqtt/blob/master/architecture.jpg|alt=Mithqtt Architecture]]
+
 ### Interoperability Test
 Mithqtt broker is tested against Eclipse Paho's [MQTT Conformance/Interoperability Testing](http://www.eclipse.org/paho/clients/testing/).
 
