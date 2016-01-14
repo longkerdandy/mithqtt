@@ -15,6 +15,17 @@ As a MQTT message broker, Mithqtt scales both horizontally and vertically on com
 
 As a Microservice, Mithqtt is small self contained with little external dependencies, using pluggable Communicator to coexist with other microservices.
 
+### Features
+- Fully compatible with MQTT v3.1.1 specification.
+  - Support QoS 0, QoS 1, QoS 2.
+  - Support session state and clean session.
+  - Support session keepalive.
+  - Support message delivery retry (when connect).
+  - Support retain message.
+  - Support topic name and topic filter (with wildcards).
+  - Strong message ordering for each session.
+- Extensible authorization structure. User can control operations like Connect Publish Subscribe Unsubscribe by providing authorization plugin.
+
 ### Interoperability Test
 Mithqtt broker is tested against Eclipse Paho's [MQTT Conformance/Interoperability Testing](http://www.eclipse.org/paho/clients/testing/).
 
