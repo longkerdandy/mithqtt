@@ -26,12 +26,23 @@ As a Microservice, Mithqtt is small self contained with little external dependen
   - Strong message ordering for each session.
 - Extensible authorization structure. Mithqtt can control operations like Connect Publish Subscribe Unsubscribe by providing authorization plugin.
 - Distributed by design. Mithqtt is decentralized, can easily scale up and out. Nodes talking to each other via communicator.
+- Fault tolerance. When used with load balancer, there will be no single point of failure.
 - Redis storage. The only required external dependency is the Redis database, which Mithqtt used to store session state. Redis 2.8 and above is supported (include 3.x cluster).
 - Communicator and $SYS topic. Communicator is a switchable internal implementation based on message queue or rpc. Normally MQTT brokers provide the $SYS topic for server side integration, Mithqtt uses communicator to pass messages to other microservices, which is more flexible and tied into your exist application. Communicator support [Hazelcast](http://hazelcast.org), [Kafka](http://kafka.apache.org) based implementation at the moment.
 - RESTful HTTP interface. Although MQTT is a stateful protocol, Mithqtt provided a HTTP wrapper to MQTT operations. The HTTP server is also scalabe, and can be used both internally and publicly.
 - Optinal [InfluxDB](http://influxdb.com) based metrics. Mithqtt broker can gather MQTT related metrics and push into influxDB.
 
 ### Architecture
+This is the high level architecture design for a typical application service using Mithqtt.
+- User: Maybe a device or an app speaks MQTT.
+- Load Balancer: TCP (HTTP) load balancer like Pound LVS HAproxy or the service provided by cloud.
+- Communicator: Mithqtt internal commuication implmentation based on Hazelcast or Kafka.
+- MQTT Broker: Mithqtt MQTT broker handle messages from User (through Load Balancer), redirect internal messages to Communicator.
+- MQTT HTTP Interface: Mithqtt MQTT HTTP interface handle requests and transfer to internal messages, send to corresponding MQTT Broker via Communicator.
+- Redis: The main storage for Mithqtt.
+- InfluxDB: Optional storage for MQTT Broker and MQTT HTTP Interface metrics.
+- Cloud Service: Application service which can receive inbound MQTT (Internal Format) messages from Communicator, and send outbound MQTT (Internal Format) messages from MQTT HTTP Interface.
+
 ![Mithqtt Architecture](https://github.com/longkerdandy/mithqtt/blob/master/architecture.jpg)
 
 ### Interoperability Test
