@@ -14,6 +14,7 @@ import org.apache.commons.lang3.BooleanUtils;
 import org.apache.commons.lang3.StringUtils;
 import org.redisson.Config;
 import org.redisson.Redisson;
+import org.redisson.RedissonClient;
 
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -31,7 +32,7 @@ import static com.github.longkerdandy.mithqtt.util.Topics.END;
 public class RedisSyncSingleStorage implements RedisSyncStorage {
 
     // Main infrastructure class allows to get access to all Redisson objects on top of Redis server
-    protected Redisson redisson;
+    protected RedissonClient redisson;
 
     // Max in-flight queue size per client
     protected int inFlightQueueSize;

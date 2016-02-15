@@ -1,12 +1,16 @@
 package com.github.longkerdandy.mithqtt.storage.redis.sync;
 
+import com.lambdaworks.redis.ReadFrom;
 import com.lambdaworks.redis.RedisClient;
 import com.lambdaworks.redis.RedisURI;
-import com.lambdaworks.redis.api.StatefulRedisConnection;
 import com.lambdaworks.redis.api.sync.*;
+import com.lambdaworks.redis.codec.Utf8StringCodec;
+import com.lambdaworks.redis.masterslave.MasterSlave;
+import com.lambdaworks.redis.masterslave.StatefulRedisMasterSlaveConnection;
 import org.apache.commons.configuration.AbstractConfiguration;
 import org.apache.commons.lang3.StringUtils;
 import org.redisson.Config;
+import org.redisson.ReadMode;
 import org.redisson.Redisson;
 
 import java.util.List;
@@ -21,7 +25,7 @@ public class RedisSyncSentinelStorage extends RedisSyncSingleStorage {
     // blocking and transactional operations such as BLPOP and MULTI/EXEC.
     private RedisClient lettuceSentinel;
     // A thread-safe connection to a redis server. Multiple threads may share one StatefulRedisConnection
-    private StatefulRedisConnection<String, String> lettuceSentinelConn;
+    private StatefulRedisMasterSlaveConnection<String, String> lettuceSentinelConn;
     // Main infrastructure class allows to get access to all Redisson objects on top of Redis server
 
     @SuppressWarnings("unused")
@@ -76,15 +80,17 @@ public class RedisSyncSentinelStorage extends RedisSyncSingleStorage {
         String masterId = config.getString("redis.master");
 
         // lettuce
-        RedisURI lettuceURI = RedisURI.create("redis-sentinel://" + password + String.join(",", address) + "/" + databaseNumber + "#" + masterId);
+        RedisURI lettuceURI = RedisURI.create("redis-sentinel://" + password + address.get(0) + "/" + databaseNumber + "#" + masterId);
         this.lettuceSentinel = RedisClient.create(lettuceURI);
-        this.lettuceSentinelConn = this.lettuceSentinel.connect();
+        this.lettuceSentinelConn = MasterSlave.connect(this.lettuceSentinel, new Utf8StringCodec(), lettuceURI);
+        this.lettuceSentinelConn.setReadFrom(ReadFrom.valueOf(config.getString("redis.read")));
 
         // redisson
         Config redissonConfig = new Config();
-        redissonConfig.useSentinelConnection()
+        redissonConfig.useSentinelServers()
                 .setMasterName(masterId)
                 .addSentinelAddress(address.toArray(new String[address.size()]))
+                .setReadMode(ReadMode.MASTER)
                 .setDatabase(databaseNumber)
                 .setPassword(StringUtils.isNotEmpty(password) ? password : null);
         this.redisson = Redisson.create(redissonConfig);

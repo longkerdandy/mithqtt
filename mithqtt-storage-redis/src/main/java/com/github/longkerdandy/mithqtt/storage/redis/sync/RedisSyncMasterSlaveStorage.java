@@ -1,12 +1,16 @@
 package com.github.longkerdandy.mithqtt.storage.redis.sync;
 
+import com.lambdaworks.redis.ReadFrom;
 import com.lambdaworks.redis.RedisClient;
 import com.lambdaworks.redis.RedisURI;
-import com.lambdaworks.redis.api.StatefulRedisConnection;
 import com.lambdaworks.redis.api.sync.*;
+import com.lambdaworks.redis.codec.Utf8StringCodec;
+import com.lambdaworks.redis.masterslave.MasterSlave;
+import com.lambdaworks.redis.masterslave.StatefulRedisMasterSlaveConnection;
 import org.apache.commons.configuration.AbstractConfiguration;
 import org.apache.commons.lang3.StringUtils;
 import org.redisson.Config;
+import org.redisson.ReadMode;
 import org.redisson.Redisson;
 import org.redisson.connection.balancer.RoundRobinLoadBalancer;
 
@@ -22,7 +26,7 @@ public class RedisSyncMasterSlaveStorage extends RedisSyncSingleStorage {
     // blocking and transactional operations such as BLPOP and MULTI/EXEC.
     private RedisClient lettuceMasterSlave;
     // A thread-safe connection to a redis server. Multiple threads may share one StatefulRedisConnection
-    private StatefulRedisConnection<String, String> lettuceMasterSlaveConn;
+    private StatefulRedisMasterSlaveConnection<String, String> lettuceMasterSlaveConn;
 
     @SuppressWarnings("unused")
     protected RedisHashCommands<String, String> hash() {
@@ -77,16 +81,18 @@ public class RedisSyncMasterSlaveStorage extends RedisSyncSingleStorage {
         // lettuce
         RedisURI lettuceURI = RedisURI.create("redis://" + password + address.get(0) + "/" + databaseNumber);
         this.lettuceMasterSlave = RedisClient.create(lettuceURI);
-        this.lettuceMasterSlaveConn = this.lettuceMasterSlave.connect();
+        this.lettuceMasterSlaveConn = MasterSlave.connect(this.lettuceMasterSlave, new Utf8StringCodec(), lettuceURI);
+        this.lettuceMasterSlaveConn.setReadFrom(ReadFrom.valueOf(config.getString("redis.read")));
 
         // redisson
         String masterNode = address.get(0);
         String[] slaveNodes = address.subList(1, address.size()).toArray(new String[address.size() - 1]);
         Config redissonConfig = new Config();
-        redissonConfig.useMasterSlaveConnection()
+        redissonConfig.useMasterSlaveServers()
                 .setMasterAddress(masterNode)
                 .setLoadBalancer(new RoundRobinLoadBalancer())
                 .addSlaveAddress(slaveNodes)
+                .setReadMode(ReadMode.MASTER)
                 .setDatabase(databaseNumber)
                 .setPassword(StringUtils.isNotEmpty(password) ? password : null);
         this.redisson = Redisson.create(redissonConfig);

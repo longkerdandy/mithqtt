@@ -1,5 +1,6 @@
 package com.github.longkerdandy.mithqtt.storage.redis.sync;
 
+import com.lambdaworks.redis.ReadFrom;
 import com.lambdaworks.redis.RedisURI;
 import com.lambdaworks.redis.api.sync.*;
 import com.lambdaworks.redis.cluster.ClusterClientOptions;
@@ -8,6 +9,7 @@ import com.lambdaworks.redis.cluster.api.StatefulRedisClusterConnection;
 import org.apache.commons.configuration.AbstractConfiguration;
 import org.apache.commons.lang3.StringUtils;
 import org.redisson.Config;
+import org.redisson.ReadMode;
 import org.redisson.Redisson;
 
 import java.util.List;
@@ -85,13 +87,14 @@ public class RedisSyncClusterStorage extends RedisSyncSingleStorage {
                 .refreshPeriod(1, TimeUnit.MINUTES)
                 .build());
         this.lettuceClusterConn = this.lettuceCluster.connect();
+        this.lettuceClusterConn.setReadFrom(ReadFrom.valueOf(config.getString("redis.read")));
 
         // redisson
         Config redissonConfig = new Config();
         redissonConfig.useClusterServers()
                 .setScanInterval(60000)
                 .addNodeAddress(address.toArray(new String[address.size()]))
-                .setDatabase(databaseNumber)
+                .setReadMode(ReadMode.MASTER)
                 .setPassword(StringUtils.isNotEmpty(password) ? password : null);
         this.redisson = Redisson.create(redissonConfig);
 
