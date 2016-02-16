@@ -80,7 +80,7 @@ public class RedisSyncSentinelStorage extends RedisSyncSingleStorage {
         String masterId = config.getString("redis.master");
 
         // lettuce
-        RedisURI lettuceURI = RedisURI.create("redis-sentinel://" + password + address.get(0) + "/" + databaseNumber + "#" + masterId);
+        RedisURI lettuceURI = RedisURI.create("redis-sentinel://" + password + String.join(",", address) + "/" + databaseNumber + "#" + masterId);
         this.lettuceSentinel = RedisClient.create(lettuceURI);
         this.lettuceSentinelConn = MasterSlave.connect(this.lettuceSentinel, new Utf8StringCodec(), lettuceURI);
         this.lettuceSentinelConn.setReadFrom(ReadFrom.valueOf(config.getString("redis.read")));
