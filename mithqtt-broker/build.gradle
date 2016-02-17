@@ -22,7 +22,8 @@ dependencies {
     runtime project(':mithqtt-metrics-influxdb')
 
     // netty
-    compile 'io.netty:netty-transport:4.1.0.Beta8'
+    compile 'io.netty:netty-transport:4.1.0.CR2'
+    compile 'io.netty:netty-transport-native-epoll:4.1.0.CR2'
 }
 
 startScripts {
