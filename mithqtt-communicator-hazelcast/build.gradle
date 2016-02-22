@@ -3,6 +3,6 @@ dependencies {
     compile project(':mithqtt-api')
 
     // hazelcast
-    compile 'com.hazelcast:hazelcast:3.5.4'
-    compile 'com.hazelcast:hazelcast-client:3.5.4'
+    compile 'com.hazelcast:hazelcast:3.6'
+    compile 'com.hazelcast:hazelcast-client:3.6'
 }
