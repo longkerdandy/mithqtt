@@ -7,7 +7,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 /**
- * Application Communicator Worker for Kafka
+ * Application Communicator Worker for Hazelcast
  */
 public class HazelcastApplicationWorker implements Runnable {
 
