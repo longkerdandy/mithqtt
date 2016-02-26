@@ -6,6 +6,7 @@ include 'mithqtt-http'
 include 'mithqtt-storage-redis'
 include 'mithqtt-communicator-hazelcast'
 include 'mithqtt-communicator-kafka'
+include 'mithqtt-communicator-rabbitmq'
 include 'mithqtt-authenticator-dummy'
 include 'mithqtt-metrics-influxdb'
 

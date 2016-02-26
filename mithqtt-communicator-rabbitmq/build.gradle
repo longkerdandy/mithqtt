@@ -1,0 +1,11 @@
+dependencies {
+    // project api
+    compile project(':mithqtt-api')
+
+    // jackson
+    compile 'com.fasterxml.jackson.core:jackson-core:2.7.1'
+    compile 'com.fasterxml.jackson.core:jackson-databind:2.7.1'
+
+    // rabbitmq
+    compile 'com.rabbitmq:amqp-client:3.6.0'
+}
