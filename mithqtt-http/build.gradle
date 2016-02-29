@@ -16,6 +16,7 @@ dependencies {
 
     // communicator
     runtime project(':mithqtt-communicator-hazelcast')
+    runtime project(':mithqtt-communicator-rabbitmq')
     runtime project(':mithqtt-communicator-kafka')
 
     // metrics
