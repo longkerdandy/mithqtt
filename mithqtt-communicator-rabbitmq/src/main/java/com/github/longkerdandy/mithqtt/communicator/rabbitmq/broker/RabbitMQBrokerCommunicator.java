@@ -55,6 +55,7 @@ public class RabbitMQBrokerCommunicator implements BrokerCommunicator {
             logger.trace("Initializing RabbitMQ broker consumer's workers ...");
 
             Channel consumerChan = this.conn.createChannel();
+            consumerChan.exchangeDeclare(BROKER_TOPIC_PREFIX + "." + brokerId, "topic");
             String queueName = consumerChan.queueDeclare().getQueue();
             consumerChan.queueBind(queueName, BROKER_TOPIC_PREFIX + "." + brokerId, "#");
             consumerChan.basicConsume(queueName, true, new RabbitMQBrokerConsumer(consumerChan, factory.newListener()));
@@ -78,7 +79,7 @@ public class RabbitMQBrokerCommunicator implements BrokerCommunicator {
     public void sendToBroker(String brokerId, InternalMessage message) {
         String brokerTopic = BROKER_TOPIC_PREFIX + "." + brokerId;
         try {
-            this.channel.exchangeDeclare(brokerTopic, "topic");
+            // this.channel.exchangeDeclare(brokerTopic, "topic");
             this.channel.basicPublish(brokerTopic, message.getMessageType().name(), MessageProperties.BASIC, JSONs.Mapper.writeValueAsBytes(message));
         } catch (IOException e) {
             logger.warn("Communicator failed: Failed to send message {} to exchange {}: ", message.getMessageType(), brokerTopic, e);

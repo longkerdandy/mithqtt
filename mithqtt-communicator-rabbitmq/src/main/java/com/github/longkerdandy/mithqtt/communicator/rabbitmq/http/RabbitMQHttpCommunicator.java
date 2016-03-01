@@ -70,7 +70,7 @@ public class RabbitMQHttpCommunicator implements HttpCommunicator {
     public void sendToBroker(String brokerId, InternalMessage message) {
         String brokerTopic = BROKER_TOPIC_PREFIX + "." + brokerId;
         try {
-            this.channel.exchangeDeclare(brokerTopic, "topic");
+            // this.channel.exchangeDeclare(brokerTopic, "topic");
             this.channel.basicPublish(brokerTopic, message.getMessageType().name(), MessageProperties.BASIC, JSONs.Mapper.writeValueAsBytes(message));
         } catch (IOException e) {
             logger.warn("Communicator failed: Failed to send message {} to exchange {}: ", message.getMessageType(), brokerTopic, e);

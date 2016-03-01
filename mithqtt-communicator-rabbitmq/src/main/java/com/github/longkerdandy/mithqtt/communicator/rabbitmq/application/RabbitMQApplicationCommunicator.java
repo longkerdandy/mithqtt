@@ -49,6 +49,7 @@ public class RabbitMQApplicationCommunicator implements ApplicationCommunicator 
             logger.trace("Initializing RabbitMQ application consumer's workers ...");
 
             Channel consumerChan = this.conn.createChannel();
+            consumerChan.exchangeDeclare(APPLICATION_TOPIC, "topic");
             consumerChan.queueDeclare(config.getString("rabbitmq.app.queueName"), true, false, true, null);
             consumerChan.queueBind(config.getString("rabbitmq.app.queueName"), APPLICATION_TOPIC, config.getString("rabbitmq.app.routingKey"));
             consumerChan.basicConsume(config.getString("rabbitmq.app.queueName"), true, new RabbitMQApplicationConsumer(consumerChan, factory.newListener()));
