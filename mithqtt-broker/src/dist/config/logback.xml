@@ -37,6 +37,12 @@
         <appender-ref ref="File"/>
     </logger>
 
+    <!-- RabbitMQ -->
+    <logger name="com.rabbitmq" level="INFO" additivity="false">
+        <appender-ref ref="Console"/>
+        <appender-ref ref="File"/>
+    </logger>
+
     <!-- Redis Client -->
     <logger name="com.lambdaworks.redis" level="INFO" additivity="false">
         <appender-ref ref="Console"/>
