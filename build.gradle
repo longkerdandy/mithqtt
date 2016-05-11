@@ -7,7 +7,7 @@ subprojects {
     group 'com.github.longkerdandy'
 
     // Version
-    version '1.0.0.Beta1'
+    version '1.1.0.Alpha1'
 
     // JDK
     sourceCompatibility = 1.8
