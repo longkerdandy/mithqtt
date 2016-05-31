@@ -3,8 +3,7 @@ dependencies {
     compile project(':mithqtt-api')
 
     // redis
-    compile 'biz.paluch.redis:lettuce:4.1.Final'
-    compile 'org.redisson:redisson:2.2.8'
+    compile 'biz.paluch.redis:lettuce:4.1.2.Final'
 
     // json
     testCompile 'com.fasterxml.jackson.core:jackson-core:2.6.3'

@@ -2,13 +2,11 @@ package com.github.longkerdandy.mithqtt.storage.redis.sync;
 
 import com.github.longkerdandy.mithqtt.api.internal.InternalMessage;
 import com.github.longkerdandy.mithqtt.api.internal.Publish;
-import com.lambdaworks.redis.ValueScanCursor;
 import io.netty.handler.codec.mqtt.MqttQoS;
 import org.apache.commons.configuration.AbstractConfiguration;
 
 import java.util.List;
 import java.util.Map;
-import java.util.concurrent.locks.Lock;
 
 /**
  * Redis Synchronized Storage
@@ -31,22 +29,24 @@ public interface RedisSyncStorage {
     void destroy();
 
     /**
-     * Returns distributed lock instance by name.
+     * Try to lock specific client to specific state
+     * State can only be CONNECTING & DISCONNECTING
      *
-     * @param name of the distributed lock
-     * @return distributed lock
+     * @param clientId Client Id
+     * @param state    Client State
+     * @return True if current state is CONNECTED or DISCONNECTED
      */
-    Lock getLock(String name);
+    boolean lock(String clientId, int state);
 
     /**
-     * Iteration connected clients for the mqtt broker node (id)
+     * Try to release specific client to specific state
+     * State can only be CONNECTED & DISCONNECTED
      *
-     * @param node   MQTT Broker Node
-     * @param cursor Scan Cursor
-     * @param count  Limit
-     * @return Clients and Cursor
+     * @param clientId Client Id
+     * @param state    Client State
+     * @return True if current state is CONNECTING or DISCONNECTING
      */
-    ValueScanCursor<String> getConnectedClients(String node, String cursor, long count);
+    boolean release(String clientId, int state);
 
     /**
      * Get connected mqtt broker node (id) for the client
@@ -61,9 +61,10 @@ public interface RedisSyncStorage {
      *
      * @param clientId Client Id
      * @param node     MQTT Broker Node (Id)
+     * @param seconds  TTL
      * @return Previous connected MQTT Broker Node (Id), Null if not exist
      */
-    String updateConnectedNode(String clientId, String node);
+    String updateConnectedNode(String clientId, String node, int seconds);
 
     /**
      * Remove connected mqtt broker node (id) for the client

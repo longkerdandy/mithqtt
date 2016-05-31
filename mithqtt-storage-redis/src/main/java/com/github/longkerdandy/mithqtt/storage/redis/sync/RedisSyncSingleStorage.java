@@ -1,26 +1,24 @@
 package com.github.longkerdandy.mithqtt.storage.redis.sync;
 
-import com.github.longkerdandy.mithqtt.storage.redis.RedisLua;
 import com.github.longkerdandy.mithqtt.api.internal.InternalMessage;
 import com.github.longkerdandy.mithqtt.api.internal.Publish;
 import com.github.longkerdandy.mithqtt.storage.redis.RedisKey;
+import com.github.longkerdandy.mithqtt.storage.redis.RedisLua;
 import com.github.longkerdandy.mithqtt.util.Topics;
-import com.lambdaworks.redis.*;
+import com.lambdaworks.redis.RedisClient;
+import com.lambdaworks.redis.RedisURI;
+import com.lambdaworks.redis.ScriptOutputType;
 import com.lambdaworks.redis.api.StatefulRedisConnection;
 import com.lambdaworks.redis.api.sync.*;
 import io.netty.handler.codec.mqtt.MqttQoS;
 import org.apache.commons.configuration.AbstractConfiguration;
 import org.apache.commons.lang3.BooleanUtils;
 import org.apache.commons.lang3.StringUtils;
-import org.redisson.Config;
-import org.redisson.Redisson;
-import org.redisson.RedissonClient;
 
 import java.util.ArrayList;
-import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.concurrent.locks.Lock;
+import java.util.stream.Collectors;
 
 import static com.github.longkerdandy.mithqtt.storage.redis.util.Converter.internalToMap;
 import static com.github.longkerdandy.mithqtt.storage.redis.util.Converter.mapToInternal;
@@ -31,15 +29,12 @@ import static com.github.longkerdandy.mithqtt.util.Topics.END;
  */
 public class RedisSyncSingleStorage implements RedisSyncStorage {
 
-    // Main infrastructure class allows to get access to all Redisson objects on top of Redis server
-    protected RedissonClient redisson;
-
     // Max in-flight queue size per client
-    protected int inFlightQueueSize;
+    private int inFlightQueueSize;
     // Max QoS 2 ids queue size per client
-    protected int qos2QueueSize;
+    private int qos2QueueSize;
     // Max retain queue size per topic
-    protected int retainQueueSize;
+    private int retainQueueSize;
 
     // A scalable thread-safe Redis client. Multiple threads may share one connection if they avoid
     // blocking and transactional operations such as BLPOP and MULTI/EXEC.
@@ -47,52 +42,49 @@ public class RedisSyncSingleStorage implements RedisSyncStorage {
     // A thread-safe connection to a redis server. Multiple threads may share one StatefulRedisConnection
     private StatefulRedisConnection<String, String> lettuceConn;
 
-    @SuppressWarnings("unused")
     protected RedisHashCommands<String, String> hash() {
         return this.lettuceConn.sync();
     }
 
-    @SuppressWarnings("unused")
     protected RedisKeyCommands<String, String> key() {
         return this.lettuceConn.sync();
     }
 
-    @SuppressWarnings("unused")
     protected RedisStringCommands<String, String> string() {
         return this.lettuceConn.sync();
     }
 
-    @SuppressWarnings("unused")
     protected RedisListCommands<String, String> list() {
         return this.lettuceConn.sync();
     }
 
-    @SuppressWarnings("unused")
     protected RedisSetCommands<String, String> set() {
         return this.lettuceConn.sync();
     }
 
-    @SuppressWarnings("unused")
     protected RedisSortedSetCommands<String, String> sortedSet() {
         return this.lettuceConn.sync();
     }
 
-    @SuppressWarnings("unused")
     protected RedisScriptingCommands<String, String> script() {
         return this.lettuceConn.sync();
     }
 
-    @SuppressWarnings("unused")
     protected RedisServerCommands<String, String> server() {
+        return this.lettuceConn.sync();
+    }
+
+    protected RedisHLLCommands<String, String> hll() {
+        return this.lettuceConn.sync();
+    }
+
+    protected RedisGeoCommands<String, String> geo() {
         return this.lettuceConn.sync();
     }
 
     @Override
     public void init(AbstractConfiguration config) {
-        if (!config.getString("redis.type").equals("single")) {
-            throw new IllegalStateException("RedisSyncSingleStorage class can only be used with single redis setup, but redis.type value is " + config.getString("redis.type"));
-        }
-
+        // config
         List<String> address = parseRedisAddress(config.getString("redis.address"), 6379);
         int databaseNumber = config.getInt("redis.database", 0);
         String password = StringUtils.isNotEmpty(config.getString("redis.password")) ? config.getString("redis.password") + "@" : "";
@@ -101,14 +93,6 @@ public class RedisSyncSingleStorage implements RedisSyncStorage {
         RedisURI lettuceURI = RedisURI.create("redis://" + password + address.get(0) + "/" + databaseNumber);
         this.lettuce = RedisClient.create(lettuceURI);
         this.lettuceConn = this.lettuce.connect();
-
-        // redisson
-        Config redissonConfig = new Config();
-        redissonConfig.useSingleServer()
-                .setAddress(address.get(0))
-                .setDatabase(databaseNumber)
-                .setPassword(StringUtils.isNotEmpty(password) ? password : null);
-        this.redisson = Redisson.create(redissonConfig);
 
         // params
         initParams(config);
@@ -119,7 +103,6 @@ public class RedisSyncSingleStorage implements RedisSyncStorage {
         // shutdown this client and close all open connections
         if (this.lettuceConn != null) this.lettuceConn.close();
         if (this.lettuce != null) this.lettuce.shutdown();
-        if (this.redisson != null) this.redisson.shutdown();
     }
 
     /**
@@ -128,7 +111,7 @@ public class RedisSyncSingleStorage implements RedisSyncStorage {
      * @param address Address String
      * @return List of host:port String
      */
-    protected List<String> parseRedisAddress(String address, int defaultPort) {
+    List<String> parseRedisAddress(String address, int defaultPort) {
         List<String> list = new ArrayList<>();
         String[] array = address.split(",");
         for (String s : array) {
@@ -144,55 +127,87 @@ public class RedisSyncSingleStorage implements RedisSyncStorage {
      *
      * @param config Redis Configuration
      */
-    protected void initParams(AbstractConfiguration config) {
+    void initParams(AbstractConfiguration config) {
         this.inFlightQueueSize = config.getInt("mqtt.inflight.queue.size", 0);
         this.qos2QueueSize = config.getInt("mqtt.qos2.queue.size", 0);
         this.retainQueueSize = config.getInt("mqtt.retain.queue.size", 0);
     }
 
     @Override
-    public Lock getLock(String name) {
-        return this.redisson.getLock(name);
+    public boolean lock(String clientId, int state) {
+        // nil(-1):DISCONNECTED 0:DISCONNECTING 1:CONNECTING 2:CONNECTED
+        long r = this.script().eval("local current = redis.call('HGET', KEYS[1], 'state')\n" +
+                "if (not current or '2' == current) and '1' == ARGV[1]\n" +
+                "then\n" +
+                "   redis.call('HSET', KEYS[1], 'state', ARGV[1])\n" +
+                "   return 1\n" +
+                "end\n" +
+                "if '2' == current and '0' == ARGV[1]\n" +
+                "then\n" +
+                "   redis.call('HSET', KEYS[1], 'state', ARGV[1])\n" +
+                "   return 1\n" +
+                "end\n" +
+                "return 0", ScriptOutputType.INTEGER, new String[]{RedisKey.connection(clientId)}, String.valueOf(state));
+        return r == 1;
     }
 
     @Override
-    public ValueScanCursor<String> getConnectedClients(String node, String cursor, long count) {
-        return set().sscan(RedisKey.connectedClients(node), ScanCursor.of(cursor), ScanArgs.Builder.limit(count));
+    public boolean release(String clientId, int state) {
+        // nil(-1):DISCONNECTED 0:DISCONNECTING 1:CONNECTING 2:CONNECTED
+        long r = this.script().eval("local current = redis.call('HGET', KEYS[1], 'state')\n" +
+                "if '1' == current and '2' == ARGV[1]\n" +
+                "then\n" +
+                "   redis.call('HSET', KEYS[1], 'state', ARGV[1])\n" +
+                "   return 1\n" +
+                "end\n" +
+                "if '0' == current and '-1' == ARGV[1]\n" +
+                "then\n" +
+                "   redis.call('HDEL', KEYS[1], 'state')\n" +
+                "   return 1\n" +
+                "end\n" +
+                "return 0", ScriptOutputType.INTEGER, new String[]{RedisKey.connection(clientId)}, String.valueOf(state));
+        return r == 1;
     }
 
     @Override
     public String getConnectedNode(String clientId) {
-        return string().get(RedisKey.connectedNode(clientId));
+        return this.hash().hget(RedisKey.connection(clientId), "node");
     }
 
     @Override
-    public String updateConnectedNode(String clientId, String node) {
-        set().sadd(RedisKey.connectedClients(node), clientId);
-        return string().getset(RedisKey.connectedNode(clientId), node);
+    public String updateConnectedNode(String clientId, String node, int seconds) {
+        return this.script().eval("local old = redis.call('HGET', KEYS[1], 'node')\n" +
+                "redis.call('HSET', KEYS[1], 'node', ARGV[1])\n" +
+                "redis.call('EXPIRE', KEYS[1], ARGV[2])\n" +
+                "return old", ScriptOutputType.VALUE, new String[]{RedisKey.connection(clientId)}, node, String.valueOf(seconds));
     }
 
     @Override
     public boolean removeConnectedNode(String clientId, String node) {
-        set().srem(RedisKey.connectedClients(node), clientId);
-        long r = script().eval(RedisLua.CHECKDEL, ScriptOutputType.INTEGER, new String[]{RedisKey.connectedNode(clientId)}, node);
+        long r = this.script().eval("if ARGV[1] == redis.call('HGET', KEYS[1], 'node')\n" +
+                "then\n" +
+                "   redis.call('DEL', KEYS[1])\n" +
+                "   return 1\n" +
+                "end\n" +
+                "return 0", ScriptOutputType.INTEGER, new String[]{RedisKey.connection(clientId)}, node);
         return r == 1;
     }
 
     @Override
     public int getSessionExist(String clientId) {
-        String r = string().get(RedisKey.session(clientId));
+        String r = this.string().get(RedisKey.session(clientId));
         if (r != null) return Integer.parseInt(r);
         else return -1;
     }
 
     @Override
     public void updateSessionExist(String clientId, boolean cleanSession) {
-        string().set(RedisKey.session(clientId), BooleanUtils.toString(cleanSession, "1", "0"));
+        this.string().set(RedisKey.session(clientId), BooleanUtils.toString(cleanSession, "1", "0"));
     }
 
     @Override
     public boolean removeSessionExist(String clientId) {
-        return key().del(RedisKey.session(clientId)) == 1;
+        return this.key().del(RedisKey.session(clientId)) == 1;
     }
 
     @Override
@@ -205,12 +220,12 @@ public class RedisSyncSingleStorage implements RedisSyncStorage {
 
     @Override
     public int getNextPacketId(String clientId) {
-        return Math.toIntExact(script().eval(RedisLua.INCRLIMIT, ScriptOutputType.INTEGER, new String[]{RedisKey.nextPacketId(clientId)}, "65535"));
+        return Math.toIntExact(this.script().eval(RedisLua.INCRLIMIT, ScriptOutputType.INTEGER, new String[]{RedisKey.nextPacketId(clientId)}, "65535"));
     }
 
     @Override
     public InternalMessage getInFlightMessage(String clientId, int packetId) {
-        InternalMessage m = mapToInternal(hash().hgetall(RedisKey.inFlightMessage(clientId, packetId)));
+        InternalMessage m = mapToInternal(this.hash().hgetall(RedisKey.inFlightMessage(clientId, packetId)));
         if (m == null) removeInFlightMessage(clientId, packetId);
         return m;
     }
@@ -219,27 +234,27 @@ public class RedisSyncSingleStorage implements RedisSyncStorage {
     public void addInFlightMessage(String clientId, int packetId, InternalMessage msg, boolean dup) {
         Map<String, String> map = internalToMap(msg);
         map.put("dup", BooleanUtils.toString(dup, "1", "0"));
-        String r = script().eval(RedisLua.RPUSHLIMIT, ScriptOutputType.VALUE, new String[]{RedisKey.inFlightList(clientId)}, String.valueOf(packetId), String.valueOf(this.inFlightQueueSize));
-        if (r != null) key().del(RedisKey.inFlightMessage(clientId, Integer.parseInt(r)));
-        hash().hmset(RedisKey.inFlightMessage(clientId, packetId), map);
+        String r = this.script().eval(RedisLua.RPUSHLIMIT, ScriptOutputType.VALUE, new String[]{RedisKey.inFlightList(clientId)}, String.valueOf(packetId), String.valueOf(this.inFlightQueueSize));
+        if (r != null) this.key().del(RedisKey.inFlightMessage(clientId, Integer.parseInt(r)));
+        this.hash().hmset(RedisKey.inFlightMessage(clientId, packetId), map);
     }
 
     @Override
     public void addInFlightMessage(String clientId, int packetId, InternalMessage msg, boolean dup, long ttl) {
         addInFlightMessage(clientId, packetId, msg, dup);
-        key().expire(RedisKey.inFlightMessage(clientId, packetId), ttl);
+        this.key().expire(RedisKey.inFlightMessage(clientId, packetId), ttl);
     }
 
     @Override
     public void removeInFlightMessage(String clientId, int packetId) {
-        list().lrem(RedisKey.inFlightList(clientId), 0, String.valueOf(packetId));
-        key().del(RedisKey.inFlightMessage(clientId, packetId));
+        this.list().lrem(RedisKey.inFlightList(clientId), 0, String.valueOf(packetId));
+        this.key().del(RedisKey.inFlightMessage(clientId, packetId));
     }
 
     @Override
     public List<InternalMessage> getAllInFlightMessages(String clientId) {
         List<InternalMessage> r = new ArrayList<>();
-        List<String> ids = list().lrange(RedisKey.inFlightList(clientId), 0, -1);
+        List<String> ids = this.list().lrange(RedisKey.inFlightList(clientId), 0, -1);
         if (ids != null) {
             ids.forEach(packetId -> {
                 InternalMessage m = getInFlightMessage(clientId, Integer.parseInt(packetId));
@@ -252,7 +267,7 @@ public class RedisSyncSingleStorage implements RedisSyncStorage {
 
     @Override
     public void removeAllInFlightMessage(String clientId) {
-        List<String> ids = list().lrange(RedisKey.inFlightList(clientId), 0, -1);
+        List<String> ids = this.list().lrange(RedisKey.inFlightList(clientId), 0, -1);
         if (ids != null) {
             ids.forEach(packetId ->
                     removeInFlightMessage(clientId, Integer.parseInt(packetId)));
@@ -261,7 +276,7 @@ public class RedisSyncSingleStorage implements RedisSyncStorage {
 
     @Override
     public boolean addQoS2MessageId(String clientId, int packetId) {
-        long r = script().eval(RedisLua.ZADDLIMIT, ScriptOutputType.INTEGER,
+        long r = this.script().eval(RedisLua.ZADDLIMIT, ScriptOutputType.INTEGER,
                 new String[]{RedisKey.qos2Set(clientId)},
                 String.valueOf(System.currentTimeMillis()),
                 String.valueOf(packetId),
@@ -271,46 +286,40 @@ public class RedisSyncSingleStorage implements RedisSyncStorage {
 
     @Override
     public boolean removeQoS2MessageId(String clientId, int packetId) {
-        return sortedSet().zrem(RedisKey.qos2Set(clientId), String.valueOf(packetId)) == 1;
+        return this.sortedSet().zrem(RedisKey.qos2Set(clientId), String.valueOf(packetId)) == 1;
     }
 
     @Override
     public void removeAllQoS2MessageId(String clientId) {
-        key().del(RedisKey.qos2Set(clientId));
+        this.key().del(RedisKey.qos2Set(clientId));
     }
 
     @Override
     public Map<String, MqttQoS> getTopicSubscriptions(List<String> topicLevels) {
-        Map<String, MqttQoS> map = new HashMap<>();
         Map<String, String> subscriptions;
         if (Topics.isTopicFilter(topicLevels)) {
-            subscriptions = hash().hgetall(RedisKey.topicFilter(topicLevels));
+            subscriptions = this.hash().hgetall(RedisKey.topicFilter(topicLevels));
         } else {
-            subscriptions = hash().hgetall(RedisKey.topicName(topicLevels));
+            subscriptions = this.hash().hgetall(RedisKey.topicName(topicLevels));
         }
-        if (subscriptions != null) {
-            subscriptions.forEach((topic, qos) ->
-                    map.put(topic, MqttQoS.valueOf(Integer.parseInt(qos))));
-        }
-        return map;
+        return subscriptions.entrySet()
+                .stream()
+                .collect(Collectors.toMap(Map.Entry::getKey, entry -> MqttQoS.valueOf(Integer.parseInt(entry.getValue()))));
     }
 
     @Override
     public Map<String, MqttQoS> getClientSubscriptions(String clientId) {
-        Map<String, MqttQoS> map = new HashMap<>();
-        Map<String, String> subscriptions = hash().hgetall(RedisKey.subscription(clientId));
-        if (subscriptions != null) {
-            subscriptions.forEach((topic, qos) ->
-                    map.put(topic, MqttQoS.valueOf(Integer.parseInt(qos))));
-        }
-        return map;
+        return this.hash().hgetall(RedisKey.subscription(clientId))
+                .entrySet()
+                .stream()
+                .collect(Collectors.toMap(Map.Entry::getKey, entry -> MqttQoS.valueOf(Integer.parseInt(entry.getValue()))));
     }
 
     @Override
     public void updateSubscription(String clientId, List<String> topicLevels, MqttQoS qos) {
         if (Topics.isTopicFilter(topicLevels)) {
-            boolean b1 = hash().hset(RedisKey.subscription(clientId), String.join("/", topicLevels), String.valueOf(qos.value()));
-            boolean b2 = hash().hset(RedisKey.topicFilter(topicLevels), clientId, String.valueOf(qos.value()));
+            boolean b1 = this.hash().hset(RedisKey.subscription(clientId), String.join("/", topicLevels), String.valueOf(qos.value()));
+            boolean b2 = this.hash().hset(RedisKey.topicFilter(topicLevels), clientId, String.valueOf(qos.value()));
             if (b1 && b2) {
                 List<String> keys = new ArrayList<>();
                 List<String> argv = new ArrayList<>();
@@ -319,7 +328,7 @@ public class RedisSyncSingleStorage implements RedisSyncStorage {
                     keys.add(RedisKey.topicFilterChild(topicLevels.subList(0, i)));
                     argv.add(topicLevels.get(i));
                 }
-                script().eval("local length = table.getn(KEYS)\n" +
+                this.script().eval("local length = table.getn(KEYS)\n" +
                                 "for i = 1, length do\n" +
                                 "   redis.call('HINCRBY', KEYS[i], ARGV[i], 1)\n" +
                                 "end\n" +
@@ -327,16 +336,16 @@ public class RedisSyncSingleStorage implements RedisSyncStorage {
                         ScriptOutputType.STATUS, keys.toArray(new String[keys.size()]), argv.toArray(new String[argv.size()]));
             }
         } else {
-            hash().hset(RedisKey.subscription(clientId), String.join("/", topicLevels), String.valueOf(qos.value()));
-            hash().hset(RedisKey.topicName(topicLevels), clientId, String.valueOf(qos.value()));
+            this.hash().hset(RedisKey.subscription(clientId), String.join("/", topicLevels), String.valueOf(qos.value()));
+            this.hash().hset(RedisKey.topicName(topicLevels), clientId, String.valueOf(qos.value()));
         }
     }
 
     @Override
     public void removeSubscription(String clientId, List<String> topicLevels) {
         if (Topics.isTopicFilter(topicLevels)) {
-            long b1 = hash().hdel(RedisKey.subscription(clientId), String.join("/", topicLevels));
-            long b2 = hash().hdel(RedisKey.topicFilter(topicLevels), clientId);
+            long b1 = this.hash().hdel(RedisKey.subscription(clientId), String.join("/", topicLevels));
+            long b2 = this.hash().hdel(RedisKey.topicFilter(topicLevels), clientId);
             if (b1 == 1 && b2 == 1) {
                 List<String> keys = new ArrayList<>();
                 List<String> argv = new ArrayList<>();
@@ -345,7 +354,7 @@ public class RedisSyncSingleStorage implements RedisSyncStorage {
                     keys.add(RedisKey.topicFilterChild(topicLevels.subList(0, i)));
                     argv.add(topicLevels.get(i));
                 }
-                script().eval("local length = table.getn(KEYS)\n" +
+                this.script().eval("local length = table.getn(KEYS)\n" +
                                 "for i = 1, length do\n" +
                                 "   local count = redis.call('HINCRBY', KEYS[i], ARGV[i], -1)\n" +
                                 "   if count == 0\n" +
@@ -357,18 +366,16 @@ public class RedisSyncSingleStorage implements RedisSyncStorage {
                         ScriptOutputType.STATUS, keys.toArray(new String[keys.size()]), argv.toArray(new String[argv.size()]));
             }
         } else {
-            hash().hdel(RedisKey.subscription(clientId), String.join("/", topicLevels));
-            hash().hdel(RedisKey.topicName(topicLevels), clientId);
+            this.hash().hdel(RedisKey.subscription(clientId), String.join("/", topicLevels));
+            this.hash().hdel(RedisKey.topicName(topicLevels), clientId);
         }
     }
 
     @Override
     public void removeAllSubscriptions(String clientId) {
-        Map<String, String> map = hash().hgetall(RedisKey.subscription(clientId));
-        if (map != null) {
-            map.forEach((topic, qos) ->
-                    removeSubscription(clientId, Topics.sanitize(topic)));
-        }
+        this.hash().hgetall(RedisKey.subscription(clientId)).
+                forEach((topic, qos) ->
+                        removeSubscription(clientId, Topics.sanitize(topic)));
     }
 
     /**
@@ -379,11 +386,11 @@ public class RedisSyncSingleStorage implements RedisSyncStorage {
      * @param index       Current match level
      * @return Possible matching children
      */
-    protected List<String> getMatchTopicFilter(List<String> topicLevels, int index) {
+    private List<String> getMatchTopicFilter(List<String> topicLevels, int index) {
         if (index == topicLevels.size() - 1) {
-            return hash().hmget(RedisKey.topicFilterChild(topicLevels.subList(0, index)), END, "#");
+            return this.hash().hmget(RedisKey.topicFilterChild(topicLevels.subList(0, index)), END, "#");
         } else {
-            return hash().hmget(RedisKey.topicFilterChild(topicLevels.subList(0, index)), topicLevels.get(index), "#", "+");
+            return this.hash().hmget(RedisKey.topicFilterChild(topicLevels.subList(0, index)), topicLevels.get(index), "#", "+");
         }
     }
 
@@ -396,7 +403,7 @@ public class RedisSyncSingleStorage implements RedisSyncStorage {
      * @param index       Current match level (use 0 if you have doubt)
      * @param map         RETURN VALUE! Subscriptions: Key - Client Id, Value - QoS
      */
-    protected void getMatchSubscriptions(List<String> topicLevels, int index, Map<String, MqttQoS> map) {
+    private void getMatchSubscriptions(List<String> topicLevels, int index, Map<String, MqttQoS> map) {
         List<String> children = getMatchTopicFilter(topicLevels, index);
 
         // last one
@@ -463,10 +470,7 @@ public class RedisSyncSingleStorage implements RedisSyncStorage {
         }
 
         // topic name
-        Map<String, MqttQoS> subscriptions = getTopicSubscriptions(topicLevels);
-        if (subscriptions != null) {
-            map.putAll(subscriptions);
-        }
+        map.putAll(getTopicSubscriptions(topicLevels));
 
         // topic filter
         getMatchSubscriptions(topicLevels, 0, map);
@@ -475,10 +479,10 @@ public class RedisSyncSingleStorage implements RedisSyncStorage {
     @Override
     public int addRetainMessage(List<String> topicLevels, InternalMessage<Publish> msg) {
         // retainId
-        int retainId = Math.toIntExact(script().eval(RedisLua.INCRLIMIT, ScriptOutputType.INTEGER, new String[]{RedisKey.nextRetainId(topicLevels)}, new String[]{"65535"}));
+        int retainId = Math.toIntExact(this.script().eval(RedisLua.INCRLIMIT, ScriptOutputType.INTEGER, new String[]{RedisKey.nextRetainId(topicLevels)}, new String[]{"65535"}));
 
         // retain's message list
-        String r = script().eval(RedisLua.RPUSHLIMIT, ScriptOutputType.VALUE, new String[]{RedisKey.topicRetainList(topicLevels)}, String.valueOf(retainId), String.valueOf(this.retainQueueSize));
+        String r = this.script().eval(RedisLua.RPUSHLIMIT, ScriptOutputType.VALUE, new String[]{RedisKey.topicRetainList(topicLevels)}, String.valueOf(retainId), String.valueOf(this.retainQueueSize));
         if (r != null) {
             List<String> keys = new ArrayList<>();
             List<String> argv = new ArrayList<>();
@@ -486,7 +490,7 @@ public class RedisSyncSingleStorage implements RedisSyncStorage {
                 keys.add(RedisKey.topicRetainChild(topicLevels.subList(0, i)));
                 argv.add(topicLevels.get(i));
             }
-            script().eval("local length = table.getn(KEYS)\n" +
+            this.script().eval("local length = table.getn(KEYS)\n" +
                             "for i = 1, length do\n" +
                             "   local count = redis.call('HINCRBY', KEYS[i], ARGV[i], -1)\n" +
                             "   if count == 0\n" +
@@ -497,7 +501,7 @@ public class RedisSyncSingleStorage implements RedisSyncStorage {
                             "return redis.status_reply('OK')",
                     ScriptOutputType.STATUS, keys.toArray(new String[keys.size()]), argv.toArray(new String[argv.size()]));
 
-            key().del(RedisKey.topicRemainMessage(topicLevels, retainId));
+            this.key().del(RedisKey.topicRemainMessage(topicLevels, retainId));
         }
 
         // retain tree
@@ -507,7 +511,7 @@ public class RedisSyncSingleStorage implements RedisSyncStorage {
             keys.add(RedisKey.topicRetainChild(topicLevels.subList(0, i)));
             argv.add(topicLevels.get(i));
         }
-        script().eval("local length = table.getn(KEYS)\n" +
+        this.script().eval("local length = table.getn(KEYS)\n" +
                         "for i = 1, length do\n" +
                         "    redis.call('HINCRBY', KEYS[i], ARGV[i], 1)\n" +
                         "end\n" +
@@ -515,7 +519,7 @@ public class RedisSyncSingleStorage implements RedisSyncStorage {
                 ScriptOutputType.STATUS, keys.toArray(new String[keys.size()]), argv.toArray(new String[argv.size()]));
 
         // retain message
-        hash().hmset(RedisKey.topicRemainMessage(topicLevels, retainId), internalToMap(msg));
+        this.hash().hmset(RedisKey.topicRemainMessage(topicLevels, retainId), internalToMap(msg));
 
         return retainId;
     }
@@ -526,9 +530,9 @@ public class RedisSyncSingleStorage implements RedisSyncStorage {
      * @param topicLevels Topic Levels
      * @param retainId    Retain Id
      */
-    protected void removeRetainMessage(List<String> topicLevels, int retainId) {
+    private void removeRetainMessage(List<String> topicLevels, int retainId) {
         // retain's message list
-        long b = list().lrem(RedisKey.topicRetainList(topicLevels), 1, String.valueOf(retainId));
+        long b = this.list().lrem(RedisKey.topicRetainList(topicLevels), 1, String.valueOf(retainId));
 
         // retain tree
         if (b == 1) {
@@ -538,7 +542,7 @@ public class RedisSyncSingleStorage implements RedisSyncStorage {
                 keys.add(RedisKey.topicRetainChild(topicLevels.subList(0, i)));
                 argv.add(topicLevels.get(i));
             }
-            script().eval("local length = table.getn(KEYS)\n" +
+            this.script().eval("local length = table.getn(KEYS)\n" +
                             "for i = 1, length do\n" +
                             "   local count = redis.call('HINCRBY', KEYS[i], ARGV[i], -1)\n" +
                             "   if count == 0\n" +
@@ -551,12 +555,12 @@ public class RedisSyncSingleStorage implements RedisSyncStorage {
         }
 
         // retain message
-        key().del(RedisKey.topicRemainMessage(topicLevels, retainId));
+        this.key().del(RedisKey.topicRemainMessage(topicLevels, retainId));
     }
 
     @Override
     public void removeAllRetainMessage(List<String> topicLevels) {
-        List<String> ids = list().lrange(RedisKey.topicRetainList(topicLevels), 0, -1);
+        List<String> ids = this.list().lrange(RedisKey.topicRetainList(topicLevels), 0, -1);
         if (ids != null) {
             ids.forEach(retainId ->
                     removeRetainMessage(topicLevels, Integer.parseInt(retainId)));
@@ -572,8 +576,8 @@ public class RedisSyncSingleStorage implements RedisSyncStorage {
      * @param topicLevels Prefix of retain message
      * @param list        RETURN VALUE! List of retain message topics
      */
-    protected void getMatchRetainPrefix(List<String> topicLevels, List<List<String>> list) {
-        Map<String, String> nodes = hash().hgetall(RedisKey.topicRetainChild(topicLevels));
+    private void getMatchRetainPrefix(List<String> topicLevels, List<List<String>> list) {
+        Map<String, String> nodes = this.hash().hgetall(RedisKey.topicRetainChild(topicLevels));
         if (nodes != null) {
             nodes.forEach((node, count) -> {
                 int c = Integer.parseInt(count);
@@ -599,7 +603,7 @@ public class RedisSyncSingleStorage implements RedisSyncStorage {
      * @param index       Current match level (use 0 if you have doubt)
      * @param list        RETURN VALUE! List of retain message topics
      */
-    protected void getMatchRetainMessages(List<String> topicLevels, int index, List<List<String>> list) {
+    private void getMatchRetainMessages(List<String> topicLevels, int index, List<List<String>> list) {
         String level = topicLevels.get(index);
 
         switch (level) {
@@ -608,7 +612,7 @@ public class RedisSyncSingleStorage implements RedisSyncStorage {
                 getMatchRetainPrefix(t1, list);
                 break;
             case "+":
-                Map<String, String> nodes = hash().hgetall(RedisKey.topicRetainChild(topicLevels.subList(0, index)));
+                Map<String, String> nodes = this.hash().hgetall(RedisKey.topicRetainChild(topicLevels.subList(0, index)));
                 if (nodes != null) {
                     nodes.forEach((node, count) -> {
                         if (!node.equals(Topics.END) && Integer.parseInt(count) > 0) {
@@ -626,7 +630,7 @@ public class RedisSyncSingleStorage implements RedisSyncStorage {
                 }
                 break;
             default:
-                String count = hash().hget(RedisKey.topicRetainChild(topicLevels.subList(0, index)), level);
+                String count = this.hash().hget(RedisKey.topicRetainChild(topicLevels.subList(0, index)), level);
                 if (count != null && Integer.parseInt(count) > 0) {
                     if (level.equals(Topics.END) && index == topicLevels.size() - 1) {
                         list.add(topicLevels);
@@ -646,19 +650,19 @@ public class RedisSyncSingleStorage implements RedisSyncStorage {
             List<List<String>> l = new ArrayList<>();
             getMatchRetainMessages(topicLevels, 0, l);
             l.forEach(t -> {
-                List<String> ids = list().lrange(RedisKey.topicRetainList(t), 0, -1);
+                List<String> ids = this.list().lrange(RedisKey.topicRetainList(t), 0, -1);
                 if (ids != null) {
                     ids.forEach(retainId -> {
-                        InternalMessage<Publish> m = mapToInternal(hash().hgetall(RedisKey.topicRemainMessage(t, Integer.parseInt(retainId))));
+                        InternalMessage<Publish> m = mapToInternal(this.hash().hgetall(RedisKey.topicRemainMessage(t, Integer.parseInt(retainId))));
                         if (m != null) r.add(m);
                     });
                 }
             });
         } else {
-            List<String> ids = list().lrange(RedisKey.topicRetainList(topicLevels), 0, -1);
+            List<String> ids = this.list().lrange(RedisKey.topicRetainList(topicLevels), 0, -1);
             if (ids != null) {
                 ids.forEach(retainId -> {
-                    InternalMessage<Publish> m = mapToInternal(hash().hgetall(RedisKey.topicRemainMessage(topicLevels, Integer.parseInt(retainId))));
+                    InternalMessage<Publish> m = mapToInternal(this.hash().hgetall(RedisKey.topicRemainMessage(topicLevels, Integer.parseInt(retainId))));
                     if (m != null) r.add(m);
                 });
             }

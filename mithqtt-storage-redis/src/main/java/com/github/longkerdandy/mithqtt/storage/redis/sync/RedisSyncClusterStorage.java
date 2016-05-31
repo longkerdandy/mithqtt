@@ -8,9 +8,6 @@ import com.lambdaworks.redis.cluster.RedisClusterClient;
 import com.lambdaworks.redis.cluster.api.StatefulRedisClusterConnection;
 import org.apache.commons.configuration.AbstractConfiguration;
 import org.apache.commons.lang3.StringUtils;
-import org.redisson.Config;
-import org.redisson.ReadMode;
-import org.redisson.Redisson;
 
 import java.util.List;
 import java.util.concurrent.TimeUnit;
@@ -29,43 +26,43 @@ public class RedisSyncClusterStorage extends RedisSyncSingleStorage {
     // command key.
     private StatefulRedisClusterConnection<String, String> lettuceClusterConn;
 
-    @SuppressWarnings("unused")
     protected RedisHashCommands<String, String> hash() {
         return this.lettuceClusterConn.sync();
     }
 
-    @SuppressWarnings("unused")
     protected RedisKeyCommands<String, String> key() {
         return this.lettuceClusterConn.sync();
     }
 
-    @SuppressWarnings("unused")
     protected RedisStringCommands<String, String> string() {
         return this.lettuceClusterConn.sync();
     }
 
-    @SuppressWarnings("unused")
     protected RedisListCommands<String, String> list() {
         return this.lettuceClusterConn.sync();
     }
 
-    @SuppressWarnings("unused")
     protected RedisSetCommands<String, String> set() {
         return this.lettuceClusterConn.sync();
     }
 
-    @SuppressWarnings("unused")
     protected RedisSortedSetCommands<String, String> sortedSet() {
         return this.lettuceClusterConn.sync();
     }
 
-    @SuppressWarnings("unused")
     protected RedisScriptingCommands<String, String> script() {
         return this.lettuceClusterConn.sync();
     }
 
-    @SuppressWarnings("unused")
     protected RedisServerCommands<String, String> server() {
+        return this.lettuceClusterConn.sync();
+    }
+
+    protected RedisHLLCommands<String, String> hll() {
+        return this.lettuceClusterConn.sync();
+    }
+
+    protected RedisGeoCommands<String, String> geo() {
         return this.lettuceClusterConn.sync();
     }
 
@@ -89,15 +86,6 @@ public class RedisSyncClusterStorage extends RedisSyncSingleStorage {
         this.lettuceClusterConn = this.lettuceCluster.connect();
         this.lettuceClusterConn.setReadFrom(ReadFrom.valueOf(config.getString("redis.read")));
 
-        // redisson
-        Config redissonConfig = new Config();
-        redissonConfig.useClusterServers()
-                .setScanInterval(60000)
-                .addNodeAddress(address.toArray(new String[address.size()]))
-                .setReadMode(ReadMode.MASTER)
-                .setPassword(StringUtils.isNotEmpty(password) ? password : null);
-        this.redisson = Redisson.create(redissonConfig);
-
         // params
         initParams(config);
     }
@@ -107,6 +95,5 @@ public class RedisSyncClusterStorage extends RedisSyncSingleStorage {
         // shutdown this client and close all open connections
         if (this.lettuceClusterConn != null) this.lettuceClusterConn.close();
         if (this.lettuceCluster != null) this.lettuceCluster.shutdown();
-        if (this.redisson != null) this.redisson.shutdown();
     }
 }

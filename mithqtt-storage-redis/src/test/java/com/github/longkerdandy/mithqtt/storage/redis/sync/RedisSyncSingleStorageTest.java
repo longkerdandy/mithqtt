@@ -2,11 +2,10 @@ package com.github.longkerdandy.mithqtt.storage.redis.sync;
 
 import com.fasterxml.jackson.databind.JsonNode;
 import com.github.longkerdandy.mithqtt.api.internal.InternalMessage;
-import com.github.longkerdandy.mithqtt.api.internal.Publish;
 import com.github.longkerdandy.mithqtt.api.internal.PacketId;
+import com.github.longkerdandy.mithqtt.api.internal.Publish;
 import com.github.longkerdandy.mithqtt.storage.redis.RedisKey;
 import com.github.longkerdandy.mithqtt.util.Topics;
-import com.lambdaworks.redis.ValueScanCursor;
 import io.netty.handler.codec.mqtt.MqttMessageType;
 import io.netty.handler.codec.mqtt.MqttQoS;
 import io.netty.handler.codec.mqtt.MqttVersion;
@@ -55,14 +54,29 @@ public class RedisSyncSingleStorageTest {
     }
 
     @Test
-    public void connectedTest() {
-        assert redis.updateConnectedNode("client1", "node1") == null;
-        assert redis.updateConnectedNode("client2", "node1") == null;
-        assert redis.updateConnectedNode("client3", "node1") == null;
-        assert redis.updateConnectedNode("client4", "node1") == null;
-        assert redis.updateConnectedNode("client4", "node2").equals("node1");   // overwrite
-        assert redis.updateConnectedNode("client5", "node2") == null;
-        assert redis.updateConnectedNode("client5", "node2").equals("node2");   // overwrite
+    public void connectionTest() {
+
+        assert redis.lock("client2", 1);
+        assert redis.lock("client4", 1);
+        assert !redis.lock("client3", 0);
+        assert !redis.lock("client5", 0);
+        assert !redis.release("client3", -1);
+        assert !redis.release("client5", -1);
+
+        assert redis.updateConnectedNode("client1", "node1", 30) == null;
+        assert redis.updateConnectedNode("client2", "node1", 30) == null;
+        assert redis.updateConnectedNode("client3", "node1", 30) == null;
+        assert redis.updateConnectedNode("client4", "node1", 30) == null;
+        assert redis.updateConnectedNode("client4", "node2", 30).equals("node1");   // overwrite
+        assert redis.updateConnectedNode("client5", "node2", 30) == null;
+        assert redis.updateConnectedNode("client5", "node2", 30).equals("node2");   // overwrite
+
+        assert !redis.lock("client2", 1);
+        assert !redis.lock("client4", 1);
+        assert !redis.release("client2", -1);
+        assert !redis.release("client4", -1);
+        assert redis.release("client2", 2);
+        assert redis.release("client4", 2);
 
         assert redis.getConnectedNode("client1").equals("node1");
         assert redis.getConnectedNode("client2").equals("node1");
@@ -70,24 +84,17 @@ public class RedisSyncSingleStorageTest {
         assert redis.getConnectedNode("client4").equals("node2");
         assert redis.getConnectedNode("client5").equals("node2");
 
-        ValueScanCursor<String> vcs1 = redis.getConnectedClients("node1", "0", 100);
-        assert vcs1.getValues().contains("client1");
-        assert vcs1.getValues().contains("client2");
-        assert vcs1.getValues().contains("client3");
-        ValueScanCursor<String> vcs2 = redis.getConnectedClients("node2", "0", 100);
-        assert vcs2.getValues().contains("client4");
-        assert vcs2.getValues().contains("client5");
+        assert redis.lock("client2", 0);
+        assert redis.lock("client4", 0);
 
-        assert redis.removeConnectedNode("client3", "node1");
+        assert redis.removeConnectedNode("client2", "node1");
         assert !redis.removeConnectedNode("client4", "node1");   // not exist
 
-        assert redis.getConnectedNode("client3") == null;
-        assert redis.getConnectedNode("client4").equals("node2");
+        assert !redis.release("client2", -1);   // removed
+        assert redis.release("client4", -1);
 
-        vcs1 = redis.getConnectedClients("node1", "0", 100);
-        assert !vcs1.getValues().contains("client3");
-        vcs2 = redis.getConnectedClients("node2", "0", 100);
-        assert vcs2.getValues().contains("client4");
+        assert redis.getConnectedNode("client2") == null;
+        assert redis.getConnectedNode("client4").equals("node2");
     }
 
     @Test

@@ -9,9 +9,6 @@ import com.lambdaworks.redis.masterslave.MasterSlave;
 import com.lambdaworks.redis.masterslave.StatefulRedisMasterSlaveConnection;
 import org.apache.commons.configuration.AbstractConfiguration;
 import org.apache.commons.lang3.StringUtils;
-import org.redisson.Config;
-import org.redisson.ReadMode;
-import org.redisson.Redisson;
 
 import java.util.List;
 
@@ -28,43 +25,43 @@ public class RedisSyncSentinelStorage extends RedisSyncSingleStorage {
     private StatefulRedisMasterSlaveConnection<String, String> lettuceSentinelConn;
     // Main infrastructure class allows to get access to all Redisson objects on top of Redis server
 
-    @SuppressWarnings("unused")
     protected RedisHashCommands<String, String> hash() {
         return this.lettuceSentinelConn.sync();
     }
 
-    @SuppressWarnings("unused")
     protected RedisKeyCommands<String, String> key() {
         return this.lettuceSentinelConn.sync();
     }
 
-    @SuppressWarnings("unused")
     protected RedisStringCommands<String, String> string() {
         return this.lettuceSentinelConn.sync();
     }
 
-    @SuppressWarnings("unused")
     protected RedisListCommands<String, String> list() {
         return this.lettuceSentinelConn.sync();
     }
 
-    @SuppressWarnings("unused")
     protected RedisSetCommands<String, String> set() {
         return this.lettuceSentinelConn.sync();
     }
 
-    @SuppressWarnings("unused")
     protected RedisSortedSetCommands<String, String> sortedSet() {
         return this.lettuceSentinelConn.sync();
     }
 
-    @SuppressWarnings("unused")
     protected RedisScriptingCommands<String, String> script() {
         return this.lettuceSentinelConn.sync();
     }
 
-    @SuppressWarnings("unused")
     protected RedisServerCommands<String, String> server() {
+        return this.lettuceSentinelConn.sync();
+    }
+
+    protected RedisHLLCommands<String, String> hll() {
+        return this.lettuceSentinelConn.sync();
+    }
+
+    protected RedisGeoCommands<String, String> geo() {
         return this.lettuceSentinelConn.sync();
     }
 
@@ -85,16 +82,6 @@ public class RedisSyncSentinelStorage extends RedisSyncSingleStorage {
         this.lettuceSentinelConn = MasterSlave.connect(this.lettuceSentinel, new Utf8StringCodec(), lettuceURI);
         this.lettuceSentinelConn.setReadFrom(ReadFrom.valueOf(config.getString("redis.read")));
 
-        // redisson
-        Config redissonConfig = new Config();
-        redissonConfig.useSentinelServers()
-                .setMasterName(masterId)
-                .addSentinelAddress(address.toArray(new String[address.size()]))
-                .setReadMode(ReadMode.MASTER)
-                .setDatabase(databaseNumber)
-                .setPassword(StringUtils.isNotEmpty(password) ? password : null);
-        this.redisson = Redisson.create(redissonConfig);
-
         // params
         initParams(config);
     }
@@ -104,6 +91,5 @@ public class RedisSyncSentinelStorage extends RedisSyncSingleStorage {
         // shutdown this client and close all open connections
         if (this.lettuceSentinelConn != null) this.lettuceSentinelConn.close();
         if (this.lettuceSentinel != null) this.lettuceSentinel.shutdown();
-        if (this.redisson != null) this.redisson.shutdown();
     }
 }

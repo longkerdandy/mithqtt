@@ -1,8 +1,8 @@
 package com.github.longkerdandy.mithqtt.storage.redis.util;
 
 import com.github.longkerdandy.mithqtt.api.internal.InternalMessage;
-import com.github.longkerdandy.mithqtt.api.internal.Publish;
 import com.github.longkerdandy.mithqtt.api.internal.PacketId;
+import com.github.longkerdandy.mithqtt.api.internal.Publish;
 import io.netty.handler.codec.mqtt.MqttMessageType;
 import io.netty.handler.codec.mqtt.MqttQoS;
 import io.netty.handler.codec.mqtt.MqttVersion;

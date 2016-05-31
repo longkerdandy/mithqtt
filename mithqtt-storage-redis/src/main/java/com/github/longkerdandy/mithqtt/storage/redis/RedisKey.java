@@ -7,15 +7,11 @@ import java.util.List;
  */
 public class RedisKey {
 
-    // Set of server's connected clients
-    // Value - Client Id
-    public static String connectedClients(String node) {
-        return "server:" + node + ":client";
-    }
-
-    // Key indicates client's connected node
-    public static String connectedNode(String clientId) {
-        return "client:" + clientId + ":node";
+    // Hash indicates client's connection state
+    // Key - 'node'; 'state';
+    // Value - Node; State;
+    public static String connection(String clientId) {
+        return "client:" + clientId + ":connection";
     }
 
     // Key indicates client session state
