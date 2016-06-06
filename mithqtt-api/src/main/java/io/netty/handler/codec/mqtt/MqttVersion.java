@@ -25,8 +25,8 @@ public enum MqttVersion {
     MQTT_3_1("MQIsdp", (byte) 3),
     MQTT_3_1_1("MQTT", (byte) 4);
 
-    private String name;
-    private byte level;
+    private final String name;
+    private final byte level;
 
     MqttVersion(String protocolName, byte protocolLevel) {
         this.name = protocolName;

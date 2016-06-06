@@ -17,7 +17,7 @@
 package io.netty.handler.codec.mqtt;
 
 /**
- * Return Code of {@link io.netty.handler.codec.mqtt.MqttConnAckMessage}
+ * Return Code of {@link MqttConnAckMessage}
  */
 public enum MqttConnectReturnCode {
     CONNECTION_ACCEPTED((byte) 0x00),

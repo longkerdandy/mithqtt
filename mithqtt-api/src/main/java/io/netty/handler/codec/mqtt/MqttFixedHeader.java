@@ -59,7 +59,7 @@ public class MqttFixedHeader {
         return retain;
     }
 
-    public int remainingLength() {
+    protected int remainingLength() {
         return remainingLength;
     }
 

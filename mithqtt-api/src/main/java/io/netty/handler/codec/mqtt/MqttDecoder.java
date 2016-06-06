@@ -302,7 +302,7 @@ public class MqttDecoder extends ReplayingDecoder<DecoderState> {
     }
 
     private static Result<ByteBuf> decodePublishPayload(ByteBuf buffer, int bytesRemainingInVariablePart) {
-        ByteBuf b = buffer.readSlice(bytesRemainingInVariablePart).retain();
+        ByteBuf b = buffer.readRetainedSlice(bytesRemainingInVariablePart);
         return new Result<>(b, bytesRemainingInVariablePart);
     }
 
@@ -330,9 +330,10 @@ public class MqttDecoder extends ReplayingDecoder<DecoderState> {
             numberOfBytesConsumed += size;
             return new Result<>(null, numberOfBytesConsumed);
         }
-        ByteBuf buf = buffer.readBytes(size);
+        String s = buffer.toString(buffer.readerIndex(), size, CharsetUtil.UTF_8);
+        buffer.skipBytes(size);
         numberOfBytesConsumed += size;
-        return new Result<>(buf.toString(CharsetUtil.UTF_8), numberOfBytesConsumed);
+        return new Result<>(s, numberOfBytesConsumed);
     }
 
     private static Result<Integer> decodeMsbLsb(ByteBuf buffer) {
