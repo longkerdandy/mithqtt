@@ -1,7 +1,7 @@
 package com.github.longkerdandy.mithqtt.storage.redis.sync;
 
-import com.github.longkerdandy.mithqtt.api.internal.InternalMessage;
-import com.github.longkerdandy.mithqtt.api.internal.Publish;
+import com.github.longkerdandy.mithqtt.api.message.Message;
+import com.github.longkerdandy.mithqtt.api.message.MqttPublishPayload;
 import com.github.longkerdandy.mithqtt.storage.redis.RedisKey;
 import com.github.longkerdandy.mithqtt.storage.redis.RedisLua;
 import com.github.longkerdandy.mithqtt.util.Topics;
@@ -10,6 +10,7 @@ import com.lambdaworks.redis.RedisURI;
 import com.lambdaworks.redis.ScriptOutputType;
 import com.lambdaworks.redis.api.StatefulRedisConnection;
 import com.lambdaworks.redis.api.sync.*;
+import io.netty.handler.codec.mqtt.MqttPublishVariableHeader;
 import io.netty.handler.codec.mqtt.MqttQoS;
 import org.apache.commons.configuration.AbstractConfiguration;
 import org.apache.commons.lang3.BooleanUtils;
@@ -20,8 +21,8 @@ import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
 
-import static com.github.longkerdandy.mithqtt.storage.redis.util.Converter.internalToMap;
-import static com.github.longkerdandy.mithqtt.storage.redis.util.Converter.mapToInternal;
+import static com.github.longkerdandy.mithqtt.storage.redis.util.Converter.mapToMessage;
+import static com.github.longkerdandy.mithqtt.storage.redis.util.Converter.messageToMap;
 import static com.github.longkerdandy.mithqtt.util.Topics.END;
 
 /**
@@ -224,15 +225,15 @@ public class RedisSyncSingleStorage implements RedisSyncStorage {
     }
 
     @Override
-    public InternalMessage getInFlightMessage(String clientId, int packetId) {
-        InternalMessage m = mapToInternal(this.hash().hgetall(RedisKey.inFlightMessage(clientId, packetId)));
+    public Message getInFlightMessage(String clientId, int packetId) {
+        Message m = mapToMessage(this.hash().hgetall(RedisKey.inFlightMessage(clientId, packetId)));
         if (m == null) removeInFlightMessage(clientId, packetId);
         return m;
     }
 
     @Override
-    public void addInFlightMessage(String clientId, int packetId, InternalMessage msg, boolean dup) {
-        Map<String, String> map = internalToMap(msg);
+    public void addInFlightMessage(String clientId, int packetId, Message msg, boolean dup) {
+        Map<String, String> map = messageToMap(msg);
         map.put("dup", BooleanUtils.toString(dup, "1", "0"));
         String r = this.script().eval(RedisLua.RPUSHLIMIT, ScriptOutputType.VALUE, new String[]{RedisKey.inFlightList(clientId)}, String.valueOf(packetId), String.valueOf(this.inFlightQueueSize));
         if (r != null) this.key().del(RedisKey.inFlightMessage(clientId, Integer.parseInt(r)));
@@ -240,7 +241,7 @@ public class RedisSyncSingleStorage implements RedisSyncStorage {
     }
 
     @Override
-    public void addInFlightMessage(String clientId, int packetId, InternalMessage msg, boolean dup, long ttl) {
+    public void addInFlightMessage(String clientId, int packetId, Message msg, boolean dup, long ttl) {
         addInFlightMessage(clientId, packetId, msg, dup);
         this.key().expire(RedisKey.inFlightMessage(clientId, packetId), ttl);
     }
@@ -252,12 +253,12 @@ public class RedisSyncSingleStorage implements RedisSyncStorage {
     }
 
     @Override
-    public List<InternalMessage> getAllInFlightMessages(String clientId) {
-        List<InternalMessage> r = new ArrayList<>();
+    public List<Message> getAllInFlightMessages(String clientId) {
+        List<Message> r = new ArrayList<>();
         List<String> ids = this.list().lrange(RedisKey.inFlightList(clientId), 0, -1);
         if (ids != null) {
             ids.forEach(packetId -> {
-                InternalMessage m = getInFlightMessage(clientId, Integer.parseInt(packetId));
+                Message m = getInFlightMessage(clientId, Integer.parseInt(packetId));
                 if (m != null) r.add(m);
                 else removeInFlightMessage(clientId, Integer.parseInt(packetId));
             });
@@ -477,7 +478,7 @@ public class RedisSyncSingleStorage implements RedisSyncStorage {
     }
 
     @Override
-    public int addRetainMessage(List<String> topicLevels, InternalMessage<Publish> msg) {
+    public int addRetainMessage(List<String> topicLevels, Message<MqttPublishVariableHeader, MqttPublishPayload> msg) {
         // retainId
         int retainId = Math.toIntExact(this.script().eval(RedisLua.INCRLIMIT, ScriptOutputType.INTEGER, new String[]{RedisKey.nextRetainId(topicLevels)}, new String[]{"65535"}));
 
@@ -519,7 +520,7 @@ public class RedisSyncSingleStorage implements RedisSyncStorage {
                 ScriptOutputType.STATUS, keys.toArray(new String[keys.size()]), argv.toArray(new String[argv.size()]));
 
         // retain message
-        this.hash().hmset(RedisKey.topicRemainMessage(topicLevels, retainId), internalToMap(msg));
+        this.hash().hmset(RedisKey.topicRemainMessage(topicLevels, retainId), messageToMap(msg));
 
         return retainId;
     }
@@ -644,8 +645,8 @@ public class RedisSyncSingleStorage implements RedisSyncStorage {
 
     @Override
     @SuppressWarnings("unchecked")
-    public List<InternalMessage<Publish>> getMatchRetainMessages(List<String> topicLevels) {
-        List<InternalMessage<Publish>> r = new ArrayList<>();
+    public List<Message<MqttPublishVariableHeader, MqttPublishPayload>> getMatchRetainMessages(List<String> topicLevels) {
+        List<Message<MqttPublishVariableHeader, MqttPublishPayload>> r = new ArrayList<>();
         if (Topics.isTopicFilter(topicLevels)) {
             List<List<String>> l = new ArrayList<>();
             getMatchRetainMessages(topicLevels, 0, l);
@@ -653,7 +654,7 @@ public class RedisSyncSingleStorage implements RedisSyncStorage {
                 List<String> ids = this.list().lrange(RedisKey.topicRetainList(t), 0, -1);
                 if (ids != null) {
                     ids.forEach(retainId -> {
-                        InternalMessage<Publish> m = mapToInternal(this.hash().hgetall(RedisKey.topicRemainMessage(t, Integer.parseInt(retainId))));
+                        Message<MqttPublishVariableHeader, MqttPublishPayload> m = mapToMessage(this.hash().hgetall(RedisKey.topicRemainMessage(t, Integer.parseInt(retainId))));
                         if (m != null) r.add(m);
                     });
                 }
@@ -662,7 +663,7 @@ public class RedisSyncSingleStorage implements RedisSyncStorage {
             List<String> ids = this.list().lrange(RedisKey.topicRetainList(topicLevels), 0, -1);
             if (ids != null) {
                 ids.forEach(retainId -> {
-                    InternalMessage<Publish> m = mapToInternal(this.hash().hgetall(RedisKey.topicRemainMessage(topicLevels, Integer.parseInt(retainId))));
+                    Message<MqttPublishVariableHeader, MqttPublishPayload> m = mapToMessage(this.hash().hgetall(RedisKey.topicRemainMessage(topicLevels, Integer.parseInt(retainId))));
                     if (m != null) r.add(m);
                 });
             }

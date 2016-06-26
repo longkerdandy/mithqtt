@@ -1,11 +1,9 @@
 package com.github.longkerdandy.mithqtt.storage.redis.util;
 
-import com.github.longkerdandy.mithqtt.api.internal.InternalMessage;
-import com.github.longkerdandy.mithqtt.api.internal.PacketId;
-import com.github.longkerdandy.mithqtt.api.internal.Publish;
-import io.netty.handler.codec.mqtt.MqttMessageType;
-import io.netty.handler.codec.mqtt.MqttQoS;
-import io.netty.handler.codec.mqtt.MqttVersion;
+import com.github.longkerdandy.mithqtt.api.message.Message;
+import com.github.longkerdandy.mithqtt.api.message.MqttAdditionalHeader;
+import com.github.longkerdandy.mithqtt.api.message.MqttPublishPayload;
+import io.netty.handler.codec.mqtt.*;
 import org.apache.commons.lang3.BooleanUtils;
 
 import java.io.UnsupportedEncodingException;
@@ -18,87 +16,104 @@ import java.util.Map;
 public class Converter {
 
     /**
-     * Convert Map to InternalMessage
+     * Convert Map to (MQTT) Message
      *
      * @param map Map
-     * @return InternalMessage
+     * @return (MQTT) Message
      */
-    public static InternalMessage mapToInternal(Map<String, String> map) {
+    public static Message mapToMessage(Map<String, String> map) {
         if (map == null || map.isEmpty()) return null;
 
         int type = Integer.parseInt(map.get("type"));
         if (type == MqttMessageType.PUBLISH.value()) {
-            byte[] payload = null;
+            byte[] bytes = null;
             if (map.get("payload") != null) try {
-                payload = map.get("payload").getBytes("ISO-8859-1");
+                bytes = map.get("payload").getBytes("ISO-8859-1");
             } catch (UnsupportedEncodingException ignore) {
             }
-            return new InternalMessage<>(
-                    MqttMessageType.PUBLISH,
-                    BooleanUtils.toBoolean(map.getOrDefault("dup", "0"), "1", "0"),
-                    MqttQoS.valueOf(Integer.parseInt(map.getOrDefault("qos", "0"))),
-                    BooleanUtils.toBoolean(map.getOrDefault("retain", "0"), "1", "0"),
-                    MqttVersion.valueOf(map.getOrDefault("version", MqttVersion.MQTT_3_1_1.toString())),
-                    map.get("clientId"),
-                    map.get("userName"),
-                    null,
-                    new Publish(
+            return new Message<>(
+                    new MqttFixedHeader(
+                            MqttMessageType.PUBLISH,
+                            BooleanUtils.toBoolean(map.getOrDefault("dup", "0"), "1", "0"),
+                            MqttQoS.valueOf(Integer.parseInt(map.getOrDefault("qos", "0"))),
+                            BooleanUtils.toBoolean(map.getOrDefault("retain", "0"), "1", "0"),
+                            0
+                    ),
+                    new MqttAdditionalHeader(
+                            MqttVersion.valueOf(map.getOrDefault("version", MqttVersion.MQTT_3_1_1.toString())),
+                            map.get("clientId"),
+                            map.get("userName"),
+                            null
+                    ),
+                    MqttPublishVariableHeader.from(
                             map.get("topicName"),
-                            Integer.parseInt(map.getOrDefault("packetId", "0")),
-                            payload
+                            Integer.parseInt(map.getOrDefault("packetId", "0"))
+                    ),
+                    new MqttPublishPayload(
+                            bytes
                     ));
         } else if (type == MqttMessageType.PUBREL.value()) {
-            return new InternalMessage<>(
-                    MqttMessageType.PUBREL,
-                    false,
-                    MqttQoS.AT_LEAST_ONCE,
-                    false,
-                    MqttVersion.valueOf(map.getOrDefault("version", MqttVersion.MQTT_3_1_1.toString())),
-                    map.get("clientId"),
-                    map.get("userName"),
-                    null,
-                    new PacketId(Integer.parseInt(map.getOrDefault("packetId", "0"))));
+            return new Message<>(
+                    new MqttFixedHeader(
+                            MqttMessageType.PUBREL,
+                            false,
+                            MqttQoS.AT_LEAST_ONCE,
+                            false,
+                            0
+                    ),
+                    new MqttAdditionalHeader(
+                            MqttVersion.valueOf(map.getOrDefault("version", MqttVersion.MQTT_3_1_1.toString())),
+                            map.get("clientId"),
+                            map.get("userName"),
+                            null
+                    ),
+                    MqttPacketIdVariableHeader.from(
+                            Integer.parseInt(map.getOrDefault("packetId", "0"))
+                    ),
+                    null
+            );
         } else {
             throw new IllegalArgumentException("Invalid in-flight MQTT message type: " + MqttMessageType.valueOf(type));
         }
     }
 
     /**
-     * Convert InternalMessage to Map
+     * Convert (MQTT) Message to Map
      *
-     * @param msg InternalMessage
+     * @param msg (MQTT) Message
      * @return Map
      */
-    public static Map<String, String> internalToMap(InternalMessage msg) {
+    public static Map<String, String> messageToMap(Message msg) {
         Map<String, String> map = new HashMap<>();
         if (msg == null) return map;
 
-        if (msg.getMessageType() == MqttMessageType.PUBLISH) {
-            Publish publish = (Publish) msg.getPayload();
+        if (msg.fixedHeader().messageType() == MqttMessageType.PUBLISH) {
+            MqttPublishVariableHeader variableHeader = (MqttPublishVariableHeader) msg.variableHeader();
+            MqttPublishPayload payload = (MqttPublishPayload) msg.payload();
             map.put("type", String.valueOf(MqttMessageType.PUBLISH.value()));
-            map.put("retain", BooleanUtils.toString(msg.isRetain(), "1", "0"));
-            map.put("qos", String.valueOf(msg.getQos().value()));
-            map.put("dup", BooleanUtils.toString(msg.isDup(), "1", "0"));
-            map.put("version", msg.getVersion().toString());
-            if (!msg.isRetain()) map.put("clientId", msg.getClientId());
-            map.put("userName", msg.getUserName());
-            map.put("topicName", publish.getTopicName());
-            if (!msg.isRetain()) map.put("packetId", String.valueOf(publish.getPacketId()));
-            if (publish.getPayload() != null && publish.getPayload().length > 0) try {
-                map.put("payload", new String(publish.getPayload(), "ISO-8859-1"));
+            map.put("retain", BooleanUtils.toString(msg.fixedHeader().retain(), "1", "0"));
+            map.put("qos", String.valueOf(msg.fixedHeader().qos().value()));
+            map.put("dup", BooleanUtils.toString(msg.fixedHeader().dup(), "1", "0"));
+            map.put("version", msg.additionalHeader().version().toString());
+            if (!msg.fixedHeader().retain()) map.put("clientId", msg.additionalHeader().clientId());
+            map.put("userName", msg.additionalHeader().userName());
+            map.put("topicName", variableHeader.topicName());
+            if (!msg.fixedHeader().retain()) map.put("packetId", String.valueOf(variableHeader.packetId()));
+            if (payload.bytes() != null && payload.bytes().length > 0) try {
+                map.put("payload", new String(payload.bytes(), "ISO-8859-1"));
             } catch (UnsupportedEncodingException ignore) {
             }
             return map;
-        } else if (msg.getMessageType() == MqttMessageType.PUBREL) {
-            PacketId packetId = (PacketId) msg.getPayload();
+        } else if (msg.fixedHeader().messageType() == MqttMessageType.PUBREL) {
+            MqttPacketIdVariableHeader variableHeader = (MqttPacketIdVariableHeader) msg.variableHeader();
             map.put("type", String.valueOf(MqttMessageType.PUBREL.value()));
-            map.put("version", msg.getVersion().toString());
-            map.put("clientId", msg.getClientId());
-            map.put("userName", msg.getUserName());
-            map.put("packetId", String.valueOf(packetId.getPacketId()));
+            map.put("version", msg.additionalHeader().version().toString());
+            map.put("clientId", msg.additionalHeader().clientId());
+            map.put("userName", msg.additionalHeader().userName());
+            map.put("packetId", String.valueOf(variableHeader.packetId()));
             return map;
         } else {
-            throw new IllegalArgumentException("Invalid in-flight MQTT message type: " + msg.getMessageType());
+            throw new IllegalArgumentException("Invalid in-flight MQTT message type: " + msg.fixedHeader().messageType());
         }
     }
 }

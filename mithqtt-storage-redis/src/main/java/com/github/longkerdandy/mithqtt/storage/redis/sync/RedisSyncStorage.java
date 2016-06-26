@@ -1,7 +1,8 @@
 package com.github.longkerdandy.mithqtt.storage.redis.sync;
 
-import com.github.longkerdandy.mithqtt.api.internal.InternalMessage;
-import com.github.longkerdandy.mithqtt.api.internal.Publish;
+import com.github.longkerdandy.mithqtt.api.message.Message;
+import com.github.longkerdandy.mithqtt.api.message.MqttPublishPayload;
+import io.netty.handler.codec.mqtt.MqttPublishVariableHeader;
 import io.netty.handler.codec.mqtt.MqttQoS;
 import org.apache.commons.configuration.AbstractConfiguration;
 
@@ -121,7 +122,7 @@ public interface RedisSyncStorage {
      * @param packetId Packet Id
      * @return In-Flight Message
      */
-    InternalMessage getInFlightMessage(String clientId, int packetId);
+    Message getInFlightMessage(String clientId, int packetId);
 
     /**
      * Add in-flight message for the client
@@ -131,7 +132,7 @@ public interface RedisSyncStorage {
      * @param msg      In-Flight Message
      * @param dup      Duplicated
      */
-    void addInFlightMessage(String clientId, int packetId, InternalMessage msg, boolean dup);
+    void addInFlightMessage(String clientId, int packetId, Message msg, boolean dup);
 
     /**
      * Add in-flight message for the client but expires in certain duration
@@ -142,7 +143,7 @@ public interface RedisSyncStorage {
      * @param dup      Duplicated
      * @param ttl      Time To Live in seconds
      */
-    void addInFlightMessage(String clientId, int packetId, InternalMessage msg, boolean dup, long ttl);
+    void addInFlightMessage(String clientId, int packetId, Message msg, boolean dup, long ttl);
 
     /**
      * Remove specific in-flight message for the client
@@ -160,9 +161,9 @@ public interface RedisSyncStorage {
      * QoS 2 PUBREL messages which have been sent from the Client, but have not been acknowledged.
      *
      * @param clientId Client Id
-     * @return List of Internal Message
+     * @return List of In-Flight Message
      */
-    List<InternalMessage> getAllInFlightMessages(String clientId);
+    List<Message> getAllInFlightMessages(String clientId);
 
     /**
      * Remove all in-flight message for the client
@@ -256,7 +257,7 @@ public interface RedisSyncStorage {
      * @param msg         Retain Message
      * @return Retain Id
      */
-    int addRetainMessage(List<String> topicLevels, InternalMessage<Publish> msg);
+    int addRetainMessage(List<String> topicLevels, Message<MqttPublishVariableHeader, MqttPublishPayload> msg);
 
     /**
      * Remove all retain messages for the topic name
@@ -271,5 +272,5 @@ public interface RedisSyncStorage {
      * @param topicLevels Topic Levels
      * @return List of Retain Message
      */
-    List<InternalMessage<Publish>> getMatchRetainMessages(List<String> topicLevels);
+    List<Message<MqttPublishVariableHeader, MqttPublishPayload>> getMatchRetainMessages(List<String> topicLevels);
 }

@@ -1,14 +1,12 @@
 package com.github.longkerdandy.mithqtt.storage.redis.sync;
 
 import com.fasterxml.jackson.databind.JsonNode;
-import com.github.longkerdandy.mithqtt.api.internal.InternalMessage;
-import com.github.longkerdandy.mithqtt.api.internal.PacketId;
-import com.github.longkerdandy.mithqtt.api.internal.Publish;
+import com.github.longkerdandy.mithqtt.api.message.Message;
+import com.github.longkerdandy.mithqtt.api.message.MqttAdditionalHeader;
+import com.github.longkerdandy.mithqtt.api.message.MqttPublishPayload;
 import com.github.longkerdandy.mithqtt.storage.redis.RedisKey;
 import com.github.longkerdandy.mithqtt.util.Topics;
-import io.netty.handler.codec.mqtt.MqttMessageType;
-import io.netty.handler.codec.mqtt.MqttQoS;
-import io.netty.handler.codec.mqtt.MqttVersion;
+import io.netty.handler.codec.mqtt.*;
 import org.apache.commons.configuration.ConfigurationException;
 import org.apache.commons.configuration.MapConfiguration;
 import org.junit.After;
@@ -136,24 +134,25 @@ public class RedisSyncSingleStorageTest {
                 "  }\n" +
                 "}}";
         JsonNode jn = ObjectMapper.readTree(json);
-        InternalMessage<Publish> publish = new InternalMessage<>(
-                MqttMessageType.PUBLISH, false, MqttQoS.AT_LEAST_ONCE, false,
-                MqttVersion.MQTT_3_1_1, "client1", "user1", "broker1",
-                new Publish("menuTopic", 123456, ObjectMapper.writeValueAsBytes(jn)));
+        Message<MqttPublishVariableHeader, MqttPublishPayload> publish = new Message<>(
+                new MqttFixedHeader(MqttMessageType.PUBLISH, false, MqttQoS.AT_LEAST_ONCE, false, 0),
+                new MqttAdditionalHeader(MqttVersion.MQTT_3_1_1, "client1", "user1", "broker1"),
+                MqttPublishVariableHeader.from("menuTopic", 12345),
+                new MqttPublishPayload(ObjectMapper.writeValueAsBytes(jn)));
 
-        redis.addInFlightMessage("client1", 123456, publish, false);
-        publish = redis.getInFlightMessage("client1", 123456);
+        redis.addInFlightMessage("client1", 12345, publish, false);
+        publish = redis.getInFlightMessage("client1", 12345);
 
-        assert publish.getMessageType() == MqttMessageType.PUBLISH;
-        assert !publish.isDup();
-        assert publish.getQos() == MqttQoS.AT_LEAST_ONCE;
-        assert !publish.isRetain();
-        assert publish.getVersion() == MqttVersion.MQTT_3_1_1;
-        assert publish.getClientId().equals("client1");
-        assert publish.getUserName().equals("user1");
-        assert publish.getPayload().getTopicName().equals("menuTopic");
-        assert publish.getPayload().getPacketId() == 123456;
-        jn = ObjectMapper.readTree(publish.getPayload().getPayload());
+        assert publish.fixedHeader().messageType() == MqttMessageType.PUBLISH;
+        assert !publish.fixedHeader().dup();
+        assert publish.fixedHeader().qos() == MqttQoS.AT_LEAST_ONCE;
+        assert !publish.fixedHeader().retain();
+        assert publish.additionalHeader().version() == MqttVersion.MQTT_3_1_1;
+        assert publish.additionalHeader().clientId().equals("client1");
+        assert publish.additionalHeader().userName().equals("user1");
+        assert publish.variableHeader().topicName().equals("menuTopic");
+        assert publish.variableHeader().packetId() == 12345;
+        jn = ObjectMapper.readTree(publish.payload().bytes());
         assert jn.get("menu").get("id").textValue().endsWith("file");
         assert jn.get("menu").get("value").textValue().endsWith("File");
         assert jn.get("menu").get("popup").get("menuItem").get(0).get("value").textValue().equals("New");
@@ -164,46 +163,55 @@ public class RedisSyncSingleStorageTest {
         assert jn.get("menu").get("popup").get("menuItem").get(2).get("onclick").textValue().equals("CloseDoc()");
 
         publish = redis.getAllInFlightMessages("client1").get(0);
-        assert publish.getPayload().getPacketId() == 123456;
+        assert publish.variableHeader().packetId() == 12345;
 
-        redis.removeInFlightMessage("client1", 123456);
+        redis.removeInFlightMessage("client1", 12345);
 
-        assert redis.getInFlightMessage("client1", 123456) == null;
+        assert redis.getInFlightMessage("client1", 12345) == null;
         assert redis.getAllInFlightMessages("client1").size() == 0;
 
-        InternalMessage<PacketId> pubrel = new InternalMessage<>(
-                MqttMessageType.PUBREL, false, MqttQoS.AT_LEAST_ONCE, false,
-                MqttVersion.MQTT_3_1_1, "client1", "user1", "broker1",
-                new PacketId(10000));
-
+        Message<MqttPacketIdVariableHeader, Void> pubrel = new Message<>(
+                new MqttFixedHeader(MqttMessageType.PUBREL, false, MqttQoS.AT_LEAST_ONCE, false, 0),
+                new MqttAdditionalHeader(MqttVersion.MQTT_3_1_1, "client1", "user1", "broker1"),
+                MqttPacketIdVariableHeader.from(10000),
+                null
+        );
         redis.addInFlightMessage("client1", 10000, pubrel, false);
-        pubrel = new InternalMessage<>(
-                MqttMessageType.PUBREL, false, MqttQoS.AT_LEAST_ONCE, false,
-                MqttVersion.MQTT_3_1_1, "client1", "user1", "broker1",
-                new PacketId(10001));
+
+        pubrel = new Message<>(
+                new MqttFixedHeader(MqttMessageType.PUBREL, false, MqttQoS.AT_LEAST_ONCE, false, 0),
+                new MqttAdditionalHeader(MqttVersion.MQTT_3_1_1, "client1", "user1", "broker1"),
+                MqttPacketIdVariableHeader.from(10001),
+                null
+        );
         redis.addInFlightMessage("client1", 10001, pubrel, false);
-        pubrel = new InternalMessage<>(
-                MqttMessageType.PUBREL, false, MqttQoS.AT_LEAST_ONCE, false,
-                MqttVersion.MQTT_3_1_1, "client1", "user1", "broker1",
-                new PacketId(10002));
+
+        pubrel = new Message<>(
+                new MqttFixedHeader(MqttMessageType.PUBREL, false, MqttQoS.AT_LEAST_ONCE, false, 0),
+                new MqttAdditionalHeader(MqttVersion.MQTT_3_1_1, "client1", "user1", "broker1"),
+                MqttPacketIdVariableHeader.from(10002),
+                null
+        );
         redis.addInFlightMessage("client1", 10002, pubrel, false);
 
         assert redis.getAllInFlightMessages("client1").size() == 3;
         pubrel = redis.getAllInFlightMessages("client1").get(1);
 
-        assert pubrel.getMessageType() == MqttMessageType.PUBREL;
-        assert !pubrel.isDup();
-        assert pubrel.getQos() == MqttQoS.AT_LEAST_ONCE;
-        assert !pubrel.isRetain();
-        assert pubrel.getVersion() == MqttVersion.MQTT_3_1_1;
-        assert pubrel.getClientId().equals("client1");
-        assert pubrel.getUserName().equals("user1");
-        assert pubrel.getPayload().getPacketId() == 10001;
+        assert pubrel.fixedHeader().messageType() == MqttMessageType.PUBREL;
+        assert !pubrel.fixedHeader().dup();
+        assert pubrel.fixedHeader().qos() == MqttQoS.AT_LEAST_ONCE;
+        assert !pubrel.fixedHeader().retain();
+        assert pubrel.additionalHeader().version() == MqttVersion.MQTT_3_1_1;
+        assert pubrel.additionalHeader().clientId().equals("client1");
+        assert pubrel.additionalHeader().userName().equals("user1");
+        assert pubrel.variableHeader().packetId() == 10001;
 
-        pubrel = new InternalMessage<>(
-                MqttMessageType.PUBREL, false, MqttQoS.AT_LEAST_ONCE, false,
-                MqttVersion.MQTT_3_1_1, "client1", "user1", "broker1",
-                new PacketId(10003));
+        pubrel = new Message<>(
+                new MqttFixedHeader(MqttMessageType.PUBREL, false, MqttQoS.AT_LEAST_ONCE, false, 0),
+                new MqttAdditionalHeader(MqttVersion.MQTT_3_1_1, "client1", "user1", "broker1"),
+                MqttPacketIdVariableHeader.from(10003),
+                null
+        );
         redis.addInFlightMessage("client1", 10003, pubrel, false);
 
         assert redis.getAllInFlightMessages("client1").size() == 3;
@@ -315,22 +323,23 @@ public class RedisSyncSingleStorageTest {
                 "  }\n" +
                 "}}";
         JsonNode jn = ObjectMapper.readTree(json);
-        InternalMessage<Publish> publish = new InternalMessage<>(
-                MqttMessageType.PUBLISH, false, MqttQoS.AT_LEAST_ONCE, false,
-                MqttVersion.MQTT_3_1_1, "client1", "user1", "broker1",
-                new Publish("menuTopic", 123456, ObjectMapper.writeValueAsBytes(jn)));
+        Message<MqttPublishVariableHeader, MqttPublishPayload> publish = new Message<>(
+                new MqttFixedHeader(MqttMessageType.PUBLISH, false, MqttQoS.AT_LEAST_ONCE, false, 0),
+                new MqttAdditionalHeader(MqttVersion.MQTT_3_1_1, "client1", "user1", "broker1"),
+                MqttPublishVariableHeader.from("menuTopic", 12345),
+                new MqttPublishPayload(ObjectMapper.writeValueAsBytes(jn)));
 
         redis.addRetainMessage(Topics.sanitize("a/b/c/d"), publish);
         publish = redis.getMatchRetainMessages(Topics.sanitize("a/b/c/d")).get(0);
 
-        assert publish.getMessageType() == MqttMessageType.PUBLISH;
-        assert !publish.isDup();
-        assert publish.getQos() == MqttQoS.AT_LEAST_ONCE;
-        assert !publish.isRetain();
-        assert publish.getVersion() == MqttVersion.MQTT_3_1_1;
-        assert publish.getUserName().equals("user1");
-        assert publish.getPayload().getTopicName().equals("menuTopic");
-        jn = ObjectMapper.readTree(publish.getPayload().getPayload());
+        assert publish.fixedHeader().messageType() == MqttMessageType.PUBLISH;
+        assert !publish.fixedHeader().dup();
+        assert publish.fixedHeader().qos() == MqttQoS.AT_LEAST_ONCE;
+        assert !publish.fixedHeader().retain();
+        assert publish.additionalHeader().version() == MqttVersion.MQTT_3_1_1;
+        assert publish.additionalHeader().userName().equals("user1");
+        assert publish.variableHeader().topicName().equals("menuTopic");
+        jn = ObjectMapper.readTree(publish.payload().bytes());
         assert jn.get("menu").get("id").textValue().endsWith("file");
         assert jn.get("menu").get("value").textValue().endsWith("File");
         assert jn.get("menu").get("popup").get("menuItem").get(0).get("value").textValue().equals("New");
@@ -356,26 +365,31 @@ public class RedisSyncSingleStorageTest {
 
     @Test
     public void matchRetainTest() {
-        InternalMessage<Publish> p1 = new InternalMessage<>(
-                MqttMessageType.PUBLISH, false, MqttQoS.AT_LEAST_ONCE, false,
-                MqttVersion.MQTT_3_1_1, "client1", "user1", "broker1",
-                new Publish("foo/bar", 100, "Hello Retain 1".getBytes()));
-        InternalMessage<Publish> p2 = new InternalMessage<>(
-                MqttMessageType.PUBLISH, false, MqttQoS.AT_LEAST_ONCE, false,
-                MqttVersion.MQTT_3_1_1, "client2", "user2", "broker2",
-                new Publish("foo/bar/zoo", 200, "Hello Retain 2".getBytes()));
-        InternalMessage<Publish> p3 = new InternalMessage<>(
-                MqttMessageType.PUBLISH, false, MqttQoS.AT_LEAST_ONCE, false,
-                MqttVersion.MQTT_3_1_1, "client3", "user3", "broker3",
-                new Publish("foo/bar/zoo/rar", 300, "Hello Retain 3".getBytes()));
-        InternalMessage<Publish> p4 = new InternalMessage<>(
-                MqttMessageType.PUBLISH, false, MqttQoS.AT_LEAST_ONCE, false,
-                MqttVersion.MQTT_3_1_1, "client4", "user4", "broker4",
-                new Publish("foo/moo", 400, "Hello Retain 4".getBytes()));
-        InternalMessage<Publish> p5 = new InternalMessage<>(
-                MqttMessageType.PUBLISH, false, MqttQoS.AT_LEAST_ONCE, false,
-                MqttVersion.MQTT_3_1_1, "client5", "user5", "broker5",
-                new Publish("foo/moo/zoo", 500, "Hello Retain 5".getBytes()));
+        Message<MqttPublishVariableHeader, MqttPublishPayload> p1 = new Message<>(
+                new MqttFixedHeader(MqttMessageType.PUBLISH, false, MqttQoS.AT_LEAST_ONCE, false, 0),
+                new MqttAdditionalHeader(MqttVersion.MQTT_3_1_1, "client1", "user1", "broker1"),
+                MqttPublishVariableHeader.from("foo/bar", 100),
+                new MqttPublishPayload("Hello Retain 1".getBytes()));
+        Message<MqttPublishVariableHeader, MqttPublishPayload> p2 = new Message<>(
+                new MqttFixedHeader(MqttMessageType.PUBLISH, false, MqttQoS.AT_LEAST_ONCE, false, 0),
+                new MqttAdditionalHeader(MqttVersion.MQTT_3_1_1, "client2", "user2", "broker2"),
+                MqttPublishVariableHeader.from("foo/bar/zoo", 200),
+                new MqttPublishPayload("Hello Retain 2".getBytes()));
+        Message<MqttPublishVariableHeader, MqttPublishPayload> p3 = new Message<>(
+                new MqttFixedHeader(MqttMessageType.PUBLISH, false, MqttQoS.AT_LEAST_ONCE, false, 0),
+                new MqttAdditionalHeader(MqttVersion.MQTT_3_1_1, "client3", "user3", "broker3"),
+                MqttPublishVariableHeader.from("foo/bar/zoo/rar", 300),
+                new MqttPublishPayload("Hello Retain 3".getBytes()));
+        Message<MqttPublishVariableHeader, MqttPublishPayload> p4 = new Message<>(
+                new MqttFixedHeader(MqttMessageType.PUBLISH, false, MqttQoS.AT_LEAST_ONCE, false, 0),
+                new MqttAdditionalHeader(MqttVersion.MQTT_3_1_1, "client4", "user4", "broker4"),
+                MqttPublishVariableHeader.from("foo/moo", 400),
+                new MqttPublishPayload("Hello Retain 4".getBytes()));
+        Message<MqttPublishVariableHeader, MqttPublishPayload> p5 = new Message<>(
+                new MqttFixedHeader(MqttMessageType.PUBLISH, false, MqttQoS.AT_LEAST_ONCE, false, 0),
+                new MqttAdditionalHeader(MqttVersion.MQTT_3_1_1, "client5", "user5", "broker5"),
+                MqttPublishVariableHeader.from("foo/moo/zoo", 500),
+                new MqttPublishPayload("Hello Retain 5".getBytes()));
 
         redis.addRetainMessage(Topics.sanitize("foo/bar"), p1);
         redis.addRetainMessage(Topics.sanitize("foo/bar/zoo"), p2);
