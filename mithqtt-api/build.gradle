@@ -2,6 +2,10 @@ dependencies {
     // netty
     compile 'io.netty:netty-codec:4.1.0.Final'
 
+    // jackson
+    compile 'com.fasterxml.jackson.core:jackson-core:2.8.0'
+    compile 'com.fasterxml.jackson.core:jackson-databind:2.8.0'
+
     // uuid
     compile 'com.fasterxml.uuid:java-uuid-generator:3.1.4'
 }
