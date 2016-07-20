@@ -2,6 +2,7 @@ package com.github.longkerdandy.mithqtt.storage.redis.sync;
 
 import com.github.longkerdandy.mithqtt.api.message.Message;
 import com.github.longkerdandy.mithqtt.api.message.MqttPublishPayload;
+import com.github.longkerdandy.mithqtt.storage.redis.ConnectionState;
 import com.github.longkerdandy.mithqtt.storage.redis.RedisKey;
 import com.github.longkerdandy.mithqtt.storage.redis.RedisLua;
 import com.github.longkerdandy.mithqtt.util.Topics;
@@ -135,7 +136,7 @@ public class RedisSyncSingleStorage implements RedisSyncStorage {
     }
 
     @Override
-    public boolean lock(String clientId, int state) {
+    public boolean lock(String clientId, ConnectionState state) {
         // nil(-1):DISCONNECTED 0:DISCONNECTING 1:CONNECTING 2:CONNECTED
         long r = this.script().eval("local current = redis.call('HGET', KEYS[1], 'state')\n" +
                 "if (not current or '2' == current) and '1' == ARGV[1]\n" +
@@ -148,12 +149,12 @@ public class RedisSyncSingleStorage implements RedisSyncStorage {
                 "   redis.call('HSET', KEYS[1], 'state', ARGV[1])\n" +
                 "   return 1\n" +
                 "end\n" +
-                "return 0", ScriptOutputType.INTEGER, new String[]{RedisKey.connection(clientId)}, String.valueOf(state));
+                "return 0", ScriptOutputType.INTEGER, new String[]{RedisKey.connection(clientId)}, String.valueOf(state.value()));
         return r == 1;
     }
 
     @Override
-    public boolean release(String clientId, int state) {
+    public boolean release(String clientId, ConnectionState state) {
         // nil(-1):DISCONNECTED 0:DISCONNECTING 1:CONNECTING 2:CONNECTED
         long r = this.script().eval("local current = redis.call('HGET', KEYS[1], 'state')\n" +
                 "if '1' == current and '2' == ARGV[1]\n" +
@@ -166,7 +167,7 @@ public class RedisSyncSingleStorage implements RedisSyncStorage {
                 "   redis.call('HDEL', KEYS[1], 'state')\n" +
                 "   return 1\n" +
                 "end\n" +
-                "return 0", ScriptOutputType.INTEGER, new String[]{RedisKey.connection(clientId)}, String.valueOf(state));
+                "return 0", ScriptOutputType.INTEGER, new String[]{RedisKey.connection(clientId)}, String.valueOf(state.value()));
         return r == 1;
     }
 
@@ -184,6 +185,17 @@ public class RedisSyncSingleStorage implements RedisSyncStorage {
     }
 
     @Override
+    public boolean refreshConnectedNode(String clientId, String node, int seconds) {
+        long r = this.script().eval("if ARGV[1] == redis.call('HGET', KEYS[1], 'node')\n" +
+                "then\n" +
+                "   redis.call('EXPIRE', KEYS[1], ARGV[2])\n" +
+                "   return 1\n" +
+                "end\n" +
+                "return 0", ScriptOutputType.INTEGER, new String[]{RedisKey.connection(clientId)}, node, String.valueOf(seconds));
+        return r == 1;
+    }
+
+    @Override
     public boolean removeConnectedNode(String clientId, String node) {
         long r = this.script().eval("if ARGV[1] == redis.call('HGET', KEYS[1], 'node')\n" +
                 "then\n" +
@@ -193,6 +205,7 @@ public class RedisSyncSingleStorage implements RedisSyncStorage {
                 "return 0", ScriptOutputType.INTEGER, new String[]{RedisKey.connection(clientId)}, node);
         return r == 1;
     }
+
 
     @Override
     public int getSessionExist(String clientId) {

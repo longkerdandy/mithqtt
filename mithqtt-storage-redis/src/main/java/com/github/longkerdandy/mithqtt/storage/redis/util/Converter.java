@@ -26,7 +26,7 @@ public class Converter {
 
         int type = Integer.parseInt(map.get("type"));
         if (type == MqttMessageType.PUBLISH.value()) {
-            byte[] bytes = null;
+            byte[] bytes = new byte[0];
             if (map.get("payload") != null) try {
                 bytes = map.get("payload").getBytes("ISO-8859-1");
             } catch (UnsupportedEncodingException ignore) {
@@ -99,7 +99,7 @@ public class Converter {
             map.put("userName", msg.additionalHeader().userName());
             map.put("topicName", variableHeader.topicName());
             if (!msg.fixedHeader().retain()) map.put("packetId", String.valueOf(variableHeader.packetId()));
-            if (payload.bytes() != null && payload.bytes().length > 0) try {
+            if (payload != null && payload.bytes() != null && payload.bytes().length > 0) try {
                 map.put("payload", new String(payload.bytes(), "ISO-8859-1"));
             } catch (UnsupportedEncodingException ignore) {
             }

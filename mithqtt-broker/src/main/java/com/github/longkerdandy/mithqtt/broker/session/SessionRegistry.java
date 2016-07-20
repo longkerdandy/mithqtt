@@ -3,7 +3,6 @@ package com.github.longkerdandy.mithqtt.broker.session;
 import io.netty.channel.ChannelFuture;
 import io.netty.channel.ChannelHandlerContext;
 import io.netty.handler.codec.mqtt.MqttMessage;
-import io.netty.util.concurrent.GenericFutureListener;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -92,14 +91,11 @@ public class SessionRegistry {
     public void sendMessage(ChannelHandlerContext ctx, MqttMessage msg, String clientId, Integer packetId, boolean flush) {
         String pid = packetId == null || packetId <= 0 ? "" : String.valueOf(packetId);
         ChannelFuture future = flush ? ctx.writeAndFlush(msg) : ctx.write(msg);
-        future.addListener(new GenericFutureListener<ChannelFuture>() {
-            @Override
-            public void operationComplete(ChannelFuture future) throws Exception {
-                if (future.isSuccess()) {
-                    logger.debug("Message succeed: Message {} {} has been sent to client {} successfully", msg.fixedHeader().messageType(), pid, clientId);
-                } else {
-                    logger.debug("Message failed: Message {} {} failed to send to client {}: ", msg.fixedHeader().messageType(), pid, clientId, future.cause());
-                }
+        future.addListener(f -> {
+            if (f.isSuccess()) {
+                logger.debug("Message succeed: Message {} {} has been sent to client {} successfully", msg.fixedHeader().messageType(), pid, clientId);
+            } else {
+                logger.debug("Message failed: Message {} {} failed to send to client {}: ", msg.fixedHeader().messageType(), pid, clientId, f.cause());
             }
         });
     }

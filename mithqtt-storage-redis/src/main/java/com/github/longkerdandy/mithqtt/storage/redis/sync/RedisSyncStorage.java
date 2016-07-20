@@ -2,6 +2,7 @@ package com.github.longkerdandy.mithqtt.storage.redis.sync;
 
 import com.github.longkerdandy.mithqtt.api.message.Message;
 import com.github.longkerdandy.mithqtt.api.message.MqttPublishPayload;
+import com.github.longkerdandy.mithqtt.storage.redis.ConnectionState;
 import io.netty.handler.codec.mqtt.MqttPublishVariableHeader;
 import io.netty.handler.codec.mqtt.MqttQoS;
 import org.apache.commons.configuration.AbstractConfiguration;
@@ -37,7 +38,7 @@ public interface RedisSyncStorage {
      * @param state    Client State
      * @return True if current state is CONNECTED or DISCONNECTED
      */
-    boolean lock(String clientId, int state);
+    boolean lock(String clientId, ConnectionState state);
 
     /**
      * Try to release specific client to specific state
@@ -47,7 +48,7 @@ public interface RedisSyncStorage {
      * @param state    Client State
      * @return True if current state is CONNECTING or DISCONNECTING
      */
-    boolean release(String clientId, int state);
+    boolean release(String clientId, ConnectionState state);
 
     /**
      * Get connected mqtt broker node (id) for the client
@@ -66,6 +67,16 @@ public interface RedisSyncStorage {
      * @return Previous connected MQTT Broker Node (Id), Null if not exist
      */
     String updateConnectedNode(String clientId, String node, int seconds);
+
+    /**
+     * Refresh TTL connected mqtt broker node (id) for the client
+     *
+     * @param clientId Client Id
+     * @param node     MQTT Broker Node (Id)
+     * @param seconds  TTL
+     * @return Refreshed? (Exist)
+     */
+    boolean refreshConnectedNode(String clientId, String node, int seconds);
 
     /**
      * Remove connected mqtt broker node (id) for the client

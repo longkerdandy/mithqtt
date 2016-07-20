@@ -45,8 +45,8 @@ public class NATSCluster {
         logger.trace("Loading cluster configurations ...");
 
         // Topics for broker and application
-        BROKER_TOPIC_PREFIX = config.getString("communicator.broker.topic");
-        APPLICATION_TOPIC = config.getString("communicator.application.topic");
+        BROKER_TOPIC_PREFIX = config.getString("broker.topic");
+        APPLICATION_TOPIC = config.getString("application.topic");
 
         // Setup options to include all servers in the cluster
         ConnectionFactory cf = new ConnectionFactory();

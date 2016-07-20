@@ -1,17 +1,17 @@
 package com.github.longkerdandy.mithqtt.broker.handler;
 
-import com.github.longkerdandy.mithqtt.api.auth.AuthorizeResult;
-import com.github.longkerdandy.mithqtt.api.internal.InternalMessage;
-import com.github.longkerdandy.mithqtt.api.internal.Publish;
 import com.github.longkerdandy.mithqtt.api.auth.Authenticator;
-import com.github.longkerdandy.mithqtt.api.comm.BrokerCommunicator;
-import com.github.longkerdandy.mithqtt.api.internal.Disconnect;
-import com.github.longkerdandy.mithqtt.api.internal.PacketId;
+import com.github.longkerdandy.mithqtt.api.auth.AuthorizeResult;
+import com.github.longkerdandy.mithqtt.api.message.Message;
+import com.github.longkerdandy.mithqtt.api.message.MqttAdditionalHeader;
+import com.github.longkerdandy.mithqtt.api.message.MqttPublishPayload;
+import com.github.longkerdandy.mithqtt.broker.cluster.NATSCluster;
 import com.github.longkerdandy.mithqtt.broker.session.SessionRegistry;
 import com.github.longkerdandy.mithqtt.broker.util.Validator;
+import com.github.longkerdandy.mithqtt.storage.redis.ConnectionState;
 import com.github.longkerdandy.mithqtt.storage.redis.sync.RedisSyncStorage;
 import com.github.longkerdandy.mithqtt.util.Topics;
-import io.netty.buffer.ByteBuf;
+import com.github.longkerdandy.mithqtt.util.UUIDs;
 import io.netty.buffer.Unpooled;
 import io.netty.channel.ChannelHandlerContext;
 import io.netty.channel.SimpleChannelInboundHandler;
@@ -29,8 +29,6 @@ import java.io.IOException;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.concurrent.TimeUnit;
-import java.util.concurrent.locks.Lock;
 
 /**
  * Synchronous MQTT Handler using Redis
@@ -39,26 +37,26 @@ public class SyncRedisHandler extends SimpleChannelInboundHandler<MqttMessage> {
 
     private static final Logger logger = LoggerFactory.getLogger(SyncRedisHandler.class);
 
-    protected final Authenticator authenticator;
-    protected final BrokerCommunicator communicator;
-    protected final RedisSyncStorage redis;
-    protected final SessionRegistry registry;
-    protected final Validator validator;
+    private final Authenticator authenticator;
+    private final NATSCluster cluster;
+    private final RedisSyncStorage redis;
+    private final SessionRegistry registry;
+    private final Validator validator;
 
     // session state
-    protected MqttVersion version;
-    protected String clientId;
-    protected String userName;
-    protected String brokerId;
-    protected boolean connected;
-    protected boolean cleanSession;
-    protected int keepAlive;
-    protected int keepAliveMax;
-    protected MqttPublishMessage willMessage;
+    private MqttVersion version;
+    private String clientId;
+    private String userName;
+    private String brokerId;
+    private boolean connected;
+    private boolean cleanSession;
+    private int keepAlive;
+    private int keepAliveMax;
+    private MqttPublishMessage willMessage;
 
-    public SyncRedisHandler(Authenticator authenticator, BrokerCommunicator communicator, RedisSyncStorage redis, SessionRegistry registry, Validator validator, String brokerId, int keepAlive, int keepAliveMax) {
+    public SyncRedisHandler(Authenticator authenticator, NATSCluster cluster, RedisSyncStorage redis, SessionRegistry registry, Validator validator, String brokerId, int keepAlive, int keepAliveMax) {
         this.authenticator = authenticator;
-        this.communicator = communicator;
+        this.cluster = cluster;
         this.redis = redis;
         this.registry = registry;
         this.validator = validator;
@@ -136,10 +134,13 @@ public class SyncRedisHandler extends SimpleChannelInboundHandler<MqttMessage> {
         }
     }
 
-    protected void onConnect(ChannelHandlerContext ctx, MqttConnectMessage msg) {
+    private void onConnect(ChannelHandlerContext ctx, MqttConnectMessage msg) {
         this.version = MqttVersion.fromProtocolNameAndLevel(msg.variableHeader().protocolName(), (byte) msg.variableHeader().protocolLevel());
         this.clientId = msg.payload().clientId();
         this.cleanSession = msg.variableHeader().cleanSession();
+        if (msg.variableHeader().keepAlive() > 0 && msg.variableHeader().keepAlive() <= this.keepAliveMax) {
+            this.keepAlive = msg.variableHeader().keepAlive();
+        }
 
         // A Server MAY allow a Client to supply a ClientId that has a length of zero bytes, however if it does so the
         // Server MUST treat this as a special case and assign a unique ClientId to that Client. It MUST then
@@ -161,11 +162,13 @@ public class SyncRedisHandler extends SimpleChannelInboundHandler<MqttMessage> {
                         true);
                 ctx.close();
                 return;
+            } else {
+                this.clientId = UUIDs.shortUuid();
             }
         }
 
         // Validate clientId based on configuration
-        if (!this.validator.isClientIdValid(this.clientId)) {
+        else if (!this.validator.isClientIdValid(this.clientId)) {
             logger.debug("Protocol violation: Client id {} not valid based on configuration, send CONNACK and disconnect the client", this.clientId);
             this.registry.sendMessage(
                     ctx,
@@ -173,7 +176,7 @@ public class SyncRedisHandler extends SimpleChannelInboundHandler<MqttMessage> {
                             new MqttFixedHeader(MqttMessageType.CONNACK, false, MqttQoS.AT_MOST_ONCE, false, 0),
                             new MqttConnAckVariableHeader(MqttConnectReturnCode.CONNECTION_REFUSED_IDENTIFIER_REJECTED, false),
                             null),
-                    "INVALID",
+                    this.clientId,
                     null,
                     true);
             ctx.close();
@@ -231,123 +234,112 @@ public class SyncRedisHandler extends SimpleChannelInboundHandler<MqttMessage> {
         AuthorizeResult result = this.authenticator.authConnect(this.clientId, this.userName, password);
         // Authorize successful
         if (result == AuthorizeResult.OK) {
-            logger.trace("Authorization succeed: Connection authorized for client {} user {}", this.clientId, this.userName);
+            logger.trace("Authorization CONNECT succeeded for client {} user {}", this.clientId, this.userName);
 
-            // Previous client connected broker
-            String previous = null;
-
-            // ============================== LOCK LOCK LOCK ==============================
-
-            Lock lock = this.redis.getLock(this.clientId);
-            try {
-                if (!lock.tryLock(5, TimeUnit.SECONDS)) {
-                    logger.warn("Lock failed: Failed to lock on client {}, send CONNACK and disconnect the client", this.clientId);
-                    this.registry.sendMessage(
-                            ctx,
-                            MqttMessageFactory.newMessage(
-                                    new MqttFixedHeader(MqttMessageType.CONNACK, false, MqttQoS.AT_MOST_ONCE, false, 0),
-                                    new MqttConnAckVariableHeader(MqttConnectReturnCode.CONNECTION_REFUSED_SERVER_UNAVAILABLE, false),
-                                    null),
-                            this.clientId,
-                            null,
-                            true);
-                    ctx.close();
-                    return;
-                } else {
-                    logger.trace("Lock succeed: Successful lock on client {}", this.clientId);
-                }
-
-                // Mark client's connected broker node
-                logger.trace("Update node: Mark client {} connected to broker {}", this.clientId, this.brokerId);
-                previous = this.redis.updateConnectedNode(this.clientId, this.brokerId);
-
-                // If the Server accepts a connection with CleanSession set to 1, the Server MUST set Session Present to 0
-                // in the CONNACK packet in addition to setting a zero return code in the CONNACK packet
-                // If the Server accepts a connection with CleanSession set to 0, the value set in Session Present depends
-                // on whether the Server already has stored Session state for the supplied client ID. If the Server has stored
-                // Session state, it MUST set Session Present to 1 in the CONNACK packet. If the Server
-                // does not have stored Session state, it MUST set Session Present to 0 in the CONNACK packet. This is in
-                // addition to setting a zero return code in the CONNACK packet.
-                int exist = this.redis.getSessionExist(this.clientId);
-                boolean sessionPresent = (exist >= 0) && !this.cleanSession;
-
-                // The first packet sent from the Server to the Client MUST be a CONNACK Packet
-                logger.trace("Message response: Send CONNACK back to client {}", this.clientId);
+            // Require lock on client connection state
+            if (!this.redis.lock(this.clientId, ConnectionState.CONNECTING)) {
+                logger.warn("Lock failed: Failed to lock on client {}, send CONNACK and disconnect the client", this.clientId);
                 this.registry.sendMessage(
                         ctx,
                         MqttMessageFactory.newMessage(
                                 new MqttFixedHeader(MqttMessageType.CONNACK, false, MqttQoS.AT_MOST_ONCE, false, 0),
-                                new MqttConnAckVariableHeader(MqttConnectReturnCode.CONNECTION_ACCEPTED, sessionPresent),
+                                new MqttConnAckVariableHeader(MqttConnectReturnCode.CONNECTION_REFUSED_SERVER_UNAVAILABLE, false),
                                 null),
                         this.clientId,
                         null,
                         true);
-
-                // If CleanSession is set to 0, the Server MUST resume communications with the Client based on state from
-                // the current Session (as identified by the Client identifier). If there is no Session associated with the Client
-                // identifier the Server MUST create a new Session. The Client and Server MUST store the Session after
-                // the Client and Server are disconnected. After the disconnection of a Session that had
-                // CleanSession set to 0, the Server MUST store further QoS 1 and QoS 2 messages that match any
-                // subscriptions that the client had at the time of disconnection as part of the Session state.
-                // It MAY also store QoS 0 messages that meet the same criteria.
-                // The Session state in the Server consists of:
-                // The existence of a Session, even if the rest of the Session state is empty.
-                // The Client's subscriptions.
-                // QoS 1 and QoS 2 messages which have been sent to the Client, but have not been completely acknowledged.
-                // QoS 1 and QoS 2 messages pending transmission to the Client.
-                // QoS 2 messages which have been received from the Client, but have not been completely acknowledged.
-                // Optionally, QoS 0 messages pending transmission to the Client.
-                if (!this.cleanSession) {
-                    if (exist == 0) {
-                        logger.trace("Message response: Resend In-Flight messages to client {}", this.clientId);
-                        for (InternalMessage inFlight : this.redis.getAllInFlightMessages(this.clientId)) {
-                            if (inFlight.getMessageType() == MqttMessageType.PUBLISH) {
-                                this.registry.sendMessage(ctx, inFlight.toMqttMessage(), this.clientId, ((Publish) inFlight.getPayload()).getPacketId(), false);
-                            } else if (inFlight.getMessageType() == MqttMessageType.PUBREL) {
-                                this.registry.sendMessage(ctx, inFlight.toMqttMessage(), this.clientId, ((PacketId) inFlight.getPayload()).getPacketId(), false);
-                            }
-                        }
-                        ctx.flush();
-                    } else if (exist == 1) {
-                        logger.trace("Clear session: Clear session state for client {} because former connection is clean session", this.clientId);
-                        this.redis.removeAllSessionState(this.clientId);
-                    }
-                }
-                // If CleanSession is set to 1, the Client and Server MUST discard any previous Session and start a new
-                // one. This Session lasts as long as the Network Connection. State data associated with this Session
-                // MUST NOT be reused in any subsequent Session.
-                // When CleanSession is set to 1 the Client and Server need not process the deletion of state atomically.
-                else {
-                    if (exist >= 0) {
-                        logger.trace("Clear session: Clear session state for client {} because current connection is clean session", this.clientId);
-                        this.redis.removeAllSessionState(this.clientId);
-                    }
-                }
-
-                // Mark client's session as existed
-                this.redis.updateSessionExist(this.clientId, this.cleanSession);
-
-            } catch (InterruptedException e) {
-                logger.error("Lock error: Interrupted when trying to lock on client {}: ", this.clientId, e);
-            } finally {
-                // Always unlock
-                lock.unlock();
+                ctx.close();
+                return;
+            } else {
+                logger.trace("Successfully lock on client {}", this.clientId);
             }
 
-            // ============================== LOCK LOCK LOCK ==============================
+            // Mark client's connected broker node
+            logger.trace("Mark client {} connected to broker {}", this.clientId, this.brokerId);
+            String previous = this.redis.updateConnectedNode(this.clientId, this.brokerId, Math.round(this.keepAlive * 1.5f));
+
+            // If the Server accepts a connection with CleanSession set to 1, the Server MUST set Session Present to 0
+            // in the CONNACK packet in addition to setting a zero return code in the CONNACK packet
+            // If the Server accepts a connection with CleanSession set to 0, the value set in Session Present depends
+            // on whether the Server already has stored Session state for the supplied client ID. If the Server has stored
+            // Session state, it MUST set Session Present to 1 in the CONNACK packet. If the Server
+            // does not have stored Session state, it MUST set Session Present to 0 in the CONNACK packet. This is in
+            // addition to setting a zero return code in the CONNACK packet.
+            int exist = this.redis.getSessionExist(this.clientId);
+            boolean sessionPresent = (exist >= 0) && !this.cleanSession;
+
+            // The first packet sent from the Server to the Client MUST be a CONNACK Packet
+            logger.trace("Send CONNACK back to client {}", this.clientId);
+            this.registry.sendMessage(
+                    ctx,
+                    MqttMessageFactory.newMessage(
+                            new MqttFixedHeader(MqttMessageType.CONNACK, false, MqttQoS.AT_MOST_ONCE, false, 0),
+                            new MqttConnAckVariableHeader(MqttConnectReturnCode.CONNECTION_ACCEPTED, sessionPresent),
+                            null),
+                    this.clientId,
+                    null,
+                    true);
+
+            // If CleanSession is set to 0, the Server MUST resume communications with the Client based on state from
+            // the current Session (as identified by the Client identifier). If there is no Session associated with the Client
+            // identifier the Server MUST create a new Session. The Client and Server MUST store the Session after
+            // the Client and Server are disconnected. After the disconnection of a Session that had
+            // CleanSession set to 0, the Server MUST store further QoS 1 and QoS 2 messages that match any
+            // subscriptions that the client had at the time of disconnection as part of the Session state.
+            // It MAY also store QoS 0 messages that meet the same criteria.
+            // The Session state in the Server consists of:
+            // The existence of a Session, even if the rest of the Session state is empty.
+            // The Client's subscriptions.
+            // QoS 1 and QoS 2 messages which have been sent to the Client, but have not been completely acknowledged.
+            // QoS 1 and QoS 2 messages pending transmission to the Client.
+            // QoS 2 messages which have been received from the Client, but have not been completely acknowledged.
+            // Optionally, QoS 0 messages pending transmission to the Client.
+            if (!this.cleanSession) {
+                if (exist == 0) {
+                    logger.trace("Resend In-Flight messages to client {}", this.clientId);
+                    for (Message inFlight : this.redis.getAllInFlightMessages(this.clientId)) {
+                        if (inFlight.fixedHeader().messageType() == MqttMessageType.PUBLISH) {
+                            this.registry.sendMessage(ctx, inFlight.toMqttMessage(), this.clientId, ((MqttPublishVariableHeader) inFlight.variableHeader()).packetId(), false);
+                        } else if (inFlight.fixedHeader().messageType() == MqttMessageType.PUBREL) {
+                            this.registry.sendMessage(ctx, inFlight.toMqttMessage(), this.clientId, ((MqttPacketIdVariableHeader) inFlight.variableHeader()).packetId(), false);
+                        }
+                    }
+                    ctx.flush();
+                } else if (exist == 1) {
+                    logger.trace("Clear session state for client {} because former connection is clean session", this.clientId);
+                    this.redis.removeAllSessionState(this.clientId);
+                }
+            }
+            // If CleanSession is set to 1, the Client and Server MUST discard any previous Session and start a new
+            // one. This Session lasts as long as the Network Connection. State data associated with this Session
+            // MUST NOT be reused in any subsequent Session.
+            // When CleanSession is set to 1 the Client and Server need not process the deletion of state atomically.
+            else {
+                if (exist >= 0) {
+                    logger.trace("Clear session state for client {} because current connection is clean session", this.clientId);
+                    this.redis.removeAllSessionState(this.clientId);
+                }
+            }
+
+            // Mark client's session as existed
+            this.redis.updateSessionExist(this.clientId, this.cleanSession);
+
+            // Release lock on client connection state
+            this.redis.release(this.clientId, ConnectionState.CONNECTED);
 
             // If the ClientId represents a Client already connected to the Server then the Server MUST
             // disconnect the existing Client
             ChannelHandlerContext lastSession = this.registry.removeSession(this.clientId);
             if (lastSession != null) {
-                logger.trace("Disconnect: Try to disconnect existed client {}", this.clientId);
+                logger.trace("Try to disconnect existed client {}", this.clientId);
                 lastSession.close();
             }
             if (StringUtils.isNotBlank(previous) && !previous.equals(this.brokerId)) {
-                logger.trace("Communicator sending: Send DISCONNECT message to broker {} to drop the existing client {}", previous, this.clientId);
-                InternalMessage<Disconnect> disconnect = new InternalMessage<>(MqttMessageType.DISCONNECT, false, MqttQoS.AT_MOST_ONCE, false,
-                        MqttVersion.MQTT_3_1_1, this.clientId, null, null, new Disconnect(false, false));
-                this.communicator.sendToBroker(previous, disconnect);
+                logger.trace("Send DISCONNECT message to broker {} to disconnect the existed client {}", previous, this.clientId);
+                Message<MqttPacketIdVariableHeader, Void> disconnect = new Message<>(
+                        new MqttFixedHeader(MqttMessageType.DISCONNECT, false, MqttQoS.AT_MOST_ONCE, false, 0),
+                        new MqttAdditionalHeader(this.version, this.clientId, null, null), null, null);
+                this.cluster.sendToBroker(previous, disconnect);
             }
 
             // If the Will Flag is set to 1 this indicates that, if the Connect request is accepted, a Will Message MUST be
@@ -357,8 +349,10 @@ public class SyncRedisHandler extends SimpleChannelInboundHandler<MqttMessage> {
             String willTopic = msg.payload().willTopic();
             String willMessage = msg.payload().willMessage();
             if (msg.variableHeader().willFlag()
-                    && StringUtils.isNoneEmpty(willTopic) && this.validator.isTopicNameValid(willTopic)
+                    && StringUtils.isNotEmpty(willTopic) && this.validator.isTopicNameValid(willTopic)
                     && StringUtils.isNotEmpty(willMessage)) {
+                logger.trace("Keep WILL message on topic {} for client {}", willTopic, this.clientId);
+
                 this.willMessage = (MqttPublishMessage) MqttMessageFactory.newMessage(
                         new MqttFixedHeader(MqttMessageType.PUBLISH, false, msg.variableHeader().willQos(), msg.variableHeader().willRetain(), 0),
                         MqttPublishVariableHeader.from(willTopic),
@@ -369,8 +363,6 @@ public class SyncRedisHandler extends SimpleChannelInboundHandler<MqttMessage> {
             // If the Keep Alive value is non-zero and the Server does not receive a Control Packet from the Client
             // within one and a half times the Keep Alive time period, it MUST disconnect the Network Connection to the
             // Client as if the network had failed
-            if (msg.variableHeader().keepAlive() > 0 && msg.variableHeader().keepAlive() <= this.keepAliveMax)
-                this.keepAlive = msg.variableHeader().keepAlive();
             if (ctx.pipeline().names().contains("idleHandler"))
                 ctx.pipeline().remove("idleHandler");
             ctx.pipeline().addFirst("idleHandler", new IdleStateHandler(0, 0, Math.round(this.keepAlive * 1.5f)));
@@ -380,12 +372,12 @@ public class SyncRedisHandler extends SimpleChannelInboundHandler<MqttMessage> {
             this.registry.saveSession(this.clientId, ctx);
 
             // Pass message to 3rd party application
-            this.communicator.sendToApplication(InternalMessage.fromMqttMessage(this.version, this.clientId, this.userName, this.brokerId, msg));
+            this.cluster.sendToApplication(Message.fromMqttMessage(msg, this.version, this.clientId, this.userName, this.brokerId));
         }
 
         // Authorize failed
         else {
-            logger.trace("Authorization failed: Connection unauthorized {} for client {}, send CONNACK and disconnect the client", result, this.clientId);
+            logger.trace("Authorization CONNECT failed {} for client {}, send CONNACK and disconnect the client", result, this.clientId);
             this.registry.sendMessage(
                     ctx,
                     MqttMessageFactory.newMessage(
@@ -399,7 +391,7 @@ public class SyncRedisHandler extends SimpleChannelInboundHandler<MqttMessage> {
         }
     }
 
-    protected void onPublish(ChannelHandlerContext ctx, MqttPublishMessage msg) {
+    private void onPublish(ChannelHandlerContext ctx, MqttPublishMessage msg) {
         if (!this.connected) {
             logger.debug("Protocol violation: Client {} must first sent a CONNECT message, now received PUBLISH message, disconnect the client", this.clientId);
             ctx.close();
@@ -442,7 +434,7 @@ public class SyncRedisHandler extends SimpleChannelInboundHandler<MqttMessage> {
         // PUBACK. When its original sender receives the PUBACK packet, ownership of the Application
         // Message is transferred to the receiver.
         if (qos == MqttQoS.AT_LEAST_ONCE) {
-            logger.trace("Message response: Send PUBACK back to client {}", this.clientId);
+            logger.trace("Send PUBACK back to client {}", this.clientId);
             this.registry.sendMessage(
                     ctx,
                     MqttMessageFactory.newMessage(
@@ -460,7 +452,7 @@ public class SyncRedisHandler extends SimpleChannelInboundHandler<MqttMessage> {
         // PUBREC or PUBCOMP. When its original sender receives the PUBREC packet, ownership of the
         // Application Message is transferred to the receiver.
         else if (qos == MqttQoS.EXACTLY_ONCE) {
-            logger.trace("Message response: Send PUBREC back to client {}", this.clientId);
+            logger.trace("Send PUBREC back to client {}", this.clientId);
             this.registry.sendMessage(
                     ctx,
                     MqttMessageFactory.newMessage(
@@ -475,7 +467,7 @@ public class SyncRedisHandler extends SimpleChannelInboundHandler<MqttMessage> {
         AuthorizeResult result = this.authenticator.authPublish(this.clientId, this.userName, topicName, qos.value(), retain);
         // Authorize successful
         if (result == AuthorizeResult.OK) {
-            logger.trace("Authorization succeed: Publish to topic {} authorized for client {}", topicName, this.clientId);
+            logger.trace("Authorization PUBLISH succeeded on topic {} for client {}", topicName, this.clientId);
 
             // If the RETAIN flag is set to 1, in a PUBLISH Packet sent by a Client to a Server, the Server MUST store
             // the Application Message and its QoS, so that it can be delivered to future subscribers whose
@@ -487,7 +479,7 @@ public class SyncRedisHandler extends SimpleChannelInboundHandler<MqttMessage> {
                 // message for that topic, but MAY choose to discard it at any time - if this happens there will be no retained
                 // message for that topic.
                 if (qos == MqttQoS.AT_MOST_ONCE || msg.payload() == null || msg.payload().readableBytes() == 0) {
-                    logger.trace("Clear retain: Clear retain messages for topic {} by client {}", topicName, this.clientId);
+                    logger.trace("Clear retain messages for topic {} by client {}", topicName, this.clientId);
                     this.redis.removeAllRetainMessage(topicLevels);
                 }
 
@@ -498,22 +490,25 @@ public class SyncRedisHandler extends SimpleChannelInboundHandler<MqttMessage> {
                 // not set in the message received by existing Clients. A zero byte retained message MUST NOT be stored
                 // as a retained message on the Server
                 if (msg.payload() != null && msg.payload().readableBytes() > 0) {
-                    logger.trace("Add retain: Add retain messages for topic {} by client {}", topicName, this.clientId);
-                    this.redis.addRetainMessage(topicLevels, InternalMessage.fromMqttMessage(this.version, this.clientId, this.userName, this.brokerId, msg));
+                    logger.trace("Add retain messages for topic {} by client {}", topicName, this.clientId);
+                    this.redis.addRetainMessage(topicLevels, Message.fromMqttMessage(msg, this.version, this.clientId, this.userName, this.brokerId));
                 }
             }
+
+            // Prepare Message in advance, since the byte[] payload will be used in multiple location
+            Message<MqttPublishVariableHeader, MqttPublishPayload> m = Message.fromMqttMessage(msg, this.version, this.clientId, this.userName, this.brokerId);
 
             // In the QoS 0 delivery protocol, the Receiver
             // Accepts ownership of the message when it receives the PUBLISH packet.
             if (qos == MqttQoS.AT_MOST_ONCE) {
-                onwardRecipients(msg);
+                onwardRecipients(msg, m.payload());
             }
             // In the QoS 1 delivery protocol, the Receiver
             // After it has sent a PUBACK Packet the Receiver MUST treat any incoming PUBLISH packet that
             // contains the same Packet Identifier as being a new publication, irrespective of the setting of its
             // DUP flag.
             else if (qos == MqttQoS.AT_LEAST_ONCE) {
-                onwardRecipients(msg);
+                onwardRecipients(msg, m.payload());
             }
             // In the QoS 2 delivery protocol, the Receiver
             // Until it has received the corresponding PUBREL packet, the Receiver MUST acknowledge any
@@ -523,16 +518,20 @@ public class SyncRedisHandler extends SimpleChannelInboundHandler<MqttMessage> {
                 // The recipient of a Control Packet that contains the DUP flag set to 1 cannot assume that it has
                 // seen an earlier copy of this packet.
                 if (this.redis.addQoS2MessageId(this.clientId, packetId)) {
-                    onwardRecipients(msg);
+                    onwardRecipients(msg, m.payload());
                 }
             }
 
             // Pass message to 3rd party application
-            this.communicator.sendToApplication(InternalMessage.fromMqttMessage(this.version, this.clientId, this.userName, this.brokerId, msg));
+            this.cluster.sendToApplication(m);
 
         } else {
-            logger.trace("Authorization failed: Publish to topic {} unauthorized for client {}", topicName, this.clientId);
+            logger.trace("Authorization PUBLISH failed on topic {} for client {}", topicName, this.clientId);
         }
+
+        // Refresh client's connected broker node
+        logger.trace("Refresh client {} connected to broker {}", this.clientId, this.brokerId);
+        this.redis.refreshConnectedNode(this.clientId, this.brokerId, Math.round(this.keepAlive * 1.5f));
     }
 
     /**
@@ -540,13 +539,8 @@ public class SyncRedisHandler extends SimpleChannelInboundHandler<MqttMessage> {
      *
      * @param msg MQTT PUBLISH Message
      */
-    protected void onwardRecipients(MqttPublishMessage msg) {
+    private void onwardRecipients(MqttPublishMessage msg, MqttPublishPayload payload) {
         List<String> topicLevels = Topics.sanitizeTopicName(msg.variableHeader().topicName());
-
-        // forge bytes payload
-        ByteBuf buf = msg.payload().duplicate();
-        byte[] bytes = new byte[buf.readableBytes()];
-        buf.readBytes(bytes);
 
         // When sending a PUBLISH Packet to a Client the Server MUST set the RETAIN flag to 1 if a message is
         // sent as a result of a new subscription being made by a Client. It MUST set the RETAIN
@@ -581,22 +575,25 @@ public class SyncRedisHandler extends SimpleChannelInboundHandler<MqttMessage> {
                 pid = this.redis.getNextPacketId(cid);
             }
 
-            Publish p = new Publish(msg.variableHeader().topicName(), pid, bytes);
-            InternalMessage<Publish> m = new InternalMessage<>(MqttMessageType.PUBLISH, false, fQos, false,
-                    MqttVersion.MQTT_3_1_1, cid, null, null, p);
+            Message<MqttPublishVariableHeader, MqttPublishPayload> m = new Message<>(
+                    new MqttFixedHeader(MqttMessageType.PUBLISH, false, fQos, false, 0),
+                    new MqttAdditionalHeader(MqttVersion.MQTT_3_1_1, cid, null, null),
+                    MqttPublishVariableHeader.from(msg.variableHeader().topicName(), pid),
+                    payload
+            );
 
             // Forward to recipient
             boolean dup = false;
             String bid = this.redis.getConnectedNode(cid);
             if (StringUtils.isNotBlank(bid)) {
                 if (bid.equals(this.brokerId)) {
-                    logger.trace("Message forward: Send PUBLISH message to client {}", cid);
+                    logger.trace("Send PUBLISH message to client {}", cid);
                     dup = true;
                     this.registry.sendMessage(m.toMqttMessage(), cid, pid, true);
                 } else {
-                    logger.trace("Communicator sending: Send PUBLISH message to broker {} for client {} subscription", bid, cid);
+                    logger.trace("Send PUBLISH message to broker {} for client {} subscription", bid, cid);
                     dup = true;
-                    this.communicator.sendToBroker(bid, m);
+                    this.cluster.sendToBroker(bid, m);
                 }
             }
 
@@ -607,13 +604,13 @@ public class SyncRedisHandler extends SimpleChannelInboundHandler<MqttMessage> {
             // MUST treat the PUBLISH packet as “unacknowledged” until it has received the corresponding
             // PUBREC packet from the receiver.
             if (fQos == MqttQoS.AT_LEAST_ONCE || fQos == MqttQoS.EXACTLY_ONCE) {
-                logger.trace("Add in-flight: Add in-flight PUBLISH message {} with QoS {} for client {}", pid, fQos, cid);
+                logger.trace("Add in-flight PUBLISH message {} with QoS {} for client {}", pid, fQos, cid);
                 this.redis.addInFlightMessage(cid, pid, m, dup);
             }
         });
     }
 
-    protected void onPubAck(ChannelHandlerContext ctx, MqttMessage msg) {
+    private void onPubAck(ChannelHandlerContext ctx, MqttMessage msg) {
         if (!this.connected) {
             logger.debug("Protocol violation: Client {} must first sent a CONNECT message, now received PUBACK message, disconnect the client", this.clientId);
             ctx.close();
@@ -628,11 +625,15 @@ public class SyncRedisHandler extends SimpleChannelInboundHandler<MqttMessage> {
         // In the QoS 1 delivery protocol, the Sender
         // MUST treat the PUBLISH Packet as “unacknowledged” until it has received the corresponding
         // PUBACK packet from the receiver.
-        logger.trace("Remove in-flight: Remove in-flight PUBLISH message {} for client {}", packetId, this.clientId);
+        logger.trace("Remove in-flight PUBLISH message {} for client {}", packetId, this.clientId);
         this.redis.removeInFlightMessage(this.clientId, packetId);
+
+        // Refresh client's connected broker node
+        logger.trace("Refresh client {} connected to broker {}", this.clientId, this.brokerId);
+        this.redis.refreshConnectedNode(this.clientId, this.brokerId, Math.round(this.keepAlive * 1.5f));
     }
 
-    protected void onPubRec(ChannelHandlerContext ctx, MqttMessage msg) {
+    private void onPubRec(ChannelHandlerContext ctx, MqttMessage msg) {
         if (!this.connected) {
             logger.debug("Protocol violation: Client {} must first sent a CONNECT message, now received PUBREC message, disconnect the client", this.clientId);
             ctx.close();
@@ -650,7 +651,7 @@ public class SyncRedisHandler extends SimpleChannelInboundHandler<MqttMessage> {
         // MUST send a PUBREL packet when it receives a PUBREC packet from the receiver. This
         // PUBREL packet MUST contain the same Packet Identifier as the original PUBLISH packet.
         // MUST NOT re-send the PUBLISH once it has sent the corresponding PUBREL packet.
-        logger.trace("Remove in-flight: Remove in-flight PUBLISH message {} for client {}", packetId, this.clientId);
+        logger.trace("Remove in-flight PUBLISH message {} for client {}", packetId, this.clientId);
         this.redis.removeInFlightMessage(this.clientId, packetId);
 
         // Send back PUBREL
@@ -658,16 +659,19 @@ public class SyncRedisHandler extends SimpleChannelInboundHandler<MqttMessage> {
                 new MqttFixedHeader(MqttMessageType.PUBREL, false, MqttQoS.AT_LEAST_ONCE, false, 0),
                 MqttPacketIdVariableHeader.from(packetId),
                 null);
-        logger.trace("Message response: Send PUBREL back to client {}", this.clientId);
+        logger.trace("Send PUBREL back to client {}", this.clientId);
         this.registry.sendMessage(ctx, pubrel, this.clientId, packetId, true);
 
         // Save PUBREL as in-flight message
-        InternalMessage internal = InternalMessage.fromMqttMessage(this.version, this.clientId, this.userName, this.brokerId, pubrel);
-        logger.trace("Add in-flight: Add In-Flight PUBREL message {} for client {}", packetId, this.clientId);
-        this.redis.addInFlightMessage(this.clientId, packetId, internal, true);
+        logger.trace("Add In-Flight PUBREL message {} for client {}", packetId, this.clientId);
+        this.redis.addInFlightMessage(this.clientId, packetId, Message.fromMqttMessage(pubrel, this.version, this.clientId, this.userName, this.brokerId), true);
+
+        // Refresh client's connected broker node
+        logger.trace("Refresh client {} connected to broker {}", this.clientId, this.brokerId);
+        this.redis.refreshConnectedNode(this.clientId, this.brokerId, Math.round(this.keepAlive * 1.5f));
     }
 
-    protected void onPubRel(ChannelHandlerContext ctx, MqttMessage msg) {
+    private void onPubRel(ChannelHandlerContext ctx, MqttMessage msg) {
         if (!this.connected) {
             logger.debug("Protocol violation: Client {} must first sent a CONNECT message, now received PUBREL message, disconnect the client", this.clientId);
             ctx.close();
@@ -689,11 +693,15 @@ public class SyncRedisHandler extends SimpleChannelInboundHandler<MqttMessage> {
                 new MqttFixedHeader(MqttMessageType.PUBCOMP, false, MqttQoS.AT_MOST_ONCE, false, 0),
                 MqttPacketIdVariableHeader.from(packetId),
                 null);
-        logger.trace("Message response: Send PUBCOMP back to client {}", this.clientId);
+        logger.trace("Send PUBCOMP back to client {}", this.clientId);
         this.registry.sendMessage(ctx, comp, this.clientId, packetId, true);
+
+        // Refresh client's connected broker node
+        logger.trace("Refresh client {} connected to broker {}", this.clientId, this.brokerId);
+        this.redis.refreshConnectedNode(this.clientId, this.brokerId, Math.round(this.keepAlive * 1.5f));
     }
 
-    protected void onPubComp(ChannelHandlerContext ctx, MqttMessage msg) {
+    private void onPubComp(ChannelHandlerContext ctx, MqttMessage msg) {
         if (!this.connected) {
             logger.debug("Protocol violation: Client {} must first sent a CONNECT message, now received PUBCOMP message, disconnect the client", this.clientId);
             ctx.close();
@@ -708,11 +716,15 @@ public class SyncRedisHandler extends SimpleChannelInboundHandler<MqttMessage> {
         // In the QoS 2 delivery protocol, the Sender
         // MUST treat the PUBREL packet as “unacknowledged” until it has received the corresponding
         // PUBCOMP packet from the receiver.
-        logger.trace("Remove in-flight: Remove in-flight PUBREL message {} for client {}", packetId, this.clientId);
+        logger.trace("Remove in-flight PUBREL message {} for client {}", packetId, this.clientId);
         this.redis.removeInFlightMessage(this.clientId, packetId);
+
+        // Refresh client's connected broker node
+        logger.trace("Refresh client {} connected to broker {}", this.clientId, this.brokerId);
+        this.redis.refreshConnectedNode(this.clientId, this.brokerId, Math.round(this.keepAlive * 1.5f));
     }
 
-    protected void onSubscribe(ChannelHandlerContext ctx, MqttSubscribeMessage msg) {
+    private void onSubscribe(ChannelHandlerContext ctx, MqttSubscribeMessage msg) {
         if (!this.connected) {
             logger.debug("Protocol violation: Client {} must first sent a CONNECT message, now received SUBSCRIBE message, disconnect the client", this.clientId);
             ctx.close();
@@ -735,7 +747,7 @@ public class SyncRedisHandler extends SimpleChannelInboundHandler<MqttMessage> {
 
         // Authorize client subscribe using provided Authenticator
         List<MqttGrantedQoS> grantedQosLevels = this.authenticator.authSubscribe(this.clientId, this.userName, requestSubscriptions);
-        logger.trace("Authorization granted: Subscribe to topic {} granted as {} for client {}", ArrayUtils.toString(msg.payload().subscriptions()), ArrayUtils.toString(grantedQosLevels), this.clientId);
+        logger.trace("Authorization granted on topic {} as {} for client {}", ArrayUtils.toString(msg.payload().subscriptions()), ArrayUtils.toString(grantedQosLevels), this.clientId);
 
         // If a Server receives a SUBSCRIBE packet that contains multiple Topic Filters it MUST handle that packet
         // as if it had received a sequence of multiple SUBSCRIBE packets, except that it combines their responses
@@ -743,7 +755,7 @@ public class SyncRedisHandler extends SimpleChannelInboundHandler<MqttMessage> {
         // When the Server receives a SUBSCRIBE Packet from a Client, the Server MUST respond with a
         // SUBACK Packet. The SUBACK Packet MUST have the same Packet Identifier as the
         // SUBSCRIBE Packet that it is acknowledging.
-        logger.debug("Message response: Send SUBACK back to client {}", this.clientId);
+        logger.trace("Send SUBACK back to client {}", this.clientId);
         this.registry.sendMessage(
                 ctx,
                 MqttMessageFactory.newMessage(
@@ -770,31 +782,29 @@ public class SyncRedisHandler extends SimpleChannelInboundHandler<MqttMessage> {
                 // Filter MUST be re-sent, but the flow of publications MUST NOT be interrupted.
                 // Where the Topic Filter is not identical to any existing Subscription’s filter, a new Subscription is created
                 // and all matching retained messages are sent.
-                logger.trace("Update subscription: Update client {} subscription with topic {} QoS {}", this.clientId, topic, grantedQoS);
+                logger.trace("Update client {} subscription with topic {} QoS {}", this.clientId, topic, grantedQoS);
                 this.redis.updateSubscription(this.clientId, topicLevels, MqttQoS.valueOf(grantedQoS.value()));
 
                 // The Server is permitted to start sending PUBLISH packets matching the Subscription before the Server
                 // sends the SUBACK Packet.
-                for (InternalMessage<Publish> retain : this.redis.getMatchRetainMessages(topicLevels)) {
-
-                    // Set recipient client id
-                    retain.setClientId(this.clientId);
+                for (Message<MqttPublishVariableHeader, MqttPublishPayload> retain : this.redis.getMatchRetainMessages(topicLevels)) {
 
                     // Compare publish QoS and subscription QoS
-                    if (retain.getQos().value() > grantedQoS.value()) {
-                        retain.setQos(MqttQoS.valueOf(grantedQoS.value()));
-                    }
+                    MqttQoS fQos = retain.fixedHeader().qos().value() > grantedQoS.value() ? MqttQoS.valueOf(grantedQoS.value()) : retain.fixedHeader().qos();
 
                     // Set packet id
                     int pid = 0;
-                    if (retain.getQos() == MqttQoS.AT_LEAST_ONCE || retain.getQos() == MqttQoS.EXACTLY_ONCE) {
+                    if (fQos == MqttQoS.AT_LEAST_ONCE || fQos == MqttQoS.EXACTLY_ONCE) {
                         pid = this.redis.getNextPacketId(this.clientId);
-                        retain.getPayload().setPacketId(pid);
                     }
 
                     // Forward to recipient
-                    logger.trace("Message forward: Send retained PUBLISH message to client {} subscription with topic {}", this.clientId, topic);
-                    this.registry.sendMessage(ctx, retain.toMqttMessage(), this.clientId, pid, true);
+                    logger.trace("Send retained PUBLISH message to client {} subscription with topic {}", this.clientId, topic);
+                    Message m = new Message<>(new MqttFixedHeader(MqttMessageType.PUBLISH, false, fQos, false, 0),
+                            new MqttAdditionalHeader(MqttVersion.MQTT_3_1_1, this.clientId, null, null),
+                            MqttPublishVariableHeader.from(retain.variableHeader().topicName(), pid),
+                            retain.payload());
+                    this.registry.sendMessage(ctx, m.toMqttMessage(), this.clientId, pid, false);
 
                     // In the QoS 1 delivery protocol, the Sender
                     // MUST treat the PUBLISH Packet as “unacknowledged” until it has received the corresponding
@@ -802,19 +812,26 @@ public class SyncRedisHandler extends SimpleChannelInboundHandler<MqttMessage> {
                     // In the QoS 2 delivery protocol, the Sender
                     // MUST treat the PUBLISH packet as “unacknowledged” until it has received the corresponding
                     // PUBREC packet from the receiver.
-                    if (retain.getQos() == MqttQoS.AT_LEAST_ONCE || retain.getQos() == MqttQoS.EXACTLY_ONCE) {
-                        logger.trace("Add in-flight: Add in-flight PUBLISH message {} with QoS {} for client {}", pid, retain.getQos(), this.clientId);
-                        this.redis.addInFlightMessage(this.clientId, pid, retain, true);
+                    if (fQos == MqttQoS.AT_LEAST_ONCE || fQos == MqttQoS.EXACTLY_ONCE) {
+                        logger.trace("Add in-flight PUBLISH message {} with QoS {} for client {}", pid, fQos, this.clientId);
+                        this.redis.addInFlightMessage(this.clientId, pid, m, true);
                     }
                 }
             }
         }
 
+        // Flush channel
+        ctx.flush();
+
         // Pass message to 3rd party application
-        this.communicator.sendToApplication(InternalMessage.fromMqttMessage(this.version, this.clientId, this.userName, this.brokerId, msg));
+        this.cluster.sendToApplication(Message.fromMqttMessage(msg, grantedQosLevels, this.version, this.clientId, this.userName, this.brokerId));
+
+        // Refresh client's connected broker node
+        logger.trace("Refresh client {} connected to broker {}", this.clientId, this.brokerId);
+        this.redis.refreshConnectedNode(this.clientId, this.brokerId, Math.round(this.keepAlive * 1.5f));
     }
 
-    protected void onUnsubscribe(ChannelHandlerContext ctx, MqttUnsubscribeMessage msg) {
+    private void onUnsubscribe(ChannelHandlerContext ctx, MqttUnsubscribeMessage msg) {
         if (!this.connected) {
             logger.debug("Protocol violation: Client {} must first sent a CONNECT message, now received UNSUBSCRIBE message, disconnect the client", this.clientId);
             ctx.close();
@@ -841,7 +858,7 @@ public class SyncRedisHandler extends SimpleChannelInboundHandler<MqttMessage> {
         // If a Server receives an UNSUBSCRIBE packet that contains multiple Topic Filters it MUST handle that
         // packet as if it had received a sequence of multiple UNSUBSCRIBE packets, except that it sends just one
         // UNSUBACK response.
-        logger.debug("Message response: Send UNSUBACK back to client {}", this.clientId);
+        logger.debug("Send UNSUBACK back to client {}", this.clientId);
         this.registry.sendMessage(
                 ctx,
                 MqttMessageFactory.newMessage(
@@ -862,15 +879,19 @@ public class SyncRedisHandler extends SimpleChannelInboundHandler<MqttMessage> {
         // the Client.
         // It MAY continue to deliver any existing messages buffered for delivery to the Client.
         msg.payload().topics().forEach(topic -> {
-            logger.trace("Remove subscription: Remove client {} subscription with topic {}", this.clientId, topic);
+            logger.trace("Remove client {} subscription with topic {}", this.clientId, topic);
             this.redis.removeSubscription(this.clientId, Topics.sanitize(topic));
         });
 
         // Pass message to 3rd party application
-        this.communicator.sendToApplication(InternalMessage.fromMqttMessage(this.version, this.clientId, this.userName, this.brokerId, msg));
+        this.cluster.sendToApplication(Message.fromMqttMessage(msg, this.version, this.clientId, this.userName, this.brokerId));
+
+        // Refresh client's connected broker node
+        logger.trace("Refresh client {} connected to broker {}", this.clientId, this.brokerId);
+        this.redis.refreshConnectedNode(this.clientId, this.brokerId, Math.round(this.keepAlive * 1.5f));
     }
 
-    protected void onPingReq(ChannelHandlerContext ctx) {
+    private void onPingReq(ChannelHandlerContext ctx) {
         if (!this.connected) {
             logger.debug("Protocol violation: Client {} must first sent a CONNECT message, now received PINGREQ message, disconnect the client", this.clientId);
             ctx.close();
@@ -889,9 +910,13 @@ public class SyncRedisHandler extends SimpleChannelInboundHandler<MqttMessage> {
                 this.clientId,
                 null,
                 true);
+
+        // Refresh client's connected broker node
+        logger.trace("Refresh client {} connected to broker {}", this.clientId, this.brokerId);
+        this.redis.refreshConnectedNode(this.clientId, this.brokerId, Math.round(this.keepAlive * 1.5f));
     }
 
-    protected void onDisconnect(ChannelHandlerContext ctx) {
+    private void onDisconnect(ChannelHandlerContext ctx) {
         if (!this.connected) {
             logger.debug("Protocol violation: Client {} must first sent a CONNECT message, now received DISCONNECT message, disconnect the client", this.clientId);
             ctx.close();
@@ -904,7 +929,9 @@ public class SyncRedisHandler extends SimpleChannelInboundHandler<MqttMessage> {
 
         // Pass message to 3rd party application
         if (redirect)
-            this.communicator.sendToApplication(InternalMessage.fromMqttMessage(this.version, this.clientId, this.userName, this.brokerId, this.cleanSession, true));
+            this.cluster.sendToApplication(new Message<>(
+                    new MqttFixedHeader(MqttMessageType.DISCONNECT, false, MqttQoS.AT_MOST_ONCE, false, 0),
+                    new MqttAdditionalHeader(this.version, this.clientId, this.userName, this.brokerId), null, null));
 
         // If the Will Flag is set to 1 this indicates that, if the Connect request is accepted, a Will Message MUST be
         // stored on the Server and associated with the Network Connection. The Will Message MUST be published
@@ -931,7 +958,9 @@ public class SyncRedisHandler extends SimpleChannelInboundHandler<MqttMessage> {
 
             // Pass message to 3rd party application
             if (redirect)
-                this.communicator.sendToApplication(InternalMessage.fromMqttMessage(this.version, this.clientId, this.userName, this.brokerId, this.cleanSession, false));
+                this.cluster.sendToApplication(new Message<>(
+                        new MqttFixedHeader(MqttMessageType.DISCONNECT, false, MqttQoS.AT_MOST_ONCE, false, 0),
+                        new MqttAdditionalHeader(this.version, this.clientId, this.userName, this.brokerId), null, null));
 
             // If the Will Flag is set to 1 this indicates that, if the Connect request is accepted, a Will Message MUST be
             // stored on the Server and associated with the Network Connection. The Will Message MUST be published
@@ -951,14 +980,14 @@ public class SyncRedisHandler extends SimpleChannelInboundHandler<MqttMessage> {
                 AuthorizeResult result = this.authenticator.authPublish(this.clientId, this.userName, willTopic, willQos.value(), willRetain);
                 // Authorize successful
                 if (result == AuthorizeResult.OK) {
-                    logger.trace("Authorization succeed: WILL message to topic {} authorized for client {}", willTopic, this.clientId);
+                    logger.trace("Authorization WILL message succeeded on topic {} for client {}", willTopic, this.clientId);
 
                     // Onward to recipients
-                    onwardRecipients(this.willMessage);
+                    onwardRecipients(this.willMessage, Message.fromMqttMessage(this.willMessage, this.version, this.clientId, this.userName, this.brokerId).payload());
                 }
                 // Authorize failed
                 else {
-                    logger.trace("Authorization failed: WILL message to topic {} unauthorized for client {}", willTopic, this.clientId);
+                    logger.trace("Authorization WILL message failed on topic {} for client {}", willTopic, this.clientId);
                 }
             }
         }
@@ -971,49 +1000,40 @@ public class SyncRedisHandler extends SimpleChannelInboundHandler<MqttMessage> {
      * @param ctx Session
      * @return True client is marked as disconnected, False client already re-connected
      */
-    protected boolean handleConnectLost(ChannelHandlerContext ctx) {
+    private boolean handleConnectLost(ChannelHandlerContext ctx) {
         boolean redirect = false;
 
-        // ============================== LOCK LOCK LOCK ==============================
+        // Require lock on client connection state
+        if (!this.redis.lock(this.clientId, ConnectionState.DISCONNECTING)) {
+            logger.warn("Lock failed: Failed to lock on client {}", this.clientId);
+        } else {
+            logger.trace("Successful lock on client {}", this.clientId);
 
-        Lock lock = this.redis.getLock(this.clientId);
+            // Test if client already reconnected to this broker
+            if (this.registry.removeSession(this.clientId, ctx)) {
 
-        try {
-            if (!lock.tryLock(5, TimeUnit.SECONDS)) {
-                logger.warn("Lock failed: Failed to lock on client {}", this.clientId);
-            } else {
-                logger.trace("Lock succeed: Successful lock on client {}", this.clientId);
+                // Test if client already reconnected to another broker
+                if (this.redis.removeConnectedNode(this.clientId, this.brokerId)) {
 
-                // Test if client already reconnected to this broker
-                if (this.registry.removeSession(this.clientId, ctx)) {
+                    redirect = true;
 
-                    // Test if client already reconnected to another broker
-                    if (this.redis.removeConnectedNode(this.clientId, this.brokerId)) {
+                    // Remove connected node
+                    logger.trace("Mark client {} disconnected from broker {}", this.clientId, this.brokerId);
 
-                        redirect = true;
-
-                        // Remove connected node
-                        logger.trace("Remove node: Mark client {} disconnected from broker {}", this.clientId, this.brokerId);
-
-                        // If CleanSession is set to 1, the Client and Server MUST discard any previous Session and start a new
-                        // one. This Session lasts as long as the Network Connection. State data associated with this Session
-                        // MUST NOT be reused in any subsequent Session.
-                        // When CleanSession is set to 1 the Client and Server need not process the deletion of state atomically.
-                        if (this.cleanSession) {
-                            logger.trace("Clear session: Clear session state for client {} because current connection is clean session", this.clientId);
-                            this.redis.removeAllSessionState(this.clientId);
-                        }
+                    // If CleanSession is set to 1, the Client and Server MUST discard any previous Session and start a new
+                    // one. This Session lasts as long as the Network Connection. State data associated with this Session
+                    // MUST NOT be reused in any subsequent Session.
+                    // When CleanSession is set to 1 the Client and Server need not process the deletion of state atomically.
+                    if (this.cleanSession) {
+                        logger.trace("Clear session state for client {} because current connection is clean session", this.clientId);
+                        this.redis.removeAllSessionState(this.clientId);
                     }
                 }
             }
-        } catch (InterruptedException e) {
-            logger.error("Lock error: Interrupted when trying to lock on client {}: ", this.clientId, e);
-        } finally {
-            // Always unlock
-            lock.unlock();
-        }
 
-        // ============================== LOCK LOCK LOCK ==============================
+            // Release lock on client connection state
+            this.redis.release(this.clientId, ConnectionState.DISCONNECTED);
+        }
 
         return redirect;
     }
