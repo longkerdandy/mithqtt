@@ -25,30 +25,8 @@
         <appender-ref ref="File"/>
     </logger>
 
-    <!-- Hazelcast -->
-    <logger name="com.hazelcast" level="INFO" additivity="false">
-        <appender-ref ref="Console"/>
-        <appender-ref ref="File"/>
-    </logger>
-
-    <!-- Kafka -->
-    <logger name="org.apache.kafka" level="INFO" additivity="false">
-        <appender-ref ref="Console"/>
-        <appender-ref ref="File"/>
-    </logger>
-
-    <!-- RabbitMQ -->
-    <logger name="com.rabbitmq" level="INFO" additivity="false">
-        <appender-ref ref="Console"/>
-        <appender-ref ref="File"/>
-    </logger>
-
     <!-- Redis Client -->
     <logger name="com.lambdaworks.redis" level="INFO" additivity="false">
-        <appender-ref ref="Console"/>
-        <appender-ref ref="File"/>
-    </logger>
-    <logger name="org.redisson" level="INFO" additivity="false">
         <appender-ref ref="Console"/>
         <appender-ref ref="File"/>
     </logger>
