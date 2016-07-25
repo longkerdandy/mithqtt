@@ -4,6 +4,7 @@ import com.fasterxml.jackson.databind.JsonNode;
 import com.github.longkerdandy.mithqtt.api.message.Message;
 import com.github.longkerdandy.mithqtt.api.message.MqttAdditionalHeader;
 import com.github.longkerdandy.mithqtt.api.message.MqttPublishPayload;
+import com.github.longkerdandy.mithqtt.storage.redis.ConnectionState;
 import com.github.longkerdandy.mithqtt.storage.redis.RedisKey;
 import com.github.longkerdandy.mithqtt.util.Topics;
 import io.netty.handler.codec.mqtt.*;
@@ -54,12 +55,12 @@ public class RedisSyncSingleStorageTest {
     @Test
     public void connectionTest() {
 
-        assert redis.lock("client2", 1);
-        assert redis.lock("client4", 1);
-        assert !redis.lock("client3", 0);
-        assert !redis.lock("client5", 0);
-        assert !redis.release("client3", -1);
-        assert !redis.release("client5", -1);
+        assert redis.lock("client2", ConnectionState.CONNECTING);
+        assert redis.lock("client4", ConnectionState.CONNECTING);
+        assert !redis.lock("client3", ConnectionState.DISCONNECTING);
+        assert !redis.lock("client5", ConnectionState.DISCONNECTING);
+        assert !redis.release("client3", ConnectionState.DISCONNECTED);
+        assert !redis.release("client5", ConnectionState.DISCONNECTED);
 
         assert redis.updateConnectedNode("client1", "node1", 30) == null;
         assert redis.updateConnectedNode("client2", "node1", 30) == null;
@@ -69,12 +70,12 @@ public class RedisSyncSingleStorageTest {
         assert redis.updateConnectedNode("client5", "node2", 30) == null;
         assert redis.updateConnectedNode("client5", "node2", 30).equals("node2");   // overwrite
 
-        assert !redis.lock("client2", 1);
-        assert !redis.lock("client4", 1);
-        assert !redis.release("client2", -1);
-        assert !redis.release("client4", -1);
-        assert redis.release("client2", 2);
-        assert redis.release("client4", 2);
+        assert !redis.lock("client2", ConnectionState.CONNECTING);
+        assert !redis.lock("client4", ConnectionState.CONNECTING);
+        assert !redis.release("client2", ConnectionState.DISCONNECTED);
+        assert !redis.release("client4", ConnectionState.DISCONNECTED);
+        assert redis.release("client2", ConnectionState.CONNECTED);
+        assert redis.release("client4", ConnectionState.CONNECTED);
 
         assert redis.getConnectedNode("client1").equals("node1");
         assert redis.getConnectedNode("client2").equals("node1");
@@ -82,14 +83,14 @@ public class RedisSyncSingleStorageTest {
         assert redis.getConnectedNode("client4").equals("node2");
         assert redis.getConnectedNode("client5").equals("node2");
 
-        assert redis.lock("client2", 0);
-        assert redis.lock("client4", 0);
+        assert redis.lock("client2", ConnectionState.DISCONNECTING);
+        assert redis.lock("client4", ConnectionState.DISCONNECTING);
 
         assert redis.removeConnectedNode("client2", "node1");
         assert !redis.removeConnectedNode("client4", "node1");   // not exist
 
-        assert !redis.release("client2", -1);   // removed
-        assert redis.release("client4", -1);
+        assert !redis.release("client2", ConnectionState.DISCONNECTED);   // removed
+        assert redis.release("client4", ConnectionState.DISCONNECTED);
 
         assert redis.getConnectedNode("client2") == null;
         assert redis.getConnectedNode("client4").equals("node2");
