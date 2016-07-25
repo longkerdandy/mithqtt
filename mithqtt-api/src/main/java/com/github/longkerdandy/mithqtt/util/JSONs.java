@@ -24,6 +24,9 @@ public class JSONs {
         Mapper.setSerializationInclusion(JsonInclude.Include.NON_NULL);
     }
 
+    private JSONs() {
+    }
+
     /**
      * Decode bytes (json data) to Message
      */
@@ -68,8 +71,5 @@ public class JSONs {
             default:
                 return null;
         }
-    }
-
-    private JSONs() {
     }
 }

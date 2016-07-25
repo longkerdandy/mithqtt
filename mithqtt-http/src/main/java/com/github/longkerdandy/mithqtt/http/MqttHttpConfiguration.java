@@ -3,7 +3,6 @@ package com.github.longkerdandy.mithqtt.http;
 import io.dropwizard.Configuration;
 
 import javax.validation.constraints.NotNull;
-import java.util.regex.Pattern;
 
 /**
  * MqttHttp Configuration

@@ -25,6 +25,47 @@ public class Message<V, P> {
         this.payload = payload;
     }
 
+    public static Message fromMqttMessage(MqttMessage msg, MqttVersion version, String clientId, String userName, String brokerId) {
+        switch (msg.fixedHeader().messageType()) {
+            case CONNECT:
+            case CONNACK:
+            case SUBACK:
+            case UNSUBSCRIBE:
+            case UNSUBACK:
+            case PUBACK:
+            case PUBREC:
+            case PUBREL:
+            case PUBCOMP:
+            case PINGREQ:
+            case PINGRESP:
+            case DISCONNECT:
+                return new Message<>(msg.fixedHeader(), new MqttAdditionalHeader(version, clientId, userName, brokerId), msg.variableHeader(), msg.payload());
+            default:
+                throw new IllegalArgumentException("unknown message type " + msg.fixedHeader().messageType());
+        }
+    }
+
+    public static Message<MqttPublishVariableHeader, MqttPublishPayload> fromMqttMessage(MqttPublishMessage msg, MqttVersion version, String clientId, String userName, String brokerId) {
+        // forge bytes payload
+        byte[] bytes = new byte[0];
+        if (msg.payload() != null && msg.payload().readableBytes() > 0) {
+            ByteBuf buf = msg.payload().duplicate();
+            bytes = new byte[buf.readableBytes()];
+            buf.readBytes(bytes);
+        }
+        return new Message<>(msg.fixedHeader(), new MqttAdditionalHeader(version, clientId, userName, brokerId), msg.variableHeader(), new MqttPublishPayload(bytes));
+    }
+
+    public static Message<MqttPacketIdVariableHeader, MqttSubscribePayloadGranted> fromMqttMessage(MqttSubscribeMessage msg, List<MqttGrantedQoS> grantedQoSes, MqttVersion version, String clientId, String userName, String brokerId) {
+        // forge topic subscriptions
+        List<MqttTopicSubscriptionGranted> subscriptions = new ArrayList<>();
+        for (int i = 0; i < msg.payload().subscriptions().size(); i++) {
+            MqttTopicSubscriptionGranted subscription = new MqttTopicSubscriptionGranted(msg.payload().subscriptions().get(i).topic(), grantedQoSes.get(i));
+            subscriptions.add(subscription);
+        }
+        return new Message<>(msg.fixedHeader(), new MqttAdditionalHeader(version, clientId, userName, brokerId), msg.variableHeader(), new MqttSubscribePayloadGranted(subscriptions));
+    }
+
     public MqttFixedHeader fixedHeader() {
         return fixedHeader;
     }
@@ -73,47 +114,6 @@ public class Message<V, P> {
             default:
                 throw new IllegalStateException("unknown message type " + fixedHeader.messageType());
         }
-    }
-
-    public static Message fromMqttMessage(MqttMessage msg, MqttVersion version, String clientId, String userName, String brokerId) {
-        switch (msg.fixedHeader().messageType()) {
-            case CONNECT:
-            case CONNACK:
-            case SUBACK:
-            case UNSUBSCRIBE:
-            case UNSUBACK:
-            case PUBACK:
-            case PUBREC:
-            case PUBREL:
-            case PUBCOMP:
-            case PINGREQ:
-            case PINGRESP:
-            case DISCONNECT:
-                return new Message<>(msg.fixedHeader(), new MqttAdditionalHeader(version, clientId, userName, brokerId), msg.variableHeader(), msg.payload());
-            default:
-                throw new IllegalArgumentException("unknown message type " + msg.fixedHeader().messageType());
-        }
-    }
-
-    public static Message<MqttPublishVariableHeader, MqttPublishPayload> fromMqttMessage(MqttPublishMessage msg, MqttVersion version, String clientId, String userName, String brokerId) {
-        // forge bytes payload
-        byte[] bytes = new byte[0];
-        if (msg.payload() != null && msg.payload().readableBytes() > 0) {
-            ByteBuf buf = msg.payload().duplicate();
-            bytes = new byte[buf.readableBytes()];
-            buf.readBytes(bytes);
-        }
-        return new Message<>(msg.fixedHeader(), new MqttAdditionalHeader(version, clientId, userName, brokerId), msg.variableHeader(), new MqttPublishPayload(bytes));
-    }
-
-    public static Message<MqttPacketIdVariableHeader, MqttSubscribePayloadGranted> fromMqttMessage(MqttSubscribeMessage msg, List<MqttGrantedQoS> grantedQoSes, MqttVersion version, String clientId, String userName, String brokerId) {
-        // forge topic subscriptions
-        List<MqttTopicSubscriptionGranted> subscriptions = new ArrayList<>();
-        for (int i = 0; i < msg.payload().subscriptions().size(); i++) {
-            MqttTopicSubscriptionGranted subscription = new MqttTopicSubscriptionGranted(msg.payload().subscriptions().get(i).topic(), grantedQoSes.get(i));
-            subscriptions.add(subscription);
-        }
-        return new Message<>(msg.fixedHeader(), new MqttAdditionalHeader(version, clientId, userName, brokerId), msg.variableHeader(), new MqttSubscribePayloadGranted(subscriptions));
     }
 
     @Override

@@ -1,7 +1,7 @@
 package com.github.longkerdandy.mithqtt.authenticator.dummy;
 
-import com.github.longkerdandy.mithqtt.api.auth.AuthorizeResult;
 import com.github.longkerdandy.mithqtt.api.auth.Authenticator;
+import com.github.longkerdandy.mithqtt.api.auth.AuthorizeResult;
 import io.netty.handler.codec.mqtt.MqttGrantedQoS;
 import io.netty.handler.codec.mqtt.MqttTopicSubscription;
 import org.apache.commons.configuration.AbstractConfiguration;
