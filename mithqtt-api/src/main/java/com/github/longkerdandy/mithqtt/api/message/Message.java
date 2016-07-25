@@ -108,9 +108,6 @@ public class Message<V, P> {
 
     public static Message<MqttPacketIdVariableHeader, MqttSubscribePayloadGranted> fromMqttMessage(MqttSubscribeMessage msg, List<MqttGrantedQoS> grantedQoSes, MqttVersion version, String clientId, String userName, String brokerId) {
         // forge topic subscriptions
-        if (msg.payload().subscriptions().size() != grantedQoSes.size()) {
-            throw new IllegalArgumentException("SUBSCRIBE message's subscriptions count not equal to granted QoS count");
-        }
         List<MqttTopicSubscriptionGranted> subscriptions = new ArrayList<>();
         for (int i = 0; i < msg.payload().subscriptions().size(); i++) {
             MqttTopicSubscriptionGranted subscription = new MqttTopicSubscriptionGranted(msg.payload().subscriptions().get(i).topic(), grantedQoSes.get(i));

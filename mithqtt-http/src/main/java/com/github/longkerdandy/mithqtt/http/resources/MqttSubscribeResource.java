@@ -1,16 +1,17 @@
 package com.github.longkerdandy.mithqtt.http.resources;
 
-import com.github.longkerdandy.mithqtt.api.internal.Subscribe;
-import com.github.longkerdandy.mithqtt.api.internal.TopicSubscription;
+import com.github.longkerdandy.mithqtt.api.auth.Authenticator;
+import com.github.longkerdandy.mithqtt.api.message.Message;
+import com.github.longkerdandy.mithqtt.api.message.MqttAdditionalHeader;
+import com.github.longkerdandy.mithqtt.api.message.MqttSubscribePayloadGranted;
+import com.github.longkerdandy.mithqtt.api.message.MqttTopicSubscriptionGranted;
+import com.github.longkerdandy.mithqtt.http.cluster.NATSCluster;
 import com.github.longkerdandy.mithqtt.http.entity.ErrorCode;
 import com.github.longkerdandy.mithqtt.http.entity.ErrorEntity;
 import com.github.longkerdandy.mithqtt.http.entity.ResultEntity;
-import com.github.longkerdandy.mithqtt.http.exception.ValidateException;
-import com.github.longkerdandy.mithqtt.api.auth.Authenticator;
-import com.github.longkerdandy.mithqtt.api.comm.HttpCommunicator;
-import com.github.longkerdandy.mithqtt.api.internal.InternalMessage;
-import com.github.longkerdandy.mithqtt.api.metrics.MetricsService;
 import com.github.longkerdandy.mithqtt.http.entity.Subscription;
+import com.github.longkerdandy.mithqtt.http.exception.AuthorizeException;
+import com.github.longkerdandy.mithqtt.http.exception.ValidateException;
 import com.github.longkerdandy.mithqtt.http.util.Validator;
 import com.github.longkerdandy.mithqtt.storage.redis.sync.RedisSyncStorage;
 import com.github.longkerdandy.mithqtt.util.Topics;
@@ -38,24 +39,24 @@ public class MqttSubscribeResource extends AbstractResource {
 
     private static final Logger logger = LoggerFactory.getLogger(MqttSubscribeResource.class);
 
-    public MqttSubscribeResource(String serverId, Validator validator, RedisSyncStorage redis, HttpCommunicator communicator, Authenticator authenticator, MetricsService metrics) {
-        super(serverId, validator, redis, communicator, authenticator, metrics);
+    public MqttSubscribeResource(String serverId, Validator validator, RedisSyncStorage redis, NATSCluster cluster, Authenticator authenticator) {
+        super(serverId, validator, redis, cluster, authenticator);
     }
 
-    @PermitAll
-    @POST
     /**
      * Handle MQTT Subscribe Request in RESTful style
      * Granted QoS Levels will send back to client.
      * Retain Messages matched the subscriptions will NOT send back to client.
      */
+    @PermitAll
+    @POST
     public ResultEntity<List<MqttGrantedQoS>> subscribe(@PathParam("clientId") String clientId, @Auth UserPrincipal user, @QueryParam("protocol") @DefaultValue("4") byte protocol,
                                                         @QueryParam("packetId") @DefaultValue("0") int packetId,
                                                         List<Subscription> subscriptions) {
         String userName = user.getName();
         MqttVersion version = MqttVersion.fromProtocolLevel(protocol);
         List<MqttTopicSubscription> requestSubscriptions = new ArrayList<>();
-        List<TopicSubscription> grantedSubscriptions = new ArrayList<>();
+        List<MqttTopicSubscriptionGranted> grantedSubscriptions = new ArrayList<>();
 
         // HTTP interface require valid Client Id
         if (!this.validator.isClientIdValid(clientId)) {
@@ -83,14 +84,18 @@ public class MqttSubscribeResource extends AbstractResource {
 
         // Authorize client subscribe using provided Authenticator
         List<MqttGrantedQoS> grantedQosLevels = this.authenticator.authSubscribe(clientId, userName, requestSubscriptions);
-        logger.trace("Authorization granted: Subscribe to topic {} granted as {} for client {}", ArrayUtils.toString(requestSubscriptions), ArrayUtils.toString(grantedQosLevels), clientId);
+        if (subscriptions.size() != grantedQosLevels.size()) {
+            logger.warn("Authorization error: SUBSCRIBE message's subscriptions count not equal to granted QoS count");
+            throw new AuthorizeException(new ErrorEntity(ErrorCode.UNAUTHORIZED));
+        }
+        logger.trace("Authorization granted on topic {} as {} for client {}", ArrayUtils.toString(requestSubscriptions), ArrayUtils.toString(grantedQosLevels), clientId);
 
         for (int i = 0; i < requestSubscriptions.size(); i++) {
 
             MqttGrantedQoS grantedQoS = grantedQosLevels.get(i);
             String topic = requestSubscriptions.get(i).topic();
             List<String> topicLevels = Topics.sanitize(topic);
-            grantedSubscriptions.add(new TopicSubscription(topic, grantedQoS));
+            grantedSubscriptions.add(new MqttTopicSubscriptionGranted(topic, grantedQoS));
 
             // Granted only
             if (grantedQoS != MqttGrantedQoS.FAILURE) {
@@ -105,20 +110,21 @@ public class MqttSubscribeResource extends AbstractResource {
         }
 
         // Pass message to 3rd party application
-        Subscribe s = new Subscribe(packetId, grantedSubscriptions);
-        InternalMessage<Subscribe> m = new InternalMessage<>(MqttMessageType.SUBSCRIBE, false, MqttQoS.AT_LEAST_ONCE, false, version, clientId, null, null, s);
-        this.communicator.sendToApplication(m);
+        Message<MqttPacketIdVariableHeader, MqttSubscribePayloadGranted> msg = new Message<>(
+                new MqttFixedHeader(MqttMessageType.SUBSCRIBE, false, MqttQoS.AT_LEAST_ONCE, false, 0),
+                new MqttAdditionalHeader(version, clientId, userName, null),
+                MqttPacketIdVariableHeader.from(packetId),
+                new MqttSubscribePayloadGranted(grantedSubscriptions));
+        this.cluster.sendToApplication(msg);
 
         return new ResultEntity<>(grantedQosLevels);
     }
 
+    /**
+     * Get client's exist subscriptions
+     */
     @PermitAll
     @GET
-    /**
-     * Handle MQTT Subscribe Request in RESTful style
-     * Granted QoS Levels will send back to client.
-     * Retain Messages matched the subscriptions will NOT send back to client.
-     */
     public ResultEntity<List<Subscription>> subscribe(@PathParam("clientId") String clientId, @Auth UserPrincipal user) {
         List<Subscription> subscriptions = new ArrayList<>();
 

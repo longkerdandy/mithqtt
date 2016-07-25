@@ -747,6 +747,11 @@ public class SyncRedisHandler extends SimpleChannelInboundHandler<MqttMessage> {
 
         // Authorize client subscribe using provided Authenticator
         List<MqttGrantedQoS> grantedQosLevels = this.authenticator.authSubscribe(this.clientId, this.userName, requestSubscriptions);
+        if (requestSubscriptions.size() != grantedQosLevels.size()) {
+            logger.warn("Authorization error: SUBSCRIBE message's subscriptions count not equal to granted QoS count, disconnect the client");
+            ctx.close();
+            return;
+        }
         logger.trace("Authorization granted on topic {} as {} for client {}", ArrayUtils.toString(msg.payload().subscriptions()), ArrayUtils.toString(grantedQosLevels), this.clientId);
 
         // If a Server receives a SUBSCRIBE packet that contains multiple Topic Filters it MUST handle that packet

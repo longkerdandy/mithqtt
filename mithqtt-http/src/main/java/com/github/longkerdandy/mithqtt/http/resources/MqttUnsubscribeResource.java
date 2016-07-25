@@ -1,10 +1,9 @@
 package com.github.longkerdandy.mithqtt.http.resources;
 
 import com.github.longkerdandy.mithqtt.api.auth.Authenticator;
-import com.github.longkerdandy.mithqtt.api.comm.HttpCommunicator;
-import com.github.longkerdandy.mithqtt.api.internal.InternalMessage;
-import com.github.longkerdandy.mithqtt.api.internal.Unsubscribe;
-import com.github.longkerdandy.mithqtt.api.metrics.MetricsService;
+import com.github.longkerdandy.mithqtt.api.message.Message;
+import com.github.longkerdandy.mithqtt.api.message.MqttAdditionalHeader;
+import com.github.longkerdandy.mithqtt.http.cluster.NATSCluster;
 import com.github.longkerdandy.mithqtt.http.entity.ErrorCode;
 import com.github.longkerdandy.mithqtt.http.entity.ErrorEntity;
 import com.github.longkerdandy.mithqtt.http.entity.ResultEntity;
@@ -14,9 +13,7 @@ import com.github.longkerdandy.mithqtt.storage.redis.sync.RedisSyncStorage;
 import com.github.longkerdandy.mithqtt.util.Topics;
 import com.sun.security.auth.UserPrincipal;
 import io.dropwizard.auth.Auth;
-import io.netty.handler.codec.mqtt.MqttMessageType;
-import io.netty.handler.codec.mqtt.MqttQoS;
-import io.netty.handler.codec.mqtt.MqttVersion;
+import io.netty.handler.codec.mqtt.*;
 import org.apache.commons.lang3.ArrayUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -36,15 +33,15 @@ public class MqttUnsubscribeResource extends AbstractResource {
 
     private static final Logger logger = LoggerFactory.getLogger(MqttSubscribeResource.class);
 
-    public MqttUnsubscribeResource(String serverId, Validator validator, RedisSyncStorage redis, HttpCommunicator communicator, Authenticator authenticator, MetricsService metrics) {
-        super(serverId, validator, redis, communicator, authenticator, metrics);
+    public MqttUnsubscribeResource(String serverId, Validator validator, RedisSyncStorage redis, NATSCluster cluster, Authenticator authenticator) {
+        super(serverId, validator, redis, cluster, authenticator);
     }
 
-    @PermitAll
-    @POST
     /**
      * Handle MQTT Un-Subscribe Request in RESTful style
      */
+    @PermitAll
+    @POST
     public ResultEntity<Boolean> unsubscribe(@PathParam("clientId") String clientId, @Auth UserPrincipal user, @QueryParam("protocol") @DefaultValue("4") byte protocol,
                                              @QueryParam("packetId") @DefaultValue("0") int packetId,
                                              List<String> topics) {
@@ -82,9 +79,12 @@ public class MqttUnsubscribeResource extends AbstractResource {
         });
 
         // Pass message to 3rd party application
-        Unsubscribe us = new Unsubscribe(packetId, topics);
-        InternalMessage<Unsubscribe> m = new InternalMessage<>(MqttMessageType.UNSUBSCRIBE, false, MqttQoS.AT_LEAST_ONCE, false, version, clientId, null, null, us);
-        this.communicator.sendToApplication(m);
+        Message<MqttPacketIdVariableHeader, MqttUnsubscribePayload> msg = new Message<>(
+                new MqttFixedHeader(MqttMessageType.UNSUBSCRIBE, false, MqttQoS.AT_LEAST_ONCE, false, 0),
+                new MqttAdditionalHeader(version, clientId, userName, null),
+                MqttPacketIdVariableHeader.from(packetId),
+                new MqttUnsubscribePayload(topics));
+        this.cluster.sendToApplication(msg);
 
         return new ResultEntity<>(true);
     }

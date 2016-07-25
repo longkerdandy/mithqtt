@@ -1,9 +1,11 @@
 package com.github.longkerdandy.mithqtt.http.resources;
 
+import com.github.longkerdandy.mithqtt.api.auth.Authenticator;
 import com.github.longkerdandy.mithqtt.api.auth.AuthorizeResult;
-import com.github.longkerdandy.mithqtt.api.internal.InternalMessage;
-import com.github.longkerdandy.mithqtt.api.internal.Publish;
-import com.github.longkerdandy.mithqtt.api.metrics.MetricsService;
+import com.github.longkerdandy.mithqtt.api.message.Message;
+import com.github.longkerdandy.mithqtt.api.message.MqttAdditionalHeader;
+import com.github.longkerdandy.mithqtt.api.message.MqttPublishPayload;
+import com.github.longkerdandy.mithqtt.http.cluster.NATSCluster;
 import com.github.longkerdandy.mithqtt.http.entity.ErrorCode;
 import com.github.longkerdandy.mithqtt.http.entity.ErrorEntity;
 import com.github.longkerdandy.mithqtt.http.entity.ResultEntity;
@@ -12,13 +14,9 @@ import com.github.longkerdandy.mithqtt.http.exception.ValidateException;
 import com.github.longkerdandy.mithqtt.http.util.Validator;
 import com.github.longkerdandy.mithqtt.storage.redis.sync.RedisSyncStorage;
 import com.github.longkerdandy.mithqtt.util.Topics;
-import com.github.longkerdandy.mithqtt.api.auth.Authenticator;
-import com.github.longkerdandy.mithqtt.api.comm.HttpCommunicator;
 import com.sun.security.auth.UserPrincipal;
 import io.dropwizard.auth.Auth;
-import io.netty.handler.codec.mqtt.MqttMessageType;
-import io.netty.handler.codec.mqtt.MqttQoS;
-import io.netty.handler.codec.mqtt.MqttVersion;
+import io.netty.handler.codec.mqtt.*;
 import org.apache.commons.lang3.StringUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -41,8 +39,8 @@ public class MqttPublishResource extends AbstractResource {
 
     private static final Logger logger = LoggerFactory.getLogger(MqttPublishResource.class);
 
-    public MqttPublishResource(String serverId, Validator validator, RedisSyncStorage redis, HttpCommunicator communicator, Authenticator authenticator, MetricsService metrics) {
-        super(serverId, validator, redis, communicator, authenticator, metrics);
+    public MqttPublishResource(String serverId, Validator validator, RedisSyncStorage redis, NATSCluster cluster, Authenticator authenticator) {
+        super(serverId, validator, redis, cluster, authenticator);
     }
 
     @PermitAll
@@ -53,7 +51,7 @@ public class MqttPublishResource extends AbstractResource {
                                          String body) throws UnsupportedEncodingException {
         String userName = user.getName();
         MqttVersion version = MqttVersion.fromProtocolLevel(protocol);
-        byte[] payload = body == null ? null : body.getBytes("ISO-8859-1");
+        byte[] bytes = body == null ? null : body.getBytes("ISO-8859-1");
 
         // HTTP interface require valid Client Id
         if (!this.validator.isClientIdValid(clientId)) {
@@ -68,6 +66,12 @@ public class MqttPublishResource extends AbstractResource {
             throw new ValidateException(new ErrorEntity(ErrorCode.INVALID));
         }
 
+        // The Packet Identifier field is only present in PUBLISH Packets where the QoS level is 1 or 2.
+        if (packetId <= 0 && (qos == MqttQoS.AT_LEAST_ONCE.value() || qos == MqttQoS.EXACTLY_ONCE.value())) {
+            logger.debug("Protocol violation: Client {} sent PUBLISH message does not contain packet id, disconnect the client", clientId);
+            throw new ValidateException(new ErrorEntity(ErrorCode.INVALID));
+        }
+
         List<String> topicLevels = Topics.sanitizeTopicName(topicName);
 
         logger.debug("Message received: Received PUBLISH message from client {} user {} topic {}", clientId, user.getName(), topicName);
@@ -75,11 +79,14 @@ public class MqttPublishResource extends AbstractResource {
         AuthorizeResult result = this.authenticator.authPublish(clientId, userName, topicName, qos, false);
         // Authorize successful
         if (result == AuthorizeResult.OK) {
-            logger.trace("Authorization succeed: Publish to topic {} authorized for client {}", topicName, clientId);
+            logger.trace("Authorization PUBLISH succeeded on topic {} for client {}", topicName, clientId);
 
-            // Construct Internal Message
-            Publish publish = new Publish(topicName, packetId, payload);
-            InternalMessage<Publish> msg = new InternalMessage<>(MqttMessageType.PUBLISH, dup, MqttQoS.valueOf(qos), false, version, clientId, userName, this.serverId, publish);
+            // Prepare Message in advance, since the byte[] payload will be used in multiple location
+            Message<MqttPublishVariableHeader, MqttPublishPayload> msg = new Message<>(
+                    new MqttFixedHeader(MqttMessageType.PUBLISH, dup, MqttQoS.valueOf(qos), false, 0),
+                    new MqttAdditionalHeader(version, clientId, userName, null),
+                    MqttPublishVariableHeader.from(topicName, packetId),
+                    new MqttPublishPayload(bytes));
 
             // When sending a PUBLISH Packet to a Client the Server MUST set the RETAIN flag to 1 if a message is
             // sent as a result of a new subscription being made by a Client. It MUST set the RETAIN
@@ -114,17 +121,20 @@ public class MqttPublishResource extends AbstractResource {
                     pid = this.redis.getNextPacketId(cid);
                 }
 
-                // Construct Internal Message
-                Publish p = new Publish(topicName, pid, payload);
-                InternalMessage<Publish> m = new InternalMessage<>(MqttMessageType.PUBLISH, false, fQos, false, MqttVersion.MQTT_3_1_1, cid, null, null, p);
+                Message<MqttPublishVariableHeader, MqttPublishPayload> m = new Message<>(
+                        new MqttFixedHeader(MqttMessageType.PUBLISH, false, fQos, false, 0),
+                        new MqttAdditionalHeader(MqttVersion.MQTT_3_1_1, cid, null, null),
+                        MqttPublishVariableHeader.from(topicName, pid),
+                        msg.payload()
+                );
 
                 // Forward to recipient
                 boolean d = false;
                 String bid = this.redis.getConnectedNode(cid);
                 if (StringUtils.isNotBlank(bid)) {
-                    logger.trace("Communicator sending: Send PUBLISH message to broker {} for client {} subscription", bid, cid);
+                    logger.trace("Send PUBLISH message to broker {} for client {} subscription", bid, cid);
                     d = true;
-                    this.communicator.sendToBroker(bid, m);
+                    this.cluster.sendToBroker(bid, m);
                 }
 
                 // In the QoS 1 delivery protocol, the Sender
@@ -134,16 +144,18 @@ public class MqttPublishResource extends AbstractResource {
                 // MUST treat the PUBLISH packet as “unacknowledged” until it has received the corresponding
                 // PUBREC packet from the receiver.
                 if (fQos == MqttQoS.AT_LEAST_ONCE || fQos == MqttQoS.EXACTLY_ONCE) {
-                    logger.trace("Add in-flight: Add in-flight PUBLISH message {} with QoS {} for client {}", pid, fQos, cid);
+                    logger.trace("Add in-flight PUBLISH message {} with QoS {} for client {}", pid, fQos, cid);
                     this.redis.addInFlightMessage(cid, pid, m, d);
                 }
             });
 
             // Pass message to 3rd party application
-            this.communicator.sendToApplication(msg);
+            this.cluster.sendToApplication(msg);
 
             return new ResultEntity<>(true);
         } else {
+            logger.trace("Authorization PUBLISH failed on topic {} for client {}", topicName, clientId);
+
             throw new AuthorizeException(new ErrorEntity(ErrorCode.UNAUTHORIZED));
         }
     }

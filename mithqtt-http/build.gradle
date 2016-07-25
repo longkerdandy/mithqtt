@@ -4,7 +4,7 @@ mainClassName = "com.github.longkerdandy.mithqtt.http.MqttHttp"
 
 // If your application requires a specific set of JVM settings or system properties, you can configure the applicationDefaultJvmArgs property.
 // These JVM arguments are applied to the run task and also considered in the generated start scripts of your distribution.
-applicationDefaultJvmArgs = ["-Dlogback.configurationFile=config/logback.xml", "-Dhazelcast.config=config/hazelcast.xml"]
+applicationDefaultJvmArgs = ["-Dlogback.configurationFile=config/logback.xml"]
 
 dependencies {
     // project
@@ -14,18 +14,13 @@ dependencies {
     // authenticator
     runtime project(':mithqtt-authenticator-dummy')
 
-    // communicator
-    runtime project(':mithqtt-communicator-hazelcast')
-    runtime project(':mithqtt-communicator-rabbitmq')
-    runtime project(':mithqtt-communicator-kafka')
-
-    // metrics
-    runtime project(':mithqtt-metrics-influxdb')
-
     // dropwizard
-    compile 'io.dropwizard:dropwizard-core:0.9.1'
-    compile 'io.dropwizard:dropwizard-auth:0.9.1'
-    compile 'commons-validator:commons-validator:1.5.0'
+    compile 'io.dropwizard:dropwizard-core:0.9.3'
+    compile 'io.dropwizard:dropwizard-auth:0.9.3'
+    compile 'commons-validator:commons-validator:1.5.1'
+
+    // nats
+    compile 'io.nats:jnats:0.4.1'
 }
 
 startScripts {
