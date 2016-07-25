@@ -20,10 +20,10 @@ package io.netty.handler.codec.mqtt;
  * Return Code of {@link io.netty.handler.codec.mqtt.MqttSubAckMessage}
  */
 public enum MqttGrantedQoS {
-    SUCCESS_MAX_QOS0(0),
-    SUCCESS_MAX_QOS1(1),
-    SUCCESS_MAX_QOS2(2),
-    FAILURE(0x80);
+    AT_MOST_ONCE(0),
+    AT_LEAST_ONCE(1),
+    EXACTLY_ONCE(2),
+    NOT_GRANTED(0x80);
 
     private final int value;
 
