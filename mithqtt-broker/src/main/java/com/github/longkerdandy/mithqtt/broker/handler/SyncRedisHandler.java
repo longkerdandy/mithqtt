@@ -578,7 +578,8 @@ public class SyncRedisHandler extends SimpleChannelInboundHandler<MqttMessage> {
             Message<MqttPublishVariableHeader, MqttPublishPayload> m = new Message<>(
                     new MqttFixedHeader(MqttMessageType.PUBLISH, false, fQos, false, 0),
                     new MqttAdditionalHeader(MqttVersion.MQTT_3_1_1, cid, null, null),
-                    MqttPublishVariableHeader.from(msg.variableHeader().topicName(), pid),
+                    pid > 0 ? MqttPublishVariableHeader.from(msg.variableHeader().topicName(), pid)
+                            : MqttPublishVariableHeader.from(msg.variableHeader().topicName()),
                     payload
             );
 
@@ -778,7 +779,7 @@ public class SyncRedisHandler extends SimpleChannelInboundHandler<MqttMessage> {
             List<String> topicLevels = Topics.sanitize(topic);
 
             // Granted only
-            if (grantedQoS != MqttGrantedQoS.FAILURE) {
+            if (grantedQoS != MqttGrantedQoS.NOT_GRANTED) {
 
                 // If a Server receives a SUBSCRIBE Packet containing a Topic Filter that is identical to an existing
                 // Subscription’s Topic Filter then it MUST completely replace that existing Subscription with a new
@@ -807,7 +808,8 @@ public class SyncRedisHandler extends SimpleChannelInboundHandler<MqttMessage> {
                     logger.trace("Send retained PUBLISH message to client {} subscription with topic {}", this.clientId, topic);
                     Message m = new Message<>(new MqttFixedHeader(MqttMessageType.PUBLISH, false, fQos, false, 0),
                             new MqttAdditionalHeader(MqttVersion.MQTT_3_1_1, this.clientId, null, null),
-                            MqttPublishVariableHeader.from(retain.variableHeader().topicName(), pid),
+                            pid > 0 ? MqttPublishVariableHeader.from(retain.variableHeader().topicName(), pid)
+                                    : MqttPublishVariableHeader.from(retain.variableHeader().topicName()),
                             retain.payload());
                     this.registry.sendMessage(ctx, m.toMqttMessage(), this.clientId, pid, false);
 

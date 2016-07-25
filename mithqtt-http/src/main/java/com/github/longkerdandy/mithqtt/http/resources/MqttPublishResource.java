@@ -85,7 +85,8 @@ public class MqttPublishResource extends AbstractResource {
             Message<MqttPublishVariableHeader, MqttPublishPayload> msg = new Message<>(
                     new MqttFixedHeader(MqttMessageType.PUBLISH, dup, MqttQoS.valueOf(qos), false, 0),
                     new MqttAdditionalHeader(version, clientId, userName, null),
-                    MqttPublishVariableHeader.from(topicName, packetId),
+                    packetId > 0 ? MqttPublishVariableHeader.from(topicName, packetId)
+                            : MqttPublishVariableHeader.from(topicName),
                     new MqttPublishPayload(bytes));
 
             // When sending a PUBLISH Packet to a Client the Server MUST set the RETAIN flag to 1 if a message is
@@ -124,7 +125,8 @@ public class MqttPublishResource extends AbstractResource {
                 Message<MqttPublishVariableHeader, MqttPublishPayload> m = new Message<>(
                         new MqttFixedHeader(MqttMessageType.PUBLISH, false, fQos, false, 0),
                         new MqttAdditionalHeader(MqttVersion.MQTT_3_1_1, cid, null, null),
-                        MqttPublishVariableHeader.from(topicName, pid),
+                        pid > 0 ? MqttPublishVariableHeader.from(topicName, pid)
+                                : MqttPublishVariableHeader.from(topicName) ,
                         msg.payload()
                 );
 

@@ -102,7 +102,7 @@ public class Message<V, P> {
             case SUBSCRIBE:
                 List<MqttTopicSubscription> subscriptions = new ArrayList<>();
                 ((MqttSubscribePayloadGranted) payload).subscriptions().forEach(s -> {
-                    if (s.grantedQos != MqttGrantedQoS.FAILURE) {
+                    if (s.grantedQos != MqttGrantedQoS.NOT_GRANTED) {
                         subscriptions.add(new MqttTopicSubscription(s.topic, MqttQoS.valueOf(s.grantedQos.value())));
                     }
                 });

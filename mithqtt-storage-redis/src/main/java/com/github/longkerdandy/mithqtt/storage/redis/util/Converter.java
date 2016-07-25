@@ -31,6 +31,7 @@ public class Converter {
                 bytes = map.get("payload").getBytes("ISO-8859-1");
             } catch (UnsupportedEncodingException ignore) {
             }
+            int pid = Integer.parseInt(map.getOrDefault("packetId", "0"));
             return new Message<>(
                     new MqttFixedHeader(
                             MqttMessageType.PUBLISH,
@@ -45,10 +46,8 @@ public class Converter {
                             map.get("userName"),
                             null
                     ),
-                    MqttPublishVariableHeader.from(
-                            map.get("topicName"),
-                            Integer.parseInt(map.getOrDefault("packetId", "0"))
-                    ),
+                    pid > 0 ? MqttPublishVariableHeader.from(map.get("topicName"), pid)
+                            : MqttPublishVariableHeader.from(map.get("topicName")),
                     new MqttPublishPayload(
                             bytes
                     ));

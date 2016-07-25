@@ -98,7 +98,7 @@ public class MqttSubscribeResource extends AbstractResource {
             grantedSubscriptions.add(new MqttTopicSubscriptionGranted(topic, grantedQoS));
 
             // Granted only
-            if (grantedQoS != MqttGrantedQoS.FAILURE) {
+            if (grantedQoS != MqttGrantedQoS.NOT_GRANTED) {
 
                 // If a Server receives a SUBSCRIBE Packet containing a Topic Filter that is identical to an existing
                 // Subscription’s Topic Filter then it MUST completely replace that existing Subscription with a new

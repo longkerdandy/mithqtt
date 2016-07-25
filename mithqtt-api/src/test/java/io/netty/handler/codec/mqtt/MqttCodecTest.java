@@ -129,7 +129,7 @@ public class MqttCodecTest {
         MqttFixedHeader mqttFixedHeader =
                 new MqttFixedHeader(MqttMessageType.SUBACK, false, MqttQoS.AT_MOST_ONCE, false, 0);
         MqttPacketIdVariableHeader mqttPacketIdVariableHeader = MqttPacketIdVariableHeader.from(12345);
-        MqttSubAckPayload mqttSubAckPayload = new MqttSubAckPayload(MqttGrantedQoS.SUCCESS_MAX_QOS1, MqttGrantedQoS.SUCCESS_MAX_QOS2, MqttGrantedQoS.SUCCESS_MAX_QOS0);
+        MqttSubAckPayload mqttSubAckPayload = new MqttSubAckPayload(MqttGrantedQoS.AT_LEAST_ONCE, MqttGrantedQoS.EXACTLY_ONCE, MqttGrantedQoS.AT_MOST_ONCE);
         return new MqttSubAckMessage(mqttFixedHeader, mqttPacketIdVariableHeader, mqttSubAckPayload);
     }
 
