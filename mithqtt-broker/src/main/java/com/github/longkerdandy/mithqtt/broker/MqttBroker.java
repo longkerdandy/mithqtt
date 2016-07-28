@@ -95,7 +95,7 @@ public class MqttBroker {
         InternalLoggerFactory.setDefaultFactory(Slf4JLoggerFactory.INSTANCE);
         EventLoopGroup bossGroup = brokerConfig.getBoolean("netty.useEpoll") ? new EpollEventLoopGroup() : new NioEventLoopGroup();
         EventLoopGroup workerGroup = brokerConfig.getBoolean("netty.useEpoll") ? new EpollEventLoopGroup() : new NioEventLoopGroup();
-        EventLoopGroup handlerGroup = brokerConfig.getBoolean("netty.useEpoll") ? new EpollEventLoopGroup() : new NioEventLoopGroup();
+        // EventLoopGroup handlerGroup = brokerConfig.getBoolean("netty.useEpoll") ? new EpollEventLoopGroup() : new NioEventLoopGroup();
 
         // shutdown hook
         Runtime.getRuntime().addShutdownHook(new Thread() {
@@ -130,7 +130,8 @@ public class MqttBroker {
                         p.addLast("encoder", MqttEncoder.INSTANCE);
                         p.addLast("decoder", new MqttDecoder());
                         // logic handler
-                        p.addLast(handlerGroup, "logicHandler", new SyncRedisHandler(authenticator, cluster, redis, registry, validator, brokerId, keepAlive, keepAliveMax));
+                        // p.addLast(handlerGroup, "logicHandler", new SyncRedisHandler(authenticator, cluster, redis, registry, validator, brokerId, keepAlive, keepAliveMax));
+                        p.addLast("logicHandler", new SyncRedisHandler(authenticator, cluster, redis, registry, validator, brokerId, keepAlive, keepAliveMax));
                     }
                 })
                 .option(ChannelOption.SO_BACKLOG, brokerConfig.getInt("netty.soBacklog"))
