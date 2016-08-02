@@ -6,7 +6,7 @@ MQTT Message Broker with Scalability written in Java.
 [![Join the chat at https://gitter.im/longkerdandy/mithril-mqtt](https://badges.gitter.im/Join%20Chat.svg)](https://gitter.im/longkerdandy/mithril-mqtt?utm_source=badge&utm_medium=badge&utm_campaign=pr-badge&utm_content=badge)
 
 ### What is MQTT
-[MQTT](http://mqtt.org) is an open industry standard, specifying a light weight publish-subscribe messaging protocol. It is well suited for constrained devices on unreliable networks.
+[MQTT](http://mqtt.org) is a machine-to-machine (M2M)/"Internet of Things" connectivity protocol. It was designed as an extremely lightweight publish/subscribe messaging transport. It is useful for connections with remote locations where a small code footprint is required and/or network bandwidth is at a premium.
 
 ### What is Mithqtt
 Mithqtt is an open source, distributed MQTT message broker for real world. It embraces the [Microservices Architecture](http://microservices.io), and designed to fit into complex server-side application.
