@@ -13,7 +13,7 @@ Mithqtt is an open source, distributed MQTT message broker for real world. It em
 
 As a MQTT message broker, Mithqtt scales both horizontally and vertically on commodity hardware to support a large number of concurrent MQTT clients while maintaing low latency and fault tolerence.
 
-As a Microservice, Mithqtt is small self contained with little external dependencies, using pluggable Communicator to coexist with other microservices.
+As a Microservice, Mithqtt is small self contained with little external dependencies, expose interface through Cluster and HTTP to other microservices.
 
 ### Features
 - Fully compatible with MQTT v3.1.1 specification.
