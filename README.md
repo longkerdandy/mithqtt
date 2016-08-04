@@ -5,6 +5,9 @@ MQTT Message Broker with Scalability written in Java.
 [![License](https://img.shields.io/badge/License-Apache%20License%202.0-blue.svg)](http://www.apache.org/licenses/LICENSE-2.0.html)
 [![Join the chat at https://gitter.im/longkerdandy/mithril-mqtt](https://badges.gitter.im/Join%20Chat.svg)](https://gitter.im/longkerdandy/mithril-mqtt?utm_source=badge&utm_medium=badge&utm_campaign=pr-badge&utm_content=badge)
 
+### User Guide
+See full documentation at [https://mithqtt.readme.io/](https://mithqtt.readme.io/)
+
 ### What is MQTT
 [MQTT](http://mqtt.org) is a machine-to-machine (M2M)/"Internet of Things" connectivity protocol. It was designed as an extremely lightweight publish/subscribe messaging transport. It is useful for connections with remote locations where a small code footprint is required and/or network bandwidth is at a premium.
 
@@ -31,22 +34,14 @@ As a Microservice, Mithqtt is small self contained with little external dependen
 - RESTful HTTP interface.
 
 ### Architecture
-This is the high level architecture design for a typical application service using Mithqtt.
-- User: Maybe a device or an app speaks MQTT.
-- Load Balancer: TCP (HTTP) load balancer like Pound LVS HAproxy or the service provided by cloud.
-- Communicator: Mithqtt internal commuication implmentation based on Hazelcast or Kafka.
-- MQTT Broker: Mithqtt MQTT broker handle messages from User (through Load Balancer), redirect internal messages to Communicator.
-- MQTT HTTP Interface: Mithqtt MQTT HTTP interface handle requests and transfer to internal messages, send to corresponding MQTT Broker via Communicator.
-- Redis: The main storage for Mithqtt.
-- InfluxDB: Optional storage for MQTT Broker and MQTT HTTP Interface metrics.
-- Cloud Service: Application service which can receive inbound MQTT (Internal Format) messages from Communicator, and send outbound MQTT (Internal Format) messages from MQTT HTTP Interface.
+This is the high level architecture design of Mithqtt and its integration with server side applications.
 
 ![Mithqtt Architecture](https://github.com/longkerdandy/mithqtt/blob/master/architecture.jpg)
 
 ### Interoperability Test
-Mithqtt broker is tested against Eclipse Paho's [MQTT Conformance/Interoperability Testing](http://www.eclipse.org/paho/clients/testing/).
+Mithqtt broker is tested against [MQTT Conformance/Interoperability Testing](http://www.eclipse.org/paho/clients/testing/).
 
-1. Basic Test
+Test result:
 ~~~
 $ python client_test.py -z -d -s
 hostname localhost port 1883
@@ -70,7 +65,7 @@ Zero length clientid test starting
 Zero length clientid test succeeded
 Subscribe failure test starting
 Subscribe failure test succeeded
-topics test starting
-topics test succeeded
+$ topics test starting
+$ topics test succeeded
 test suite succeeded
 ~~~
