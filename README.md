@@ -36,9 +36,9 @@ This is the high level architecture design of Mithqtt and its integration with s
 ![Mithqtt Architecture](https://github.com/longkerdandy/mithqtt/blob/master/architecture.jpg)
 
 ### Interoperability Test
-Mithqtt broker is tested against Eclipse Paho's [MQTT Conformance/Interoperability Testing](http://www.eclipse.org/paho/clients/testing/).
+Mithqtt broker is tested against [MQTT Conformance/Interoperability Testing](http://www.eclipse.org/paho/clients/testing/).
 
-1. Basic Test
+Test result:
 ~~~
 $ python client_test.py -z -d -s
 hostname localhost port 1883
