@@ -62,7 +62,7 @@ Zero length clientid test starting
 Zero length clientid test succeeded
 Subscribe failure test starting
 Subscribe failure test succeeded
-topics test starting
-topics test succeeded
+$ topics test starting
+$ topics test succeeded
 test suite succeeded
 ~~~
