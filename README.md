@@ -31,15 +31,7 @@ As a Microservice, Mithqtt is small self contained with little external dependen
 - RESTful HTTP interface.
 
 ### Architecture
-This is the high level architecture design for a typical application service using Mithqtt.
-- User: Maybe a device or an app speaks MQTT.
-- Load Balancer: TCP (HTTP) load balancer like Pound LVS HAproxy or the service provided by cloud.
-- Communicator: Mithqtt internal commuication implmentation based on Hazelcast or Kafka.
-- MQTT Broker: Mithqtt MQTT broker handle messages from User (through Load Balancer), redirect internal messages to Communicator.
-- MQTT HTTP Interface: Mithqtt MQTT HTTP interface handle requests and transfer to internal messages, send to corresponding MQTT Broker via Communicator.
-- Redis: The main storage for Mithqtt.
-- InfluxDB: Optional storage for MQTT Broker and MQTT HTTP Interface metrics.
-- Cloud Service: Application service which can receive inbound MQTT (Internal Format) messages from Communicator, and send outbound MQTT (Internal Format) messages from MQTT HTTP Interface.
+This is the high level architecture design of Mithqtt and its integration with server side applications.
 
 ![Mithqtt Architecture](https://github.com/longkerdandy/mithqtt/blob/master/architecture.jpg)
 
