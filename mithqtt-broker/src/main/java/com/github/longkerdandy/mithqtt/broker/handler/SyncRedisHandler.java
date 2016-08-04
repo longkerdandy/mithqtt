@@ -135,6 +135,8 @@ public class SyncRedisHandler extends SimpleChannelInboundHandler<MqttMessage> {
     }
 
     private void onConnect(ChannelHandlerContext ctx, MqttConnectMessage msg) {
+        logger.trace("Start handling CONNECT message");
+
         this.version = MqttVersion.fromProtocolNameAndLevel(msg.variableHeader().protocolName(), (byte) msg.variableHeader().protocolLevel());
         this.clientId = msg.payload().clientId();
         this.cleanSession = msg.variableHeader().cleanSession();
@@ -322,9 +324,11 @@ public class SyncRedisHandler extends SimpleChannelInboundHandler<MqttMessage> {
             }
 
             // Mark client's session as existed
+            logger.trace("Update client {} session existence", this.clientId);
             this.redis.updateSessionExist(this.clientId, this.cleanSession);
 
             // Release lock on client connection state
+            logger.trace("Try to release lock on client {}", this.clientId);
             this.redis.release(this.clientId, ConnectionState.CONNECTED);
 
             // If the ClientId represents a Client already connected to the Server then the Server MUST
@@ -363,15 +367,18 @@ public class SyncRedisHandler extends SimpleChannelInboundHandler<MqttMessage> {
             // If the Keep Alive value is non-zero and the Server does not receive a Control Packet from the Client
             // within one and a half times the Keep Alive time period, it MUST disconnect the Network Connection to the
             // Client as if the network had failed
+            logger.trace("Update idleHandler for client {}", this.clientId);
             if (ctx.pipeline().names().contains("idleHandler"))
                 ctx.pipeline().remove("idleHandler");
             ctx.pipeline().addFirst("idleHandler", new IdleStateHandler(0, 0, Math.round(this.keepAlive * 1.5f)));
 
             // Save connection state, add to local registry
+            logger.trace("Save client {} connection state in registry", this.clientId);
             this.connected = true;
             this.registry.saveSession(this.clientId, ctx);
 
             // Pass message to 3rd party application
+            logger.trace("Send a copy of CONNECT message from client {} to 3rd party application", this.clientId);
             this.cluster.sendToApplication(Message.fromMqttMessage(msg, this.version, this.clientId, this.userName, this.brokerId));
         }
 
@@ -389,9 +396,13 @@ public class SyncRedisHandler extends SimpleChannelInboundHandler<MqttMessage> {
                     true);
             ctx.close();
         }
+
+        logger.trace("Finish handling CONNECT message for client {}", this.clientId);
     }
 
     private void onPublish(ChannelHandlerContext ctx, MqttPublishMessage msg) {
+        logger.trace("Start handling PUBLISH message for client {}", this.clientId);
+
         if (!this.connected) {
             logger.debug("Protocol violation: Client {} must first sent a CONNECT message, now received PUBLISH message, disconnect the client", this.clientId);
             ctx.close();
@@ -523,6 +534,7 @@ public class SyncRedisHandler extends SimpleChannelInboundHandler<MqttMessage> {
             }
 
             // Pass message to 3rd party application
+            logger.trace("Send a copy of PUBLISH message from client {} to 3rd party application", this.clientId);
             this.cluster.sendToApplication(m);
 
         } else {
@@ -532,6 +544,8 @@ public class SyncRedisHandler extends SimpleChannelInboundHandler<MqttMessage> {
         // Refresh client's connected broker node
         logger.trace("Refresh client {} connected to broker {}", this.clientId, this.brokerId);
         this.redis.refreshConnectedNode(this.clientId, this.brokerId, Math.round(this.keepAlive * 1.5f));
+
+        logger.trace("Finish handling PUBLISH message for client {}", this.clientId);
     }
 
     /**
@@ -540,7 +554,10 @@ public class SyncRedisHandler extends SimpleChannelInboundHandler<MqttMessage> {
      * @param msg MQTT PUBLISH Message
      */
     private void onwardRecipients(MqttPublishMessage msg, MqttPublishPayload payload) {
-        List<String> topicLevels = Topics.sanitizeTopicName(msg.variableHeader().topicName());
+        String topicName = msg.variableHeader().topicName();
+        List<String> topicLevels = Topics.sanitizeTopicName(topicName);
+
+        logger.trace("Onward PUBLISH message to recipients for topic {}", topicName);
 
         // When sending a PUBLISH Packet to a Client the Server MUST set the RETAIN flag to 1 if a message is
         // sent as a result of a new subscription being made by a Client. It MUST set the RETAIN
@@ -578,8 +595,8 @@ public class SyncRedisHandler extends SimpleChannelInboundHandler<MqttMessage> {
             Message<MqttPublishVariableHeader, MqttPublishPayload> m = new Message<>(
                     new MqttFixedHeader(MqttMessageType.PUBLISH, false, fQos, false, 0),
                     new MqttAdditionalHeader(MqttVersion.MQTT_3_1_1, cid, null, null),
-                    pid > 0 ? MqttPublishVariableHeader.from(msg.variableHeader().topicName(), pid)
-                            : MqttPublishVariableHeader.from(msg.variableHeader().topicName()),
+                    pid > 0 ? MqttPublishVariableHeader.from(topicName, pid)
+                            : MqttPublishVariableHeader.from(topicName),
                     payload
             );
 
@@ -612,6 +629,8 @@ public class SyncRedisHandler extends SimpleChannelInboundHandler<MqttMessage> {
     }
 
     private void onPubAck(ChannelHandlerContext ctx, MqttMessage msg) {
+        logger.trace("Start handling PUBACK message for client {}", this.clientId);
+
         if (!this.connected) {
             logger.debug("Protocol violation: Client {} must first sent a CONNECT message, now received PUBACK message, disconnect the client", this.clientId);
             ctx.close();
@@ -632,9 +651,13 @@ public class SyncRedisHandler extends SimpleChannelInboundHandler<MqttMessage> {
         // Refresh client's connected broker node
         logger.trace("Refresh client {} connected to broker {}", this.clientId, this.brokerId);
         this.redis.refreshConnectedNode(this.clientId, this.brokerId, Math.round(this.keepAlive * 1.5f));
+
+        logger.trace("Finish handling PUBACK message for client {}", this.clientId);
     }
 
     private void onPubRec(ChannelHandlerContext ctx, MqttMessage msg) {
+        logger.trace("Start handling PUBREC message for client {}", this.clientId);
+
         if (!this.connected) {
             logger.debug("Protocol violation: Client {} must first sent a CONNECT message, now received PUBREC message, disconnect the client", this.clientId);
             ctx.close();
@@ -670,9 +693,13 @@ public class SyncRedisHandler extends SimpleChannelInboundHandler<MqttMessage> {
         // Refresh client's connected broker node
         logger.trace("Refresh client {} connected to broker {}", this.clientId, this.brokerId);
         this.redis.refreshConnectedNode(this.clientId, this.brokerId, Math.round(this.keepAlive * 1.5f));
+
+        logger.trace("Finish handling PUBREC message for client {}", this.clientId);
     }
 
     private void onPubRel(ChannelHandlerContext ctx, MqttMessage msg) {
+        logger.trace("Start handling PUBREL message for client {}", this.clientId);
+
         if (!this.connected) {
             logger.debug("Protocol violation: Client {} must first sent a CONNECT message, now received PUBREL message, disconnect the client", this.clientId);
             ctx.close();
@@ -700,9 +727,13 @@ public class SyncRedisHandler extends SimpleChannelInboundHandler<MqttMessage> {
         // Refresh client's connected broker node
         logger.trace("Refresh client {} connected to broker {}", this.clientId, this.brokerId);
         this.redis.refreshConnectedNode(this.clientId, this.brokerId, Math.round(this.keepAlive * 1.5f));
+
+        logger.trace("Finish handling PUBREL message for client {}", this.clientId);
     }
 
     private void onPubComp(ChannelHandlerContext ctx, MqttMessage msg) {
+        logger.trace("Start handling PUBCOMP message for client {}", this.clientId);
+
         if (!this.connected) {
             logger.debug("Protocol violation: Client {} must first sent a CONNECT message, now received PUBCOMP message, disconnect the client", this.clientId);
             ctx.close();
@@ -723,9 +754,13 @@ public class SyncRedisHandler extends SimpleChannelInboundHandler<MqttMessage> {
         // Refresh client's connected broker node
         logger.trace("Refresh client {} connected to broker {}", this.clientId, this.brokerId);
         this.redis.refreshConnectedNode(this.clientId, this.brokerId, Math.round(this.keepAlive * 1.5f));
+
+        logger.trace("Finish handling PUBCOMP message for client {}", this.clientId);
     }
 
     private void onSubscribe(ChannelHandlerContext ctx, MqttSubscribeMessage msg) {
+        logger.trace("Start handling SUBSCRIBE message for client {}", this.clientId);
+
         if (!this.connected) {
             logger.debug("Protocol violation: Client {} must first sent a CONNECT message, now received SUBSCRIBE message, disconnect the client", this.clientId);
             ctx.close();
@@ -811,7 +846,7 @@ public class SyncRedisHandler extends SimpleChannelInboundHandler<MqttMessage> {
                             pid > 0 ? MqttPublishVariableHeader.from(retain.variableHeader().topicName(), pid)
                                     : MqttPublishVariableHeader.from(retain.variableHeader().topicName()),
                             retain.payload());
-                    this.registry.sendMessage(ctx, m.toMqttMessage(), this.clientId, pid, false);
+                    this.registry.sendMessage(ctx, m.toMqttMessage(), this.clientId, pid, true);
 
                     // In the QoS 1 delivery protocol, the Sender
                     // MUST treat the PUBLISH Packet as “unacknowledged” until it has received the corresponding
@@ -827,18 +862,20 @@ public class SyncRedisHandler extends SimpleChannelInboundHandler<MqttMessage> {
             }
         }
 
-        // Flush channel
-        ctx.flush();
-
         // Pass message to 3rd party application
+        logger.trace("Send a copy of SUBSCRIBE message from client {} to 3rd party application", this.clientId);
         this.cluster.sendToApplication(Message.fromMqttMessage(msg, grantedQosLevels, this.version, this.clientId, this.userName, this.brokerId));
 
         // Refresh client's connected broker node
         logger.trace("Refresh client {} connected to broker {}", this.clientId, this.brokerId);
         this.redis.refreshConnectedNode(this.clientId, this.brokerId, Math.round(this.keepAlive * 1.5f));
+
+        logger.trace("Finish handling SUBSCRIBE message for client {}", this.clientId);
     }
 
     private void onUnsubscribe(ChannelHandlerContext ctx, MqttUnsubscribeMessage msg) {
+        logger.trace("Start handling UNSUBSCRIBE message for client {}", this.clientId);
+
         if (!this.connected) {
             logger.debug("Protocol violation: Client {} must first sent a CONNECT message, now received UNSUBSCRIBE message, disconnect the client", this.clientId);
             ctx.close();
@@ -891,14 +928,19 @@ public class SyncRedisHandler extends SimpleChannelInboundHandler<MqttMessage> {
         });
 
         // Pass message to 3rd party application
+        logger.trace("Send a copy of UNSUBSCRIBE message from client {} to 3rd party application", this.clientId);
         this.cluster.sendToApplication(Message.fromMqttMessage(msg, this.version, this.clientId, this.userName, this.brokerId));
 
         // Refresh client's connected broker node
         logger.trace("Refresh client {} connected to broker {}", this.clientId, this.brokerId);
         this.redis.refreshConnectedNode(this.clientId, this.brokerId, Math.round(this.keepAlive * 1.5f));
+
+        logger.trace("Finish handling UNSUBSCRIBE message for client {}", this.clientId);
     }
 
     private void onPingReq(ChannelHandlerContext ctx) {
+        logger.trace("Start handling PINGREQ message for client {}", this.clientId);
+
         if (!this.connected) {
             logger.debug("Protocol violation: Client {} must first sent a CONNECT message, now received PINGREQ message, disconnect the client", this.clientId);
             ctx.close();
@@ -921,9 +963,13 @@ public class SyncRedisHandler extends SimpleChannelInboundHandler<MqttMessage> {
         // Refresh client's connected broker node
         logger.trace("Refresh client {} connected to broker {}", this.clientId, this.brokerId);
         this.redis.refreshConnectedNode(this.clientId, this.brokerId, Math.round(this.keepAlive * 1.5f));
+
+        logger.trace("Finish handling PINGREQ message for client {}", this.clientId);
     }
 
     private void onDisconnect(ChannelHandlerContext ctx) {
+        logger.trace("Start handling DISCONNECT message for client {}", this.clientId);
+
         if (!this.connected) {
             logger.debug("Protocol violation: Client {} must first sent a CONNECT message, now received DISCONNECT message, disconnect the client", this.clientId);
             ctx.close();
@@ -936,9 +982,10 @@ public class SyncRedisHandler extends SimpleChannelInboundHandler<MqttMessage> {
 
         // Pass message to 3rd party application
         if (redirect)
-            this.cluster.sendToApplication(new Message<>(
-                    new MqttFixedHeader(MqttMessageType.DISCONNECT, false, MqttQoS.AT_MOST_ONCE, false, 0),
-                    new MqttAdditionalHeader(this.version, this.clientId, this.userName, this.brokerId), null, null));
+            logger.trace("Send a copy of DISCONNECT message from client {} to 3rd party application", this.clientId);
+        this.cluster.sendToApplication(new Message<>(
+                new MqttFixedHeader(MqttMessageType.DISCONNECT, false, MqttQoS.AT_MOST_ONCE, false, 0),
+                new MqttAdditionalHeader(this.version, this.clientId, this.userName, this.brokerId), null, null));
 
         // If the Will Flag is set to 1 this indicates that, if the Connect request is accepted, a Will Message MUST be
         // stored on the Server and associated with the Network Connection. The Will Message MUST be published
@@ -953,10 +1000,14 @@ public class SyncRedisHandler extends SimpleChannelInboundHandler<MqttMessage> {
 
         // Make sure connection is closed
         ctx.close();
+
+        logger.trace("Finish handling PINGREQ message for client {}", this.clientId);
     }
 
     @Override
     public void channelInactive(ChannelHandlerContext ctx) throws Exception {
+        logger.trace("Start handling inactive event for client {}", this.clientId);
+
         if (this.connected) {
 
             logger.debug("Connection closed: Connection lost from client {} user {}", this.clientId, this.userName);
@@ -965,9 +1016,10 @@ public class SyncRedisHandler extends SimpleChannelInboundHandler<MqttMessage> {
 
             // Pass message to 3rd party application
             if (redirect)
-                this.cluster.sendToApplication(new Message<>(
-                        new MqttFixedHeader(MqttMessageType.DISCONNECT, false, MqttQoS.AT_MOST_ONCE, false, 0),
-                        new MqttAdditionalHeader(this.version, this.clientId, this.userName, this.brokerId), null, null));
+                logger.trace("Send a copy of DISCONNECT message from client {} to 3rd party application", this.clientId);
+            this.cluster.sendToApplication(new Message<>(
+                    new MqttFixedHeader(MqttMessageType.DISCONNECT, false, MqttQoS.AT_MOST_ONCE, false, 0),
+                    new MqttAdditionalHeader(this.version, this.clientId, this.userName, this.brokerId), null, null));
 
             // If the Will Flag is set to 1 this indicates that, if the Connect request is accepted, a Will Message MUST be
             // stored on the Server and associated with the Network Connection. The Will Message MUST be published
@@ -998,6 +1050,8 @@ public class SyncRedisHandler extends SimpleChannelInboundHandler<MqttMessage> {
                 }
             }
         }
+
+        logger.trace("Finish handling inactive event for client {}", this.clientId);
     }
 
     /**
@@ -1016,6 +1070,7 @@ public class SyncRedisHandler extends SimpleChannelInboundHandler<MqttMessage> {
         } else {
             logger.trace("Successful lock on client {}", this.clientId);
 
+            logger.trace("Test if client {} already reconnected to some broker", this.clientId);
             // Test if client already reconnected to this broker
             if (this.registry.removeSession(this.clientId, ctx)) {
 
@@ -1039,6 +1094,7 @@ public class SyncRedisHandler extends SimpleChannelInboundHandler<MqttMessage> {
             }
 
             // Release lock on client connection state
+            logger.trace("Try to release lock on client {}", this.clientId);
             this.redis.release(this.clientId, ConnectionState.DISCONNECTED);
         }
 
