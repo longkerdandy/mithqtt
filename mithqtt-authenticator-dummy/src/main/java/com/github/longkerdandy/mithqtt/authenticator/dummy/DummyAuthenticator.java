@@ -46,8 +46,8 @@ public class DummyAuthenticator implements Authenticator {
         List<MqttGrantedQoS> r = new ArrayList<>();
         requestSubscriptions.forEach(subscription -> {
             if (!this.allowDollar && subscription.topic().startsWith("$")) r.add(MqttGrantedQoS.NOT_GRANTED);
-            if (subscription.topic().equals(this.deniedTopic)) r.add(MqttGrantedQoS.NOT_GRANTED);
-            r.add(MqttGrantedQoS.valueOf(subscription.requestedQos().value()));
+            else if (subscription.topic().equals(this.deniedTopic)) r.add(MqttGrantedQoS.NOT_GRANTED);
+            else r.add(MqttGrantedQoS.valueOf(subscription.requestedQos().value()));
         });
         return r;
     }
