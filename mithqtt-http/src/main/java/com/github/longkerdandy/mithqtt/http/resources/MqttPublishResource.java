@@ -2,10 +2,10 @@ package com.github.longkerdandy.mithqtt.http.resources;
 
 import com.github.longkerdandy.mithqtt.api.auth.Authenticator;
 import com.github.longkerdandy.mithqtt.api.auth.AuthorizeResult;
+import com.github.longkerdandy.mithqtt.api.cluster.Cluster;
 import com.github.longkerdandy.mithqtt.api.message.Message;
 import com.github.longkerdandy.mithqtt.api.message.MqttAdditionalHeader;
 import com.github.longkerdandy.mithqtt.api.message.MqttPublishPayload;
-import com.github.longkerdandy.mithqtt.http.cluster.NATSCluster;
 import com.github.longkerdandy.mithqtt.http.entity.ErrorCode;
 import com.github.longkerdandy.mithqtt.http.entity.ErrorEntity;
 import com.github.longkerdandy.mithqtt.http.entity.ResultEntity;
@@ -39,7 +39,7 @@ public class MqttPublishResource extends AbstractResource {
 
     private static final Logger logger = LoggerFactory.getLogger(MqttPublishResource.class);
 
-    public MqttPublishResource(String serverId, Validator validator, RedisSyncStorage redis, NATSCluster cluster, Authenticator authenticator) {
+    public MqttPublishResource(String serverId, Validator validator, RedisSyncStorage redis, Cluster cluster, Authenticator authenticator) {
         super(serverId, validator, redis, cluster, authenticator);
     }
 
@@ -126,7 +126,7 @@ public class MqttPublishResource extends AbstractResource {
                         new MqttFixedHeader(MqttMessageType.PUBLISH, false, fQos, false, 0),
                         new MqttAdditionalHeader(MqttVersion.MQTT_3_1_1, cid, null, null),
                         pid > 0 ? MqttPublishVariableHeader.from(topicName, pid)
-                                : MqttPublishVariableHeader.from(topicName) ,
+                                : MqttPublishVariableHeader.from(topicName),
                         msg.payload()
                 );
 

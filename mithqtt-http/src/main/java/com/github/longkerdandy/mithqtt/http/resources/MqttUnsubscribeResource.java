@@ -1,9 +1,9 @@
 package com.github.longkerdandy.mithqtt.http.resources;
 
 import com.github.longkerdandy.mithqtt.api.auth.Authenticator;
+import com.github.longkerdandy.mithqtt.api.cluster.Cluster;
 import com.github.longkerdandy.mithqtt.api.message.Message;
 import com.github.longkerdandy.mithqtt.api.message.MqttAdditionalHeader;
-import com.github.longkerdandy.mithqtt.http.cluster.NATSCluster;
 import com.github.longkerdandy.mithqtt.http.entity.ErrorCode;
 import com.github.longkerdandy.mithqtt.http.entity.ErrorEntity;
 import com.github.longkerdandy.mithqtt.http.entity.ResultEntity;
@@ -33,7 +33,7 @@ public class MqttUnsubscribeResource extends AbstractResource {
 
     private static final Logger logger = LoggerFactory.getLogger(MqttSubscribeResource.class);
 
-    public MqttUnsubscribeResource(String serverId, Validator validator, RedisSyncStorage redis, NATSCluster cluster, Authenticator authenticator) {
+    public MqttUnsubscribeResource(String serverId, Validator validator, RedisSyncStorage redis, Cluster cluster, Authenticator authenticator) {
         super(serverId, validator, redis, cluster, authenticator);
     }
 

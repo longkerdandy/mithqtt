@@ -1,7 +1,8 @@
 package com.github.longkerdandy.mithqtt.broker;
 
 import com.github.longkerdandy.mithqtt.api.auth.Authenticator;
-import com.github.longkerdandy.mithqtt.broker.cluster.NATSCluster;
+import com.github.longkerdandy.mithqtt.api.cluster.Cluster;
+import com.github.longkerdandy.mithqtt.broker.cluster.BrokerClusterListenerFactoryImpl;
 import com.github.longkerdandy.mithqtt.broker.handler.SyncRedisHandler;
 import com.github.longkerdandy.mithqtt.broker.session.SessionRegistry;
 import com.github.longkerdandy.mithqtt.broker.util.Validator;
@@ -74,8 +75,8 @@ public class MqttBroker {
 
         // cluster
         logger.debug("Initializing cluster ...");
-        NATSCluster cluster = new NATSCluster();
-        cluster.init(clusterConfig, brokerId, registry);
+        Cluster cluster = (Cluster) Class.forName(clusterConfig.getString("cluster.class")).newInstance();
+        cluster.init(clusterConfig, new BrokerClusterListenerFactoryImpl(registry));
 
         // authenticator
         logger.debug("Initializing authenticator...");

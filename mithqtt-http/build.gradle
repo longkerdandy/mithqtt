@@ -14,13 +14,13 @@ dependencies {
     // authenticator
     runtime project(':mithqtt-authenticator-dummy')
 
+    // cluster
+    runtime project(':mithqtt-cluster-nats')
+
     // dropwizard
     compile 'io.dropwizard:dropwizard-core:0.9.3'
     compile 'io.dropwizard:dropwizard-auth:0.9.3'
     compile 'commons-validator:commons-validator:1.5.1'
-
-    // nats
-    compile 'io.nats:jnats:0.4.1'
 }
 
 startScripts {

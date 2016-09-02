@@ -1,0 +1,7 @@
+dependencies {
+    // project api
+    compile project(':mithqtt-api')
+
+    // nats
+    compile 'io.nats:jnats:0.4.1'
+}

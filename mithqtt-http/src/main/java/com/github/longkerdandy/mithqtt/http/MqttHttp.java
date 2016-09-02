@@ -4,7 +4,7 @@ import com.fasterxml.jackson.annotation.JsonInclude;
 import com.fasterxml.jackson.databind.DeserializationFeature;
 import com.fasterxml.jackson.databind.SerializationFeature;
 import com.github.longkerdandy.mithqtt.api.auth.Authenticator;
-import com.github.longkerdandy.mithqtt.http.cluster.NATSCluster;
+import com.github.longkerdandy.mithqtt.api.cluster.Cluster;
 import com.github.longkerdandy.mithqtt.http.oauth.OAuthAuthenticator;
 import com.github.longkerdandy.mithqtt.http.resources.MqttPublishResource;
 import com.github.longkerdandy.mithqtt.http.resources.MqttSubscribeResource;
@@ -82,22 +82,6 @@ public class MqttHttp extends Application<MqttHttpConfiguration> {
             }
         });
 
-        // cluster
-        NATSCluster cluster = new NATSCluster();
-        environment.lifecycle().manage(new Managed() {
-            @Override
-            public void start() throws Exception {
-                logger.debug("Initializing cluster ...");
-                cluster.init(clusterConfig);
-            }
-
-            @Override
-            public void stop() throws Exception {
-                logger.debug("Destroying cluster ...");
-                cluster.destroy();
-            }
-        });
-
         // authenticator
         Authenticator authenticator = (Authenticator) Class.forName(authenticatorConfig.getString("authenticator.class")).newInstance();
         environment.lifecycle().manage(new Managed() {
@@ -111,6 +95,22 @@ public class MqttHttp extends Application<MqttHttpConfiguration> {
             public void stop() throws Exception {
                 logger.debug("Destroying authenticator ...");
                 authenticator.destroy();
+            }
+        });
+
+        // cluster
+        Cluster cluster = (Cluster) Class.forName(clusterConfig.getString("cluster.class")).newInstance();
+        environment.lifecycle().manage(new Managed() {
+            @Override
+            public void start() throws Exception {
+                logger.debug("Initializing cluster ...");
+                cluster.init(clusterConfig, null);
+            }
+
+            @Override
+            public void stop() throws Exception {
+                logger.debug("Destroying cluster ...");
+                cluster.destroy();
             }
         });
 

@@ -2,10 +2,10 @@ package com.github.longkerdandy.mithqtt.broker.handler;
 
 import com.github.longkerdandy.mithqtt.api.auth.Authenticator;
 import com.github.longkerdandy.mithqtt.api.auth.AuthorizeResult;
+import com.github.longkerdandy.mithqtt.api.cluster.Cluster;
 import com.github.longkerdandy.mithqtt.api.message.Message;
 import com.github.longkerdandy.mithqtt.api.message.MqttAdditionalHeader;
 import com.github.longkerdandy.mithqtt.api.message.MqttPublishPayload;
-import com.github.longkerdandy.mithqtt.broker.cluster.NATSCluster;
 import com.github.longkerdandy.mithqtt.broker.session.SessionRegistry;
 import com.github.longkerdandy.mithqtt.broker.util.Validator;
 import com.github.longkerdandy.mithqtt.storage.redis.ConnectionState;
@@ -38,7 +38,7 @@ public class SyncRedisHandler extends SimpleChannelInboundHandler<MqttMessage> {
     private static final Logger logger = LoggerFactory.getLogger(SyncRedisHandler.class);
 
     private final Authenticator authenticator;
-    private final NATSCluster cluster;
+    private final Cluster cluster;
     private final RedisSyncStorage redis;
     private final SessionRegistry registry;
     private final Validator validator;
@@ -54,7 +54,7 @@ public class SyncRedisHandler extends SimpleChannelInboundHandler<MqttMessage> {
     private int keepAliveMax;
     private MqttPublishMessage willMessage;
 
-    public SyncRedisHandler(Authenticator authenticator, NATSCluster cluster, RedisSyncStorage redis, SessionRegistry registry, Validator validator, String brokerId, int keepAlive, int keepAliveMax) {
+    public SyncRedisHandler(Authenticator authenticator, Cluster cluster, RedisSyncStorage redis, SessionRegistry registry, Validator validator, String brokerId, int keepAlive, int keepAliveMax) {
         this.authenticator = authenticator;
         this.cluster = cluster;
         this.redis = redis;
