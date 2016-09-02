@@ -4,6 +4,7 @@ import com.lambdaworks.redis.ReadFrom;
 import com.lambdaworks.redis.RedisURI;
 import com.lambdaworks.redis.api.sync.*;
 import com.lambdaworks.redis.cluster.ClusterClientOptions;
+import com.lambdaworks.redis.cluster.ClusterTopologyRefreshOptions;
 import com.lambdaworks.redis.cluster.RedisClusterClient;
 import com.lambdaworks.redis.cluster.api.StatefulRedisClusterConnection;
 import org.apache.commons.configuration.AbstractConfiguration;
@@ -79,9 +80,11 @@ public class RedisSyncClusterStorage extends RedisSyncSingleStorage {
         // lettuce
         RedisURI lettuceURI = RedisURI.create("redis://" + password + address.get(0) + "/" + databaseNumber);
         this.lettuceCluster = RedisClusterClient.create(lettuceURI);
-        this.lettuceCluster.setOptions(new ClusterClientOptions.Builder()
-                .refreshClusterView(true)
-                .refreshPeriod(1, TimeUnit.MINUTES)
+        this.lettuceCluster.setOptions(ClusterClientOptions.builder()
+                .topologyRefreshOptions(ClusterTopologyRefreshOptions.builder()
+                        .enablePeriodicRefresh(true)
+                        .refreshPeriod(1, TimeUnit.MINUTES)
+                        .build())
                 .build());
         this.lettuceClusterConn = this.lettuceCluster.connect();
         this.lettuceClusterConn.setReadFrom(ReadFrom.valueOf(config.getString("redis.read")));

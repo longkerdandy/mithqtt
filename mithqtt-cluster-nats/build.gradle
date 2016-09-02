@@ -3,5 +3,5 @@ dependencies {
     compile project(':mithqtt-api')
 
     // nats
-    compile 'io.nats:jnats:0.4.1'
+    compile 'io.nats:jnats:0.5.3'
 }

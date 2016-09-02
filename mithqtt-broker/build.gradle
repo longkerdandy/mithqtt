@@ -18,8 +18,8 @@ dependencies {
     runtime project(':mithqtt-cluster-nats')
 
     // netty
-    compile 'io.netty:netty-transport:4.1.3.Final'
-    compile 'io.netty:netty-transport-native-epoll:4.1.3.Final'
+    compile 'io.netty:netty-transport:4.1.5.Final'
+    compile 'io.netty:netty-transport-native-epoll:4.1.5.Final'
 }
 
 startScripts {

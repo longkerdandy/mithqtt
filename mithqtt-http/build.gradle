@@ -18,8 +18,8 @@ dependencies {
     runtime project(':mithqtt-cluster-nats')
 
     // dropwizard
-    compile 'io.dropwizard:dropwizard-core:0.9.3'
-    compile 'io.dropwizard:dropwizard-auth:0.9.3'
+    compile 'io.dropwizard:dropwizard-core:1.0.0'
+    compile 'io.dropwizard:dropwizard-auth:1.0.0'
     compile 'commons-validator:commons-validator:1.5.1'
 }
 

@@ -1,7 +1,7 @@
 package com.github.longkerdandy.mithqtt.http.oauth;
 
 import com.github.longkerdandy.mithqtt.api.auth.Authenticator;
-import com.google.common.base.Optional;
+import java.util.Optional;
 import com.sun.security.auth.UserPrincipal;
 import io.dropwizard.auth.AuthenticationException;
 import org.apache.commons.lang3.StringUtils;
@@ -30,10 +30,10 @@ public class OAuthAuthenticator implements io.dropwizard.auth.Authenticator<Stri
     @Override
     public Optional<UserPrincipal> authenticate(String credentials) throws AuthenticationException {
         if (StringUtils.isBlank(credentials)) {
-            return Optional.absent();
+            return Optional.empty();
         }
         // validate token
         String u = this.authenticator.oauth(credentials);
-        return StringUtils.isBlank(u) ? Optional.absent() : Optional.of(new UserPrincipal(u));
+        return StringUtils.isBlank(u) ? Optional.empty() : Optional.of(new UserPrincipal(u));
     }
 }
