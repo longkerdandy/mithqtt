@@ -29,7 +29,7 @@ As a Microservice, Mithqtt is small self contained with little external dependen
   - Strong message ordering for each session.
 - Authentication and Authorization on Connect Publish Subscribe.
 - Distributed, decentralized, high availability. Eventually consistent on node state.
-- [Redis](http://redis.io) based storage (support 2.8 and 3.0).
+- [Redis](http://redis.io) based storage (support 2.8 and 3.x).
 - [NATS](http://nats.io) based cluster implementation.
 - RESTful HTTP interface.
 
