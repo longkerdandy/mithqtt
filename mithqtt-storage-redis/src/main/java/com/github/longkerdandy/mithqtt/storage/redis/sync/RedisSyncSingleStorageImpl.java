@@ -29,7 +29,7 @@ import static com.github.longkerdandy.mithqtt.util.Topics.END;
 /**
  * Synchronized Storage for Single Redis setup
  */
-public class RedisSyncSingleStorage implements RedisSyncStorage {
+public class RedisSyncSingleStorageImpl implements RedisSyncStorage {
 
     // Max in-flight queue size per client
     private int inFlightQueueSize;
@@ -86,7 +86,10 @@ public class RedisSyncSingleStorage implements RedisSyncStorage {
 
     @Override
     public void init(AbstractConfiguration config) {
-        // config
+        if (!config.getString("redis.type").equals("single")) {
+            throw new IllegalStateException("RedisSyncSingleStorageImpl class can only be used with single redis setup, but redis.type value is " + config.getString("redis.type"));
+        }
+
         List<String> address = parseRedisAddress(config.getString("redis.address"), 6379);
         int databaseNumber = config.getInt("redis.database", 0);
         String password = StringUtils.isNotEmpty(config.getString("redis.password")) ? config.getString("redis.password") + "@" : "";

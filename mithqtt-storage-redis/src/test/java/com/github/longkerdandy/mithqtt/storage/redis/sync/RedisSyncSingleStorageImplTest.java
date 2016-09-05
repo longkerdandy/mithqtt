@@ -22,11 +22,11 @@ import java.util.Map;
 import static com.github.longkerdandy.mithqtt.storage.redis.util.JSONs.ObjectMapper;
 
 /**
- * RedisSyncSingleStorage Test
+ * RedisSyncSingleStorageImpl Test
  */
-public class RedisSyncSingleStorageTest {
+public class RedisSyncSingleStorageImplTest {
 
-    private static RedisSyncSingleStorage redis;
+    private static RedisSyncSingleStorageImpl redis;
 
     @BeforeClass
     public static void init() throws ConfigurationException {
@@ -38,7 +38,7 @@ public class RedisSyncSingleStorageTest {
         map.put("mqtt.retain.queue.size", 3);
         MapConfiguration config = new MapConfiguration(map);
 
-        redis = new RedisSyncSingleStorage();
+        redis = new RedisSyncSingleStorageImpl();
         redis.init(config);
     }
 

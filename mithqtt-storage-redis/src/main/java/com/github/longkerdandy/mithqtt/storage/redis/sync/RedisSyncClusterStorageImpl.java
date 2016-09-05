@@ -17,7 +17,7 @@ import java.util.concurrent.TimeUnit;
  * Synchronized Storage for Cluster Redis setup
  */
 @SuppressWarnings("unused")
-public class RedisSyncClusterStorage extends RedisSyncSingleStorage {
+public class RedisSyncClusterStorageImpl extends RedisSyncSingleStorageImpl {
 
     // A scalable thread-safe Redis cluster client. Multiple threads may share one connection. The
     // cluster client handles command routing based on the first key of the command and maintains a view on the cluster that is
@@ -70,7 +70,7 @@ public class RedisSyncClusterStorage extends RedisSyncSingleStorage {
     @Override
     public void init(AbstractConfiguration config) {
         if (!config.getString("redis.type").equals("cluster")) {
-            throw new IllegalStateException("RedisSyncSingleStorage class can only be used with cluster redis setup, but redis.type value is " + config.getString("redis.type"));
+            throw new IllegalStateException("RedisSyncSingleStorageImpl class can only be used with cluster redis setup, but redis.type value is " + config.getString("redis.type"));
         }
 
         List<String> address = parseRedisAddress(config.getString("redis.address"), 6379);

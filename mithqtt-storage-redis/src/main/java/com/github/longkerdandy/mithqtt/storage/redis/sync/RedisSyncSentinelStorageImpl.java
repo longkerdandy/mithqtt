@@ -16,7 +16,7 @@ import java.util.List;
  * Synchronized Storage for Master Slave Redis setup
  */
 @SuppressWarnings("unused")
-public class RedisSyncSentinelStorage extends RedisSyncSingleStorage {
+public class RedisSyncSentinelStorageImpl extends RedisSyncSingleStorageImpl {
 
     // A scalable thread-safe Redis client. Multiple threads may share one connection if they avoid
     // blocking and transactional operations such as BLPOP and MULTI/EXEC.
@@ -68,7 +68,7 @@ public class RedisSyncSentinelStorage extends RedisSyncSingleStorage {
     @Override
     public void init(AbstractConfiguration config) {
         if (!config.getString("redis.type").equals("sentinel")) {
-            throw new IllegalStateException("RedisSyncSingleStorage class can only be used with sentinel redis setup, but redis.type value is " + config.getString("redis.type"));
+            throw new IllegalStateException("RedisSyncSingleStorageImpl class can only be used with sentinel redis setup, but redis.type value is " + config.getString("redis.type"));
         }
 
         List<String> address = parseRedisAddress(config.getString("redis.address"), 26379);
