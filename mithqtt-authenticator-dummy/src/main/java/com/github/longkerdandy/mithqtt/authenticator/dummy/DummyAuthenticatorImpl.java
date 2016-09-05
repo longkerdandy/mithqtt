@@ -14,7 +14,7 @@ import java.util.List;
  * This authenticator basically authorize everything, it should only been used for test purpose
  */
 @SuppressWarnings("unused")
-public class DummyAuthenticator implements Authenticator {
+public class DummyAuthenticatorImpl implements Authenticator {
 
     private boolean allowDollar;    // allow $ in topic
     private String deniedTopic;     // topic will be rejected
