@@ -47,9 +47,15 @@ public class NATSClusterImpl implements Cluster {
         ConnectionFactory cf = new ConnectionFactory();
         cf.setServers(config.getString("nats.servers", DEFAULT_URL).split(","));
 
-        // Set ReconnectWait and MaxReconnect attempts.
+        // Set NATS configurations
         cf.setMaxReconnect(config.getInt("nats.maxReconnect", DEFAULT_MAX_RECONNECT));
         cf.setReconnectWait(config.getInt("nats.reconnectWait", DEFAULT_RECONNECT_WAIT));
+        cf.setReconnectBufSize(config.getInt("nats.reconnectBufSize", DEFAULT_RECONNECT_BUF_SIZE));
+        cf.setConnectionTimeout(config.getInt("nats.connectionTimeout", DEFAULT_TIMEOUT));
+        cf.setPingInterval(config.getInt("nats.pingInterval", DEFAULT_PING_INTERVAL));
+        cf.setMaxPingsOut(config.getInt("nats.maxPingsOut", DEFAULT_MAX_PINGS_OUT));
+        cf.setMaxPendingMsgs(config.getInt("nats.maxPendingMsgs", DEFAULT_MAX_PENDING_MSGS));
+        cf.setMaxPendingBytes(config.getInt("nats.maxPendingBytes", DEFAULT_MAX_PENDING_BYTES));
 
         // Optionally disable randomization of the server pool
         cf.setNoRandomize(config.getBoolean("nats.noRandomize", false));
