@@ -82,9 +82,12 @@ public class RedisSyncClusterStorageImpl extends RedisSyncSingleStorageImpl {
         this.lettuceCluster = RedisClusterClient.create(lettuceURI);
         this.lettuceCluster.setOptions(ClusterClientOptions.builder()
                 .topologyRefreshOptions(ClusterTopologyRefreshOptions.builder()
-                        .enablePeriodicRefresh(true)
-                        .refreshPeriod(1, TimeUnit.MINUTES)
+                        .enablePeriodicRefresh(config.getBoolean("redis.cluster.periodicRefreshEnabled", ClusterTopologyRefreshOptions.DEFAULT_PERIODIC_REFRESH_ENABLED))
+                        .refreshPeriod(config.getLong("redis.cluster.refreshPeriod", ClusterTopologyRefreshOptions.DEFAULT_REFRESH_PERIOD), TimeUnit.SECONDS)
+                        .closeStaleConnections(config.getBoolean("redis.cluster.closeStaleConnections", ClusterTopologyRefreshOptions.DEFAULT_CLOSE_STALE_CONNECTIONS))
                         .build())
+                .validateClusterNodeMembership(config.getBoolean("redis.cluster.validateClusterNodeMembership", ClusterClientOptions.DEFAULT_VALIDATE_CLUSTER_MEMBERSHIP))
+                .maxRedirects(config.getInt("redis.cluster.refreshPeriod", ClusterClientOptions.DEFAULT_MAX_REDIRECTS))
                 .build());
         this.lettuceClusterConn = this.lettuceCluster.connect();
         this.lettuceClusterConn.setReadFrom(ReadFrom.valueOf(config.getString("redis.read")));
