@@ -13,7 +13,7 @@ import com.github.longkerdandy.mithqtt.http.entity.Subscription;
 import com.github.longkerdandy.mithqtt.http.exception.AuthorizeException;
 import com.github.longkerdandy.mithqtt.http.exception.ValidateException;
 import com.github.longkerdandy.mithqtt.http.util.Validator;
-import com.github.longkerdandy.mithqtt.storage.redis.sync.RedisSyncStorage;
+import com.github.longkerdandy.mithqtt.storage.sync.SyncStorage;
 import com.github.longkerdandy.mithqtt.util.Topics;
 import com.sun.security.auth.UserPrincipal;
 import io.dropwizard.auth.Auth;
@@ -39,8 +39,8 @@ public class MqttSubscribeResource extends AbstractResource {
 
     private static final Logger logger = LoggerFactory.getLogger(MqttSubscribeResource.class);
 
-    public MqttSubscribeResource(String serverId, Validator validator, RedisSyncStorage redis, Cluster cluster, Authenticator authenticator) {
-        super(serverId, validator, redis, cluster, authenticator);
+    public MqttSubscribeResource(String serverId, Validator validator, SyncStorage storage, Cluster cluster, Authenticator authenticator) {
+        super(serverId, validator, storage, cluster, authenticator);
     }
 
     /**
@@ -105,7 +105,7 @@ public class MqttSubscribeResource extends AbstractResource {
                 // Subscription. The Topic Filter in the new Subscription will be identical to that in the previous Subscription,
                 // although its maximum QoS value could be different.
                 logger.trace("Update subscription: Update client {} subscription with topic {} QoS {}", clientId, topic, grantedQoS);
-                this.redis.updateSubscription(clientId, topicLevels, MqttQoS.valueOf(grantedQoS.value()));
+                this.storage.updateSubscription(clientId, topicLevels, MqttQoS.valueOf(grantedQoS.value()));
             }
         }
 
@@ -135,7 +135,7 @@ public class MqttSubscribeResource extends AbstractResource {
         }
 
         // Read client's subscriptions from storage
-        Map<String, MqttQoS> map = this.redis.getClientSubscriptions(clientId);
+        Map<String, MqttQoS> map = this.storage.getClientSubscriptions(clientId);
         map.forEach((topic, qos) -> subscriptions.add(new Subscription(topic, qos.value())));
 
         return new ResultEntity<>(subscriptions);

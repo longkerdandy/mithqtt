@@ -1,4 +1,4 @@
-package com.github.longkerdandy.mithqtt.storage.redis;
+package com.github.longkerdandy.mithqtt.storage.sync;
 
 /**
  * MQTT Client Connection State

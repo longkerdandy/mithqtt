@@ -4,7 +4,7 @@ import com.fasterxml.jackson.databind.JsonNode;
 import com.github.longkerdandy.mithqtt.api.message.Message;
 import com.github.longkerdandy.mithqtt.api.message.MqttAdditionalHeader;
 import com.github.longkerdandy.mithqtt.api.message.MqttPublishPayload;
-import com.github.longkerdandy.mithqtt.storage.redis.ConnectionState;
+import com.github.longkerdandy.mithqtt.storage.sync.ConnectionState;
 import com.github.longkerdandy.mithqtt.storage.redis.RedisKey;
 import com.github.longkerdandy.mithqtt.util.Topics;
 import io.netty.handler.codec.mqtt.*;

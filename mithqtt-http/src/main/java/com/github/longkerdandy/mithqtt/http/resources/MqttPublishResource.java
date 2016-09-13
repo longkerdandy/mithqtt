@@ -12,7 +12,7 @@ import com.github.longkerdandy.mithqtt.http.entity.ResultEntity;
 import com.github.longkerdandy.mithqtt.http.exception.AuthorizeException;
 import com.github.longkerdandy.mithqtt.http.exception.ValidateException;
 import com.github.longkerdandy.mithqtt.http.util.Validator;
-import com.github.longkerdandy.mithqtt.storage.redis.sync.RedisSyncStorage;
+import com.github.longkerdandy.mithqtt.storage.sync.SyncStorage;
 import com.github.longkerdandy.mithqtt.util.Topics;
 import com.sun.security.auth.UserPrincipal;
 import io.dropwizard.auth.Auth;
@@ -39,8 +39,8 @@ public class MqttPublishResource extends AbstractResource {
 
     private static final Logger logger = LoggerFactory.getLogger(MqttPublishResource.class);
 
-    public MqttPublishResource(String serverId, Validator validator, RedisSyncStorage redis, Cluster cluster, Authenticator authenticator) {
-        super(serverId, validator, redis, cluster, authenticator);
+    public MqttPublishResource(String serverId, Validator validator, SyncStorage storage, Cluster cluster, Authenticator authenticator) {
+        super(serverId, validator, storage, cluster, authenticator);
     }
 
     @PermitAll
@@ -102,7 +102,7 @@ public class MqttPublishResource extends AbstractResource {
             // In addition, the Server MAY deliver further copies of the message, one for each
             // additional matching subscription and respecting the subscription’s QoS in each case.
             Map<String, MqttQoS> subscriptions = new HashMap<>();
-            this.redis.getMatchSubscriptions(topicLevels, subscriptions);
+            this.storage.getMatchSubscriptions(topicLevels, subscriptions);
             subscriptions.forEach((cid, q) -> {
 
                 // Compare publish QoS and subscription QoS
@@ -119,7 +119,7 @@ public class MqttPublishResource extends AbstractResource {
                 // A PUBLISH Packet MUST NOT contain a Packet Identifier if its QoS value is set to
                 int pid = 0;
                 if (fQos == MqttQoS.AT_LEAST_ONCE || fQos == MqttQoS.EXACTLY_ONCE) {
-                    pid = this.redis.getNextPacketId(cid);
+                    pid = this.storage.getNextPacketId(cid);
                 }
 
                 Message<MqttPublishVariableHeader, MqttPublishPayload> m = new Message<>(
@@ -132,7 +132,7 @@ public class MqttPublishResource extends AbstractResource {
 
                 // Forward to recipient
                 boolean d = false;
-                String bid = this.redis.getConnectedNode(cid);
+                String bid = this.storage.getConnectedNode(cid);
                 if (StringUtils.isNotBlank(bid)) {
                     logger.trace("Send PUBLISH message to broker {} for client {} subscription", bid, cid);
                     d = true;
@@ -147,7 +147,7 @@ public class MqttPublishResource extends AbstractResource {
                 // PUBREC packet from the receiver.
                 if (fQos == MqttQoS.AT_LEAST_ONCE || fQos == MqttQoS.EXACTLY_ONCE) {
                     logger.trace("Add in-flight PUBLISH message {} with QoS {} for client {}", pid, fQos, cid);
-                    this.redis.addInFlightMessage(cid, pid, m, d);
+                    this.storage.addInFlightMessage(cid, pid, m, d);
                 }
             });
 
