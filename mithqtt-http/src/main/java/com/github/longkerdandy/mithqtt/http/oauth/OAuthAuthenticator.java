@@ -1,10 +1,11 @@
 package com.github.longkerdandy.mithqtt.http.oauth;
 
 import com.github.longkerdandy.mithqtt.api.auth.Authenticator;
-import java.util.Optional;
 import com.sun.security.auth.UserPrincipal;
 import io.dropwizard.auth.AuthenticationException;
 import org.apache.commons.lang3.StringUtils;
+
+import java.util.Optional;
 
 /**
  * OAuth2 Authenticator

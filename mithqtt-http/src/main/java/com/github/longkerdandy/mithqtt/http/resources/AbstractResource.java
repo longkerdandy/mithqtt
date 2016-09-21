@@ -2,8 +2,8 @@ package com.github.longkerdandy.mithqtt.http.resources;
 
 import com.github.longkerdandy.mithqtt.api.auth.Authenticator;
 import com.github.longkerdandy.mithqtt.api.cluster.Cluster;
+import com.github.longkerdandy.mithqtt.api.storage.sync.SyncStorage;
 import com.github.longkerdandy.mithqtt.http.util.Validator;
-import com.github.longkerdandy.mithqtt.storage.sync.SyncStorage;
 
 /**
  * Abstract Base Resource

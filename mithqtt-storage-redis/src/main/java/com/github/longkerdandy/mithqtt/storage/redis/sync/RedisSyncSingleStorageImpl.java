@@ -2,7 +2,8 @@ package com.github.longkerdandy.mithqtt.storage.redis.sync;
 
 import com.github.longkerdandy.mithqtt.api.message.Message;
 import com.github.longkerdandy.mithqtt.api.message.MqttPublishPayload;
-import com.github.longkerdandy.mithqtt.storage.sync.ConnectionState;
+import com.github.longkerdandy.mithqtt.api.storage.sync.ConnectionState;
+import com.github.longkerdandy.mithqtt.api.storage.sync.SyncStorage;
 import com.github.longkerdandy.mithqtt.storage.redis.RedisKey;
 import com.github.longkerdandy.mithqtt.storage.redis.RedisLua;
 import com.github.longkerdandy.mithqtt.util.Topics;
@@ -29,7 +30,7 @@ import static com.github.longkerdandy.mithqtt.util.Topics.END;
 /**
  * Synchronized Storage for Single Redis setup
  */
-public class RedisSyncSingleStorageImpl implements RedisSyncStorage {
+public class RedisSyncSingleStorageImpl implements SyncStorage {
 
     // Max in-flight queue size per client
     private int inFlightQueueSize;

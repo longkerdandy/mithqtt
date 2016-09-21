@@ -2,11 +2,11 @@ package com.github.longkerdandy.mithqtt.broker;
 
 import com.github.longkerdandy.mithqtt.api.auth.Authenticator;
 import com.github.longkerdandy.mithqtt.api.cluster.Cluster;
+import com.github.longkerdandy.mithqtt.api.storage.sync.SyncStorage;
 import com.github.longkerdandy.mithqtt.broker.cluster.BrokerClusterListenerFactoryImpl;
 import com.github.longkerdandy.mithqtt.broker.handler.SyncStorageHandler;
 import com.github.longkerdandy.mithqtt.broker.session.SessionRegistry;
 import com.github.longkerdandy.mithqtt.broker.util.Validator;
-import com.github.longkerdandy.mithqtt.storage.sync.SyncStorage;
 import io.netty.bootstrap.ServerBootstrap;
 import io.netty.channel.*;
 import io.netty.channel.epoll.EpollEventLoopGroup;

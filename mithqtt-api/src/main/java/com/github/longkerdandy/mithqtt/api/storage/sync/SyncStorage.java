@@ -1,8 +1,7 @@
-package com.github.longkerdandy.mithqtt.storage.sync;
+package com.github.longkerdandy.mithqtt.api.storage.sync;
 
 import com.github.longkerdandy.mithqtt.api.message.Message;
 import com.github.longkerdandy.mithqtt.api.message.MqttPublishPayload;
-import com.github.longkerdandy.mithqtt.storage.sync.ConnectionState;
 import io.netty.handler.codec.mqtt.MqttPublishVariableHeader;
 import io.netty.handler.codec.mqtt.MqttQoS;
 import org.apache.commons.configuration.AbstractConfiguration;
