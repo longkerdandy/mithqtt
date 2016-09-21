@@ -3,10 +3,10 @@ package com.github.longkerdandy.mithqtt.broker;
 import com.github.longkerdandy.mithqtt.api.auth.Authenticator;
 import com.github.longkerdandy.mithqtt.api.cluster.Cluster;
 import com.github.longkerdandy.mithqtt.broker.cluster.BrokerClusterListenerFactoryImpl;
-import com.github.longkerdandy.mithqtt.broker.handler.SyncRedisHandler;
+import com.github.longkerdandy.mithqtt.broker.handler.SyncStorageHandler;
 import com.github.longkerdandy.mithqtt.broker.session.SessionRegistry;
 import com.github.longkerdandy.mithqtt.broker.util.Validator;
-import com.github.longkerdandy.mithqtt.storage.redis.sync.RedisSyncStorage;
+import com.github.longkerdandy.mithqtt.storage.sync.SyncStorage;
 import io.netty.bootstrap.ServerBootstrap;
 import io.netty.channel.*;
 import io.netty.channel.epoll.EpollEventLoopGroup;
@@ -43,17 +43,17 @@ public class MqttBroker {
         // load config
         logger.debug("Loading MQTT broker config files ...");
         PropertiesConfiguration brokerConfig;
-        PropertiesConfiguration redisConfig;
+        PropertiesConfiguration storageConfig;
         PropertiesConfiguration clusterConfig;
         PropertiesConfiguration authenticatorConfig;
         if (args.length >= 4) {
             brokerConfig = new PropertiesConfiguration(args[0]);
-            redisConfig = new PropertiesConfiguration(args[1]);
+            storageConfig = new PropertiesConfiguration(args[1]);
             clusterConfig = new PropertiesConfiguration(args[2]);
             authenticatorConfig = new PropertiesConfiguration(args[3]);
         } else {
             brokerConfig = new PropertiesConfiguration("config/broker.properties");
-            redisConfig = new PropertiesConfiguration("config/redis.properties");
+            storageConfig = new PropertiesConfiguration("config/storage.properties");
             clusterConfig = new PropertiesConfiguration("config/cluster.properties");
             authenticatorConfig = new PropertiesConfiguration("config/authenticator.properties");
         }
@@ -69,9 +69,9 @@ public class MqttBroker {
         SessionRegistry registry = new SessionRegistry();
 
         // storage
-        logger.debug("Initializing redis storage ...");
-        RedisSyncStorage redis = (RedisSyncStorage) Class.forName(redisConfig.getString("storage.sync.class")).newInstance();
-        redis.init(redisConfig);
+        logger.debug("Initializing storage storage ...");
+        SyncStorage storage = (SyncStorage) Class.forName(storageConfig.getString("storage.sync.class")).newInstance();
+        storage.init(storageConfig);
 
         // cluster
         logger.debug("Initializing cluster ...");
@@ -107,7 +107,7 @@ public class MqttBroker {
                 bossGroup.shutdownGracefully();
                 cluster.destroy();
                 authenticator.destroy();
-                redis.destroy();
+                storage.destroy();
 
                 logger.info("MQTT broker has been shut down.");
             }
@@ -131,8 +131,8 @@ public class MqttBroker {
                         p.addLast("encoder", MqttEncoder.INSTANCE);
                         p.addLast("decoder", new MqttDecoder());
                         // logic handler
-                        // p.addLast(handlerGroup, "logicHandler", new SyncRedisHandler(authenticator, cluster, redis, registry, validator, brokerId, keepAlive, keepAliveMax));
-                        p.addLast("logicHandler", new SyncRedisHandler(authenticator, cluster, redis, registry, validator, brokerId, keepAlive, keepAliveMax));
+                        // p.addLast(handlerGroup, "logicHandler", new SyncRedisHandler(authenticator, cluster, storage, registry, validator, brokerId, keepAlive, keepAliveMax));
+                        p.addLast("logicHandler", new SyncStorageHandler(authenticator, cluster, storage, registry, validator, brokerId, keepAlive, keepAliveMax));
                     }
                 })
                 .option(ChannelOption.SO_BACKLOG, brokerConfig.getInt("netty.soBacklog"))

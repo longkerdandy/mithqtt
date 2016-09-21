@@ -9,7 +9,7 @@ import com.github.longkerdandy.mithqtt.http.entity.ErrorEntity;
 import com.github.longkerdandy.mithqtt.http.entity.ResultEntity;
 import com.github.longkerdandy.mithqtt.http.exception.ValidateException;
 import com.github.longkerdandy.mithqtt.http.util.Validator;
-import com.github.longkerdandy.mithqtt.storage.redis.sync.RedisSyncStorage;
+import com.github.longkerdandy.mithqtt.storage.sync.SyncStorage;
 import com.github.longkerdandy.mithqtt.util.Topics;
 import com.sun.security.auth.UserPrincipal;
 import io.dropwizard.auth.Auth;
@@ -33,8 +33,8 @@ public class MqttUnsubscribeResource extends AbstractResource {
 
     private static final Logger logger = LoggerFactory.getLogger(MqttSubscribeResource.class);
 
-    public MqttUnsubscribeResource(String serverId, Validator validator, RedisSyncStorage redis, Cluster cluster, Authenticator authenticator) {
-        super(serverId, validator, redis, cluster, authenticator);
+    public MqttUnsubscribeResource(String serverId, Validator validator, SyncStorage storage, Cluster cluster, Authenticator authenticator) {
+        super(serverId, validator, storage, cluster, authenticator);
     }
 
     /**
@@ -75,7 +75,7 @@ public class MqttUnsubscribeResource extends AbstractResource {
         // It MAY continue to deliver any existing messages buffered for delivery to the Client.
         topics.forEach(topic -> {
             logger.trace("Remove subscription: Remove client {} subscription with topic {}", clientId, topic);
-            this.redis.removeSubscription(clientId, Topics.sanitize(topic));
+            this.storage.removeSubscription(clientId, Topics.sanitize(topic));
         });
 
         // Pass message to 3rd party application

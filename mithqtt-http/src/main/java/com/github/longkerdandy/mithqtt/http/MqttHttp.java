@@ -10,7 +10,7 @@ import com.github.longkerdandy.mithqtt.http.resources.MqttPublishResource;
 import com.github.longkerdandy.mithqtt.http.resources.MqttSubscribeResource;
 import com.github.longkerdandy.mithqtt.http.resources.MqttUnsubscribeResource;
 import com.github.longkerdandy.mithqtt.http.util.Validator;
-import com.github.longkerdandy.mithqtt.storage.redis.sync.RedisSyncStorage;
+import com.github.longkerdandy.mithqtt.storage.sync.SyncStorage;
 import com.sun.security.auth.UserPrincipal;
 import io.dropwizard.Application;
 import io.dropwizard.auth.AuthDynamicFeature;
@@ -32,7 +32,7 @@ public class MqttHttp extends Application<MqttHttpConfiguration> {
 
     private static final Logger logger = LoggerFactory.getLogger(MqttHttp.class);
 
-    private static PropertiesConfiguration redisConfig;
+    private static PropertiesConfiguration storageConfig;
     private static PropertiesConfiguration clusterConfig;
     private static PropertiesConfiguration authenticatorConfig;
 
@@ -42,7 +42,7 @@ public class MqttHttp extends Application<MqttHttpConfiguration> {
         // load config
         logger.debug("Loading MQTT http config files ...");
         if (args.length >= 3) {
-            redisConfig = new PropertiesConfiguration(args[0]);
+            storageConfig = new PropertiesConfiguration(args[0]);
             clusterConfig = new PropertiesConfiguration(args[1]);
             authenticatorConfig = new PropertiesConfiguration(args[2]);
 
@@ -52,7 +52,7 @@ public class MqttHttp extends Application<MqttHttpConfiguration> {
                 args = new String[]{};
             }
         } else {
-            redisConfig = new PropertiesConfiguration("config/redis.properties");
+            storageConfig = new PropertiesConfiguration("config/storage.properties");
             clusterConfig = new PropertiesConfiguration("config/cluster.properties");
             authenticatorConfig = new PropertiesConfiguration("config/authenticator.properties");
         }
@@ -67,18 +67,18 @@ public class MqttHttp extends Application<MqttHttpConfiguration> {
         Validator validator = new Validator(configuration);
 
         // storage
-        RedisSyncStorage redis = (RedisSyncStorage) Class.forName(redisConfig.getString("storage.sync.class")).newInstance();
+        SyncStorage storage = (SyncStorage) Class.forName(storageConfig.getString("storage.sync.class")).newInstance();
         environment.lifecycle().manage(new Managed() {
             @Override
             public void start() throws Exception {
-                logger.debug("Initializing redis storage ...");
-                redis.init(redisConfig);
+                logger.debug("Initializing storage storage ...");
+                storage.init(storageConfig);
             }
 
             @Override
             public void stop() throws Exception {
-                logger.debug("Destroying redis storage ...");
-                redis.destroy();
+                logger.debug("Destroying storage storage ...");
+                storage.destroy();
             }
         });
 
@@ -125,9 +125,9 @@ public class MqttHttp extends Application<MqttHttpConfiguration> {
         environment.jersey().register(new AuthValueFactoryProvider.Binder<>(UserPrincipal.class));
 
         // register resources
-        environment.jersey().register(new MqttPublishResource(configuration.getServerId(), validator, redis, cluster, authenticator));
-        environment.jersey().register(new MqttSubscribeResource(configuration.getServerId(), validator, redis, cluster, authenticator));
-        environment.jersey().register(new MqttUnsubscribeResource(configuration.getServerId(), validator, redis, cluster, authenticator));
+        environment.jersey().register(new MqttPublishResource(configuration.getServerId(), validator, storage, cluster, authenticator));
+        environment.jersey().register(new MqttSubscribeResource(configuration.getServerId(), validator, storage, cluster, authenticator));
+        environment.jersey().register(new MqttUnsubscribeResource(configuration.getServerId(), validator, storage, cluster, authenticator));
 
         // config jackson
         environment.getObjectMapper().configure(DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES, false);

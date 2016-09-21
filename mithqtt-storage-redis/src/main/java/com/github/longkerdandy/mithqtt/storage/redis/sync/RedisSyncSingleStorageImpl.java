@@ -2,7 +2,7 @@ package com.github.longkerdandy.mithqtt.storage.redis.sync;
 
 import com.github.longkerdandy.mithqtt.api.message.Message;
 import com.github.longkerdandy.mithqtt.api.message.MqttPublishPayload;
-import com.github.longkerdandy.mithqtt.storage.redis.ConnectionState;
+import com.github.longkerdandy.mithqtt.storage.sync.ConnectionState;
 import com.github.longkerdandy.mithqtt.storage.redis.RedisKey;
 import com.github.longkerdandy.mithqtt.storage.redis.RedisLua;
 import com.github.longkerdandy.mithqtt.util.Topics;
