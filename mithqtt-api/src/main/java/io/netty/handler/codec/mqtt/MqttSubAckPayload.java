@@ -30,6 +30,9 @@ public class MqttSubAckPayload {
 
     protected List<MqttGrantedQoS> grantedQoSLevels;
 
+    private MqttSubAckPayload() {
+    }
+
     public MqttSubAckPayload(MqttGrantedQoS... grantedQoSLevels) {
         if (grantedQoSLevels == null) {
             throw new IllegalArgumentException("Empty grantedQoSLevels");

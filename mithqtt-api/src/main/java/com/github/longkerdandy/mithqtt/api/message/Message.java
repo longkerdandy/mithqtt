@@ -18,6 +18,9 @@ public class Message<V, P> {
     protected V variableHeader;
     protected P payload;
 
+    private Message() {
+    }
+
     public Message(MqttFixedHeader fixedHeader, MqttAdditionalHeader additionalHeader, V variableHeader, P payload) {
         this.fixedHeader = fixedHeader;
         this.additionalHeader = additionalHeader;

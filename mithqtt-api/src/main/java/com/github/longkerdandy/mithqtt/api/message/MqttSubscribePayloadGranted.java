@@ -14,6 +14,9 @@ public class MqttSubscribePayloadGranted {
 
     protected List<MqttTopicSubscriptionGranted> subscriptions;
 
+    private MqttSubscribePayloadGranted() {
+    }
+
     public MqttSubscribePayloadGranted(List<MqttTopicSubscriptionGranted> subscriptions) {
         this.subscriptions = subscriptions;
     }

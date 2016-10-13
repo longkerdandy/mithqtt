@@ -26,6 +26,9 @@ public final class MqttPacketIdVariableHeader {
 
     protected int packetId;
 
+    private MqttPacketIdVariableHeader() {
+    }
+
     private MqttPacketIdVariableHeader(int packetId) {
         this.packetId = packetId;
     }

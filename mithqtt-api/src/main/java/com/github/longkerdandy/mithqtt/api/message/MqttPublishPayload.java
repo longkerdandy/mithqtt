@@ -10,6 +10,9 @@ public class MqttPublishPayload {
 
     protected byte[] bytes;
 
+    private MqttPublishPayload() {
+    }
+
     public MqttPublishPayload(byte[] bytes) {
         this.bytes = bytes;
     }

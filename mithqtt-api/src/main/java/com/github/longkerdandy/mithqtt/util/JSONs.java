@@ -1,6 +1,8 @@
 package com.github.longkerdandy.mithqtt.util;
 
+import com.fasterxml.jackson.annotation.JsonAutoDetect;
 import com.fasterxml.jackson.annotation.JsonInclude;
+import com.fasterxml.jackson.annotation.PropertyAccessor;
 import com.fasterxml.jackson.databind.*;
 import com.github.longkerdandy.mithqtt.api.message.Message;
 import com.github.longkerdandy.mithqtt.api.message.MqttPublishPayload;
@@ -22,6 +24,7 @@ public class JSONs {
         Mapper.configure(SerializationFeature.FAIL_ON_EMPTY_BEANS, false);
         Mapper.configure(SerializationFeature.WRITE_NULL_MAP_VALUES, false);
         Mapper.setSerializationInclusion(JsonInclude.Include.NON_NULL);
+        Mapper.setVisibility(PropertyAccessor.FIELD, JsonAutoDetect.Visibility.ANY);
     }
 
     private JSONs() {

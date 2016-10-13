@@ -33,6 +33,9 @@ public class MqttConnectVariableHeader {
     protected boolean cleanSession;
     protected int keepAlive;
 
+    private MqttConnectVariableHeader() {
+    }
+
     public MqttConnectVariableHeader(
             String protocolName,
             int protocolLevel,

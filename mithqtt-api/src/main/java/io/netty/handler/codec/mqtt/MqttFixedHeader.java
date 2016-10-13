@@ -30,6 +30,9 @@ public class MqttFixedHeader {
     protected boolean retain;
     protected int remainingLength;
 
+    private MqttFixedHeader() {
+    }
+
     public MqttFixedHeader(
             MqttMessageType messageType,
             boolean dup,

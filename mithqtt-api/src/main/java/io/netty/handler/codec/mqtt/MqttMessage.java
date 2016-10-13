@@ -29,6 +29,9 @@ public class MqttMessage {
     protected Object payload;
     protected DecoderResult decoderResult;
 
+    private MqttMessage() {
+    }
+
     public MqttMessage(MqttFixedHeader fixedHeader) {
         this(fixedHeader, null, null);
     }

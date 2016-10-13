@@ -27,6 +27,9 @@ public class MqttTopicSubscription {
     protected String topic;
     protected MqttQoS requestedQos;
 
+    private MqttTopicSubscription() {
+    }
+
     public MqttTopicSubscription(String topic, MqttQoS requestedQos) {
         this.topic = topic;
         this.requestedQos = requestedQos;

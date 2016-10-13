@@ -12,6 +12,9 @@ public class MqttTopicSubscriptionGranted {
     protected String topic;
     protected MqttGrantedQoS grantedQos;
 
+    private MqttTopicSubscriptionGranted() {
+    }
+
     public MqttTopicSubscriptionGranted(String topic, MqttGrantedQoS grantedQos) {
         this.topic = topic;
         this.grantedQos = grantedQos;

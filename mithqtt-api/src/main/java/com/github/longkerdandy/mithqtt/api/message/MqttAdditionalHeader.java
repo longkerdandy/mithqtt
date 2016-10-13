@@ -13,6 +13,9 @@ public class MqttAdditionalHeader {
     protected String userName;
     protected String brokerId;
 
+    private MqttAdditionalHeader() {
+    }
+
     public MqttAdditionalHeader(
             MqttVersion version,
             String clientId,

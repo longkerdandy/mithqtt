@@ -29,6 +29,9 @@ public class MqttConnectPayload {
     protected String userName;
     protected String password;
 
+    private MqttConnectPayload() {
+    }
+
     public MqttConnectPayload(
             String clientId,
             String willTopic,

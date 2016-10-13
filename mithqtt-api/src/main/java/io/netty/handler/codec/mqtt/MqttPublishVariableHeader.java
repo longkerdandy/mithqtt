@@ -26,6 +26,9 @@ public class MqttPublishVariableHeader {
     protected String topicName;
     protected int packetId;
 
+    private MqttPublishVariableHeader() {
+    }
+
     private MqttPublishVariableHeader(String topicName, int packetId) {
         this.topicName = topicName;
         this.packetId = packetId;

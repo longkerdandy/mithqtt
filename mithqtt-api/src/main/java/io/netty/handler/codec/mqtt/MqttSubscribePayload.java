@@ -29,6 +29,9 @@ public class MqttSubscribePayload {
 
     protected List<MqttTopicSubscription> subscriptions;
 
+    private MqttSubscribePayload() {
+    }
+
     public MqttSubscribePayload(List<MqttTopicSubscription> subscriptions) {
         this.subscriptions = Collections.unmodifiableList(subscriptions);
     }

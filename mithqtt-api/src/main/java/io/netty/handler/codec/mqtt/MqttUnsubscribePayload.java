@@ -29,6 +29,9 @@ public class MqttUnsubscribePayload {
 
     protected List<String> topics;
 
+    private MqttUnsubscribePayload() {
+    }
+
     public MqttUnsubscribePayload(List<String> topics) {
         this.topics = Collections.unmodifiableList(topics);
     }

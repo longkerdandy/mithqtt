@@ -26,6 +26,9 @@ public class MqttConnAckVariableHeader {
     protected MqttConnectReturnCode returnCode;
     protected boolean sessionPresent;
 
+    private MqttConnAckVariableHeader() {
+    }
+
     public MqttConnAckVariableHeader(MqttConnectReturnCode returnCode, boolean sessionPresent) {
         this.returnCode = returnCode;
         this.sessionPresent = sessionPresent;
