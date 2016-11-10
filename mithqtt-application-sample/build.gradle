@@ -1,0 +1,15 @@
+apply plugin: 'application'
+
+mainClassName = "com.github.longkerdandy.mithqtt.application.sample.SampleApp"
+
+// If your application requires a specific set of JVM settings or system properties, you can configure the applicationDefaultJvmArgs property.
+// These JVM arguments are applied to the run task and also considered in the generated start scripts of your distribution.
+applicationDefaultJvmArgs = ["-Dlogback.configurationFile=config/logback.xml"]
+
+dependencies {
+    // project
+    compile project(':mithqtt-api')
+
+    // cluster
+    runtime project(':mithqtt-cluster-nats')
+}

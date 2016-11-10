@@ -6,4 +6,5 @@ include 'mithqtt-http'
 include 'mithqtt-storage-redis'
 include 'mithqtt-authenticator-dummy'
 include 'mithqtt-cluster-nats'
+include 'mithqtt-application-sample'
 
